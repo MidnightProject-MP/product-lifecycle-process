@@ -2,6 +2,26 @@
 
 This repository defines how product work moves from business need to shipped outcome, and how ownership and communication are expected to operate along the way.
 
+It also defines the future automated process for turning project dashboard updates into stakeholder communication.
+
+Target flow:
+
+```text
+TPM updates dashboard
+        |
+        v
+Automation compares old state to new state
+        |
+        v
+Trigger rules log potential communications
+        |
+        v
+Templates generate Slack-ready messages
+        |
+        v
+Approved messages are sent and archived
+```
+
 The process is managed like a codebase:
 
 - Changes are proposed, reviewed, and versioned.
@@ -25,7 +45,12 @@ The process is designed to make strong PM behavior the default:
 - `docs/principles.md`: Core PM operating principles.
 - `docs/lifecycle.md`: Lifecycle stages and stage gates.
 - `docs/ownership-model.md`: Ownership expectations and role map.
+- `docs/ownership-matrix.md`: Phase accountability and supporting delivery ownership matrix.
 - `docs/communication-model.md`: Communication cadence, status standards, and escalation paths.
+- `docs/communication-triggers.md`: Trigger model for when communication is needed.
+- `docs/automation-vision.md`: Target automation process from dashboard update to Slack communication.
+- `docs/executive-dashboard.md`: Executive dashboard field definitions.
+- `docs/communication-control-log.md`: Log structure for generated communication candidates.
 - `templates/`: Reusable process artifacts.
 - `decisions/`: Process decision records.
 - `changes/`: Proposed process changes.
@@ -37,4 +62,3 @@ The process is designed to make strong PM behavior the default:
 3. Review with affected stakeholders.
 4. If accepted, update the relevant docs or templates.
 5. Record major decisions in `decisions/`.
-
