@@ -1,0 +1,36 @@
+name: Template feedback
+description: Suggest an improvement to a reusable process template.
+title: "[Template]: "
+labels:
+  - template-feedback
+body:
+  - type: dropdown
+    id: template
+    attributes:
+      label: Template
+      options:
+        - Product brief
+        - Status update
+        - Readiness checklist
+        - Decision record
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback
+      description: What is confusing, missing, duplicated, or too heavy?
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested change
+      description: What should the template say or do instead?
+  - type: textarea
+    id: usage-context
+    attributes:
+      label: Usage context
+      description: Where did this come up?
+

@@ -1,0 +1,54 @@
+name: Process change
+description: Propose a change to the product lifecycle process.
+title: "[Change]: "
+labels:
+  - process-change
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is not working or what opportunity should this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should change?
+    validations:
+      required: true
+  - type: dropdown
+    id: change-type
+    attributes:
+      label: Change type
+      options:
+        - Documentation
+        - Template
+        - Lifecycle
+        - Ownership
+        - Communication
+        - Governance
+    validations:
+      required: true
+  - type: textarea
+    id: affected-groups
+    attributes:
+      label: Affected groups
+      description: Which teams or roles would need to change behavior?
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected impact
+      description: What should improve if this is adopted?
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks or tradeoffs
+      description: What could become slower, unclear, or heavier?
+  - type: textarea
+    id: rollout
+    attributes:
+      label: Rollout notes
+      description: How should the change be introduced?
+

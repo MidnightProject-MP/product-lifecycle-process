@@ -1,0 +1,41 @@
+name: Readiness exception
+description: Record a case where work needs to move forward before it fully meets readiness standards.
+title: "[Exception]: "
+labels:
+  - readiness-exception
+body:
+  - type: input
+    id: initiative
+    attributes:
+      label: Initiative
+    validations:
+      required: true
+  - type: textarea
+    id: missing-readiness
+    attributes:
+      label: Missing readiness items
+      description: What is not yet clear or complete?
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Reason to proceed
+      description: Why should this move forward anyway?
+    validations:
+      required: true
+  - type: input
+    id: approver
+    attributes:
+      label: Risk approver
+      description: Who is explicitly accepting the risk?
+    validations:
+      required: true
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation plan
+      description: How will the team manage the risk?
+    validations:
+      required: true
+
