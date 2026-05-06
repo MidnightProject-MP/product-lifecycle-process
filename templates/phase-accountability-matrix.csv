@@ -1,0 +1,8 @@
+Phase,Team,Accountable Leader,Owns,Owns Preventing
+Business Requirements,PMO,"SVP, Biz Ops","Comprehensive business requirements, ROI, business outcomes, constraints, and success measures.","Incomplete, unclear, or misaligned requirements."
+Product Design,Product,Head of Product,"Product design, user experience, workflows, and expected system behavior.","Missed system behavior, usability gaps, and gaps versus existing functionality."
+Technical Requirements,IT Product Management,"Sr. Dir, Product","Bridging the gap between business requirements, product design, and technical implementation.","Incorrect, missing, unclear, or unbuildable technical requirements."
+Development,Software Development,"Sr. Dir, Software Development","Correct implementation, coding standards, peer code review, technical quality, and delivery timelines.","Incorrect implementation, regressions, broken existing behavior, and unmanaged technical delivery risk."
+QA / Validation,QA,QA Manager,"Testing of products, new features, bug fixes, integrations, workflows, and release candidates.","Missed test coverage, regression gaps, validation errors, and insufficient evidence of readiness."
+Release,Release Owner,Assigned per release,"Release contents, release readiness, release schedule viability, go / no-go coordination, and release execution.","Releasing with known critical issues, unclear readiness, missing approvals, or unacceptable release risk."
+Post-Release,"All, led by relevant phase owner",Phase owner based on issue,"Post-release monitoring, incident response, feedback review, root-cause analysis, and follow-up ownership.","Treating symptoms without identifying and fixing systemic root cause."
