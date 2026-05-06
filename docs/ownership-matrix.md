@@ -1,0 +1,34 @@
+# Ownership Matrix
+
+Legend:
+
+- `D`: Driver. Runs the work, coordinates inputs, and moves the activity to closure.
+- `O`: Owner. Accountable for the outcome and final call.
+- `C`: Contributor. Provides input, expertise, review, or execution support.
+- `I`: Informed. Needs visibility but does not actively approve or execute.
+
+Best-practice rule: each row should have one clear `O`. A row may have one or more `D` roles only when the work naturally requires joint execution.
+
+| Stage | Activity | PMO / SME | Product Owner | TPM | Dev | QA | Release Manager | Notes / Questions Answered |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Discovery | Business requirements | D | O | I | I | I | I | What business problem are we solving? Who is affected? What outcome does the business need? What constraints, policies, operations, or customer commitments matter? How will success be measured? |
+| Discovery | Business requirements sign-off | O | D | I | I | I | I | Has the business confirmed the problem, outcome, scope intent, and constraints? Who is accepting the business tradeoffs? Are we aligned enough to proceed into product definition? |
+| Discovery | Customer / user requirements | C | O | I | I | I | I | Who are the users or impacted groups? What jobs, pain points, workflows, expectations, and edge cases matter? What customer evidence supports the need? |
+| Planning | Product requirements | C | O | C | C | C | I | What exactly must the product do? What is in scope and out of scope? What are the acceptance criteria? What dependencies, assumptions, and risks must be visible before build? |
+| Planning | Technical requirements | I | C | O | D | C | I | What technical approach is required? What architecture, data, integration, security, performance, reliability, scalability, and operational constraints apply? What technical risks must be resolved before build? |
+| Planning | Dependencies and sequencing | C | O | D | C | C | C | What must happen first? Which teams, systems, decisions, environments, vendors, or approvals are dependencies? What is the critical path? What could block the work? |
+| Planning | Definition of Ready review | C | O | D | C | C | I | Is the work ready to build? Are requirements clear enough? Are acceptance criteria testable? Are dependencies, risks, owners, and communication paths known? If not ready, what is missing and who resolves it? |
+| Communication | Stakeholder updates | C | O | C | I | I | I | Where do things stand? What changed? What risks or blockers exist? What decisions are needed? What happens next, by when, and who owns it? |
+| Communication | Escalation and decision management | C | O | C | I | I | I | What decision or blocker needs leadership attention? Why does it matter? What options exist? What is the recommended path? Who must decide, and by when? |
+| Execution | Scope management | C | O | D | C | C | I | Is the work still aligned to the approved scope? Are new requests changes, defects, or clarifications? What tradeoff is required if scope changes? Who approves the change? |
+| Execution | Build execution | I | C | D | O | C | I | Is implementation progressing against plan? Are technical risks controlled? Are blockers visible? Does the work match the product and technical requirements? |
+| Validation | Test strategy and acceptance | I | O | C | C | D | I | How will we prove the work is correct? What must be tested? What acceptance criteria must pass? What defects or gaps block release? |
+| Validation | Product acceptance | C | O | C | C | D | I | Does the delivered work solve the intended problem? Do acceptance criteria pass? Are business, user, operational, and support impacts acceptable? |
+| Safety | Safety, compliance, and risk review | C | O | D | C | C | I | Are there privacy, security, legal, compliance, child-safety, data, financial, operational, or reputational risks? What review is required? Who accepts residual risk? |
+| Release | Release readiness | I | O | C | C | C | D | Are product, engineering, QA, support, communication, training, analytics, and rollback plans ready? What release risks remain? Who approves release? |
+| Release | Release execution | I | C | C | C | C | O / D | When does the release happen? Who executes it? What environments, approvals, communications, and rollback steps are required? How will status be monitored during release? |
+| Rollout | Rollout and enablement | D | O | C | I | I | C | Who needs to know or be trained? Which users, customers, teams, or markets receive the change first? What enablement, documentation, messaging, and adoption support are required? |
+| Stability | Production monitoring and stabilization | I | O | D | C | C | C | Is the release healthy? Are defects, incidents, support volume, performance, adoption, or customer issues emerging? What needs immediate action? When can the work exit stabilization? |
+| Feedback | Post-release feedback and outcomes | D | O | C | C | C | I | Did we achieve the intended outcome? What did customers, users, support, business stakeholders, and data tell us? What should we improve, continue, stop, or revisit? |
+| Feedback | Post-mortem / retrospective | C | O | D | C | C | C | What happened? What worked? What did not? What root causes or process gaps appeared? What follow-up actions are needed? Who owns them and by when? |
+
