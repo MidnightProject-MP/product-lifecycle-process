@@ -10,6 +10,7 @@ Add a reviewed ownership matrix that:
 
 - Uses one clear accountable owner per activity.
 - Separates driver, owner, contributor, and informed roles.
+- Interprets Product Owner as the Scrum Product Owner role, focused on backlog clarity, readiness, acceptance criteria, and sprint-level product decisions.
 - Adds notes in question form so each row explains the questions it answers.
 - Clarifies build readiness, technical requirements, release readiness, stabilization, and post-release feedback ownership.
 
@@ -27,4 +28,3 @@ Add a reviewed ownership matrix that:
 ## Adoption Notes
 
 Review with Product, PMO / SME, TPM, Engineering, QA, and Release Management. After alignment, update the source Google Sheet or replace it with this repository-owned version.
-
