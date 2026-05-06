@@ -1,0 +1,6 @@
+# Assign process ownership once the owning groups are confirmed.
+#
+# Example:
+# * @product-leadership
+# /templates/ @product-operations
+
