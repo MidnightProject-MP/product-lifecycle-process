@@ -11,10 +11,9 @@ Best-practice rule: each row should have one clear `O`. A row may have one or mo
 
 | Stage | Activity | PMO / SME | Scrum Product Owner | TPM | Dev | QA | Release Manager | Notes / Questions Answered |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Discovery | Business requirements | O / D | C | I | I | I | I | What business problem are we solving? Who is affected? What outcome does the business need? What constraints, policies, operations, or customer commitments matter? How will success be measured? |
-| Discovery | Business requirements sign-off | O | C | I | I | I | I | Has the business confirmed the problem, outcome, scope intent, and constraints? Who is accepting the business tradeoffs? Are we aligned enough to proceed into product definition? |
-| Discovery | Customer / user requirements | O / D | C | I | I | I | I | Who are the users or impacted groups? What jobs, pain points, workflows, expectations, and edge cases matter? What customer evidence supports the need? |
-| Planning | Product requirements | O | D | C | C | C | I | What exactly must the product do? What is in scope and out of scope? What are the acceptance criteria? What dependencies, assumptions, and risks must be visible before build? |
+| Discovery | Non-technical requirements | O / D | C | I | I | I | I | What business, customer, user, operational, policy, and stakeholder needs must be satisfied? Who is affected? What outcome does the business need? What constraints, commitments, workflows, edge cases, and success measures matter? |
+| Discovery | Non-technical requirements sign-off | O | C | I | I | I | I | Has the business confirmed the problem, outcome, scope intent, requirements, constraints, and success measures? Who is accepting the business tradeoffs? Are we aligned enough to proceed into build planning? |
+| Planning | Backlog translation and acceptance criteria | C | O / D | C | C | C | I | How are the non-technical requirements translated into clear backlog items? What must be built? What is in scope and out of scope? What acceptance criteria will prove the work satisfies the requirement? |
 | Planning | Technical requirements | I | C | O | D | C | I | What technical approach is required? What architecture, data, integration, security, performance, reliability, scalability, and operational constraints apply? What technical risks must be resolved before build? |
 | Planning | Dependencies and sequencing | C | C | O / D | C | C | C | What must happen first? Which teams, systems, decisions, environments, vendors, or approvals are dependencies? What is the critical path? What could block the work? |
 | Planning | Definition of Ready review | C | O / D | C | C | C | I | Is the work ready to build? Are requirements clear enough? Are acceptance criteria testable? Are dependencies, risks, owners, and communication paths known? If not ready, what is missing and who resolves it? |
@@ -40,6 +39,7 @@ The Scrum Product Owner is accountable for:
 
 - Backlog clarity and ordering.
 - Story-level requirements and acceptance criteria.
+- Translation of approved non-technical requirements into build-ready backlog items.
 - Definition of Ready discipline.
 - Product acceptance against agreed criteria.
 - Sprint-level tradeoff decisions within approved scope.
