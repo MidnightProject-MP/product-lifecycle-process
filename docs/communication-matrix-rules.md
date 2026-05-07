@@ -24,6 +24,14 @@ When an update could belong to more than one lane, use this precedence:
 3. Project when the communication is about lifecycle phase, project status, risk, confidence, or gate readiness.
 4. Stray Story when the item is not yet part of a project, incident, or release.
 
+## Project Trigger Rule
+
+For projects:
+
+- Planned status updates are bundled into the weekly digest.
+- Confidence drops, IT risk increases, primary risk changes, and gate confidence changes are evaluation inputs.
+- Use `Unexpected status change` only when those inputs materially affect status, gate confidence, timeline, scope, release, rollout, or stakeholder expectations.
+
 ## Bundling Rules
 
 Bundle when:

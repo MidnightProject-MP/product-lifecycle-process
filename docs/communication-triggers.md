@@ -8,7 +8,7 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 
 | Category | Triggers |
 | --- | --- |
-| Cadence-Based | Planned status update, weekly digest, post-release outcome review. |
+| Cadence-Based | Weekly digest, post-release outcome review. |
 | Event-Based | New initiative opened, phase change, readiness gate reached, go / no-go approaching, release scheduled, release started, release completed, rollout started or changed. |
 | Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted, release delayed, release rolled back, postmortem needed. |
 | Decision-Based | Decision needed, scope change proposed, tradeoff required. |
@@ -20,7 +20,7 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Trigger | Why We Communicate |
 | --- | --- |
 | New initiative opened | A new request exists and needs ownership, triage, and next steps. |
-| Planned status update | Stakeholders need predictable visibility into current state, progress, risks, and next steps. |
+| Planned project status update | Planned project status is bundled into the weekly digest. |
 | Unexpected status change | Something materially changed in phase, scope, timeline, quality, risk, priority, or confidence. |
 | New critical issue found | A high-severity issue may affect customers, operations, safety, release readiness, or business trust. |
 | Critical bug reported | A critical defect or regression may affect customers, operations, revenue, safety, trust, or release readiness and requires leadership-level communication. |
