@@ -49,6 +49,7 @@ The process is designed to make strong PM behavior the default:
 - `docs/communication-model.md`: Communication cadence, status standards, and escalation paths.
 - `docs/communication-matrix.md`: Rules matrix for lane, trigger, timing, payload, audience, template, and send behavior.
 - `docs/communication-matrix-rules.md`: Evaluation order, lane precedence, bundling, and approval rules.
+- `docs/change-versions.md`: Old-state to new-state transitions that fire communication triggers.
 - `docs/communication-triggers.md`: Trigger model for when communication is needed.
 - `docs/project-communication.md`: Simplified project communication rules for weekly digest and unexpected status changes.
 - `docs/automation-vision.md`: Target automation process from dashboard update to Slack communication.

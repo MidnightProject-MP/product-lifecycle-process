@@ -7,13 +7,14 @@ These rules explain how automation should use the communication matrix.
 1. Identify the communication lane.
 2. Capture old state and new state.
 3. Match the update to a trigger.
-4. Determine severity or criticality.
-5. Check whether communication can be bundled.
-6. Select audience, channel, and template.
-7. Draft `What`, `So What`, and `What's Next`.
-8. Apply the send rule.
-9. Send, route for review, log only, or skip with rationale.
-10. Record message link and sent status.
+4. Identify the matching change version.
+5. Determine severity or criticality.
+6. Check whether communication can be bundled.
+7. Select audience, channel, and template.
+8. Draft `What`, `So What`, and `What's Next`.
+9. Apply the send rule.
+10. Send, route for review, log only, or skip with rationale.
+11. Record message link and sent status.
 
 ## Lane Precedence
 
