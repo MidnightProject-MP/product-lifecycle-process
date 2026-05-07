@@ -10,8 +10,9 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | --- | --- |
 | Cadence-Based | Planned status update, weekly digest, post-release outcome review. |
 | Event-Based | New initiative opened, phase change, readiness gate reached, release scheduled, release completed, rollout started or changed. |
-| Exception-Based | Unexpected status change, new critical issue found, blocker identified, risk accepted or exception granted. |
+| Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted. |
 | Decision-Based | Decision needed, scope change proposed, tradeoff required. |
+| Intake-Based | Stray story submitted, stray story disposition changed. |
 | Feedback-Based | Customer feedback received, support or operations feedback received, metrics threshold crossed. |
 
 ## Core Triggers
@@ -22,6 +23,7 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Planned status update | Stakeholders need predictable visibility into current state, progress, risks, and next steps. |
 | Unexpected status change | Something materially changed in phase, scope, timeline, quality, risk, priority, or confidence. |
 | New critical issue found | A high-severity issue may affect customers, operations, safety, release readiness, or business trust. |
+| Critical bug reported | A critical defect or regression may affect customers, operations, revenue, safety, trust, or release readiness and requires leadership-level communication. |
 | Blocker identified | Work is stuck and needs action, decision, escalation, or dependency resolution. |
 | Decision needed | A decision is required to move forward or avoid delay or risk. |
 | Scope change proposed | The team is considering adding, removing, deferring, or changing committed work. |
@@ -32,6 +34,8 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Rollout started or changed | The exposure, audience, enablement, or adoption path changed or began. |
 | Feedback received | Feedback may affect requirements, priority, quality, adoption, or future roadmap. |
 | Weekly digest | Leaders and stakeholders need a concise cross-project summary without reading every update. |
+| Stray story submitted | A work item exists outside a committed project, incident, or approved roadmap flow and needs prioritization. |
+| Stray story disposition changed | A stray story was accepted, rejected, deferred, attached to a project, converted into a project, or treated as a bug / incident. |
 
 ## Payload Rule
 
@@ -40,4 +44,3 @@ Every triggered communication should answer:
 - What changed or needs attention?
 - So what does it mean for the audience?
 - What happens next, by when, and who owns it?
-

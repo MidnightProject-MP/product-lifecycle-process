@@ -51,6 +51,9 @@ The process is designed to make strong PM behavior the default:
 - `docs/automation-vision.md`: Target automation process from dashboard update to Slack communication.
 - `docs/executive-dashboard.md`: Executive dashboard field definitions.
 - `docs/communication-control-log.md`: Log structure for generated communication candidates.
+- `docs/work-item-types.md`: Project, incident / bug report, and stray story communication lanes.
+- `docs/incident-communication.md`: Severity-based incident and bug communication rules.
+- `docs/stray-story-prioritization.md`: Weekly prioritization process for stray stories.
 - `templates/`: Reusable process artifacts.
 - `decisions/`: Process decision records.
 - `changes/`: Proposed process changes.
