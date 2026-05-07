@@ -6,15 +6,14 @@ These rules explain how automation should use the communication matrix.
 
 1. Identify the communication lane.
 2. Capture old state and new state.
-3. Match the update to a trigger.
-4. Identify the matching change version.
-5. Determine severity or criticality.
-6. Check whether communication can be bundled.
-7. Select audience, channel, and template.
-8. Draft `What`, `So What`, and `What's Next`.
-9. Apply the send rule.
-10. Send, route for review, log only, or skip with rationale.
-11. Record message link and sent status.
+3. Match the update to a communication event.
+4. Determine severity or criticality when relevant.
+5. Check whether communication should be bundled into the heartbeat or release summary.
+6. Select the event's template path.
+7. Draft `What`, `So What`, and `What's Next`.
+8. Apply the send rule.
+9. Send, route for review, log only, or skip with rationale.
+10. Record message link and sent status.
 
 ## Lane Precedence
 
@@ -32,6 +31,15 @@ For projects:
 - Planned status updates are bundled into the weekly digest.
 - Confidence drops, IT risk increases, primary risk changes, and gate confidence changes are evaluation inputs.
 - Use `Unexpected status change` only when those inputs materially affect status, gate confidence, timeline, scope, release, rollout, or stakeholder expectations.
+
+## Event Catalog Rule
+
+The communication matrix should stay event-based:
+
+- One row equals one communication event.
+- One event maps to one primary trigger.
+- One event maps to one primary template path.
+- Add detail through template payload fields before adding more trigger rows.
 
 ## Bundling Rules
 
