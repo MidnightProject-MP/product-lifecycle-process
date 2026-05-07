@@ -41,6 +41,16 @@ The communication matrix should stay event-based:
 - One event maps to one primary template path.
 - Add detail through template payload fields before adding more trigger rows.
 
+## End Event Rule
+
+Prefer a single end or transition event when one lifecycle state can end for many reasons.
+
+Example:
+
+`Stray story exited intake` is better than separate events for converted to project, attached to existing project, reclassified as bug, rejected, or deferred.
+
+Capture the reason, destination, new owner, and next workflow in the message payload.
+
 ## Bundling Rules
 
 Bundle when:

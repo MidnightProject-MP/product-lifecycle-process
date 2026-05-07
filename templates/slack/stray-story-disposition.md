@@ -2,6 +2,7 @@
 
 **Story:** {{story_title}}
 **Disposition:** {{disposition}}
+**Destination:** {{destination}}
 **Owner:** {{owner}}
 **Priority:** {{priority}}
 
@@ -14,5 +15,7 @@
 **What's Next**
 {{whats_next}}
 
-**Review / Due Date:** {{review_or_due_date}}
+**Reason**
+{{reason}}
 
+**Review / Due Date:** {{review_or_due_date}}

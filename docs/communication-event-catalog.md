@@ -47,8 +47,15 @@ Non-critical bugs are tracked through the normal bug workflow and may appear in 
 | Start | Stray story submitted | Story enters intake outside project, bug, or release flow. | stray-story-disposition | Log only; bundle into weekly prioritization agenda. |
 | Heartbeat | Weekly prioritization summary | Weekly prioritization meeting completes. | stray-story-disposition | Bundles dispositions and next steps. |
 | Outcome | Disposition changed | Story is accepted, rejected, deferred, attached, converted, or reclassified. | stray-story-disposition | Communicates decision to requester and owners when needed. |
-| Outcome | Converted to project | Story becomes managed project. | status-update | Handoff to project lifecycle communication. |
-| Outcome | Reclassified as bug / incident | Story becomes bug or incident. | risk-update | Handoff to bug criticality gate. |
+| End / Transition | Stray story exited intake | Story leaves stray-story intake because it is converted, attached, rejected, deferred, accepted into backlog, or reclassified. | stray-story-disposition | Single end event. Destination and reason are included in the message payload. |
+
+For stray stories, do not create separate events for every possible destination. Use `Stray story exited intake` and include:
+
+- Final disposition.
+- Destination: backlog, project, existing project, bug / incident, release, rejected, deferred.
+- Reason.
+- New owner.
+- Next workflow.
 
 ## Production Release Events
 
@@ -62,3 +69,8 @@ Non-critical bugs are tracked through the normal bug workflow and may appear in 
 | Sad Path | Release rolled back | Release is fully or partially rolled back. | escalation | Communicates current production state, impact, and next decision path. |
 | Sad Path | Postmortem needed | Rollback, critical bug, failed gate, or material issue requires root-cause review. | escalation | Communicates postmortem owner, scope, timing, and expected outputs. |
 
+## End Event Rule
+
+In general, prefer a single end or transition event instead of separate triggers for each possible reason.
+
+The event should communicate that the work item has exited its current flow. The reason, destination, owner, and next workflow should be part of the message payload.
