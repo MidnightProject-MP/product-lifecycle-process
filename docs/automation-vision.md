@@ -4,7 +4,7 @@ This repository defines the operating model for an automated product lifecycle c
 
 ## Core Idea
 
-The project dashboard is the real-time source of truth.
+The project dashboard is the real-time source of truth for projects. Incidents / bug reports, stray stories, and production releases may have their own source systems, but the automation pattern is the same: capture old state, compare new state, evaluate triggers, log communication candidates, and send approved messages.
 
 The TPM is responsible for keeping the dashboard current. After every dashboard update, an automated flow evaluates what changed and determines whether a communication should be logged, reviewed, or eventually sent to Slack using the appropriate template.
 
@@ -36,7 +36,7 @@ Message is sent and communication history is recorded
 
 The automated flow should:
 
-- Detect meaningful dashboard changes.
+- Detect meaningful dashboard, incident, story, or release changes.
 - Compare old state to new state.
 - Apply trigger rules.
 - Identify the communication type.
@@ -45,6 +45,7 @@ The automated flow should:
 - Pre-fill `What`, `So What`, and `What's Next`.
 - Log the communication candidate.
 - Require review or approval when risk, severity, or audience warrants it.
+- Bundle related release items where appropriate to avoid overcommunication.
 - Send approved communications to Slack.
 - Record what was sent, when, where, and by whom.
 
@@ -91,4 +92,3 @@ It should include:
 ## Guiding Principle
 
 Automation should not replace ownership. It should make ownership visible, make communication harder to miss, and reduce the manual effort needed to keep stakeholders informed.
-

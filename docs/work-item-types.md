@@ -1,6 +1,6 @@
 # Work Item Types
 
-The communication automation must support three primary work item types: projects, incidents / bug reports, and stray stories.
+The communication automation must support four primary communication lanes: projects, incidents / bug reports, stray stories, and production releases.
 
 Each work item type has different ownership, trigger rules, communication expectations, and review needs.
 
@@ -11,6 +11,7 @@ Each work item type has different ownership, trigger rules, communication expect
 | Project | Executive dashboard | TPM updates dashboard; Lead PM owns communication quality. | Dashboard state changes trigger communication candidates. Planned status updates and weekly digest use dashboard fields. |
 | Incident / Bug Report | Incident or bug tracker | Phase owner based on issue; QA / Dev / IT Product Management contribute depending on root cause. | Critical bugs trigger leadership communication. Other bugs follow severity-based communication rules. |
 | Stray Story | Backlog or intake list | Scrum Product Owner / Product intake owner | Reviewed in weekly prioritization meeting. Communication focuses on disposition, priority, owner, and next step. |
+| Production Release | Release tracker / release calendar | Release Owner | Release communications bundle projects, fixes, incidents, and stray stories where possible to avoid overcommunication. |
 
 ## Projects
 
@@ -65,3 +66,38 @@ The communication goal is to make disposition clear:
 - Attached to existing project.
 - Treated as bug / incident.
 
+## Production Releases
+
+Production releases represent the act of moving change into production.
+
+They may include:
+
+- Project deliverables.
+- Bug fixes.
+- Incident remediations.
+- Stray stories.
+- Technical maintenance.
+- Operational changes.
+
+Release communication should avoid item-by-item noise. Bundle and group release contents whenever possible.
+
+Useful grouping patterns:
+
+- Customer-facing changes.
+- Internal workflow changes.
+- Bug fixes.
+- Incident follow-ups.
+- Technical / infrastructure changes.
+- Known risks or watch items.
+- Items requiring support, operations, training, or leadership awareness.
+
+Production release communication is driven by:
+
+- Release scheduled.
+- Go / no-go decision needed.
+- Release started.
+- Release completed.
+- Release delayed.
+- Release rolled back.
+- Release completed with known issues.
+- Postmortem needed.

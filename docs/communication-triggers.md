@@ -9,8 +9,8 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Category | Triggers |
 | --- | --- |
 | Cadence-Based | Planned status update, weekly digest, post-release outcome review. |
-| Event-Based | New initiative opened, phase change, readiness gate reached, release scheduled, release completed, rollout started or changed. |
-| Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted. |
+| Event-Based | New initiative opened, phase change, readiness gate reached, go / no-go approaching, release scheduled, release started, release completed, rollout started or changed. |
+| Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted, release delayed, release rolled back, postmortem needed. |
 | Decision-Based | Decision needed, scope change proposed, tradeoff required. |
 | Intake-Based | Stray story submitted, stray story disposition changed. |
 | Feedback-Based | Customer feedback received, support or operations feedback received, metrics threshold crossed. |
@@ -30,7 +30,12 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Readiness gate reached | The work is approaching build, validation, release, rollout, or post-release exit criteria. |
 | Risk accepted or exception granted | The team is moving forward despite a known gap or risk, and that acceptance must be visible. |
 | Release scheduled | Stakeholders need to know what is shipping, when, impact, readiness, and support plan. |
+| Go / no-go approaching | A phase gate or production release needs a readiness decision before proceeding. |
+| Release started | A production release has begun and stakeholders need execution visibility. |
 | Release completed | Stakeholders need confirmation of what shipped, where, known issues, and monitoring plan. |
+| Release delayed | A planned release or gate will not happen as expected and stakeholders need impact, new ETA, and next action. |
+| Release rolled back | A release was reversed or partially reversed and stakeholders need current state, impact, and next decision path. |
+| Postmortem needed | A material issue, rollback, critical bug, or failed gate requires root-cause analysis and systemic follow-up. |
 | Rollout started or changed | The exposure, audience, enablement, or adoption path changed or began. |
 | Feedback received | Feedback may affect requirements, priority, quality, adoption, or future roadmap. |
 | Weekly digest | Leaders and stakeholders need a concise cross-project summary without reading every update. |

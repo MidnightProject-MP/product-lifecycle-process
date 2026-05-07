@@ -53,6 +53,7 @@ The process is designed to make strong PM behavior the default:
 - `docs/communication-control-log.md`: Log structure for generated communication candidates.
 - `docs/work-item-types.md`: Project, incident / bug report, and stray story communication lanes.
 - `docs/incident-communication.md`: Severity-based incident and bug communication rules.
+- `docs/release-communication.md`: Production release communication, bundling, go / no-go, execution, rollback, and postmortem rules.
 - `docs/stray-story-prioritization.md`: Weekly prioritization process for stray stories.
 - `templates/`: Reusable process artifacts.
 - `decisions/`: Process decision records.
