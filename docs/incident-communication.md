@@ -1,17 +1,32 @@
 # Incident and Bug Communication
 
-Incidents and bug reports use severity-based communication.
+Incidents and bug reports use a simple communication gate:
 
-Critical bugs require leadership-level communication.
+```text
+Critical = leadership-visible critical bug communication flow.
+Non-critical = no leadership communication.
+```
 
-## Severity Model
+Non-critical bugs are still tracked, prioritized, fixed, validated, and may be included in release notes or team-level updates. They do not trigger leadership communication unless they are reclassified as critical.
 
-| Severity | Meaning | Communication Requirement |
-| --- | --- | --- |
-| Critical | Broad customer impact, major operational impact, safety/privacy/security/compliance risk, revenue impact, release-blocking defect, or severe regression. | Leadership communication required immediately. Ongoing updates required until stabilized or downgraded. |
-| High | Material user or operational impact, important customer issue, significant workaround, or meaningful release risk. | Stakeholder communication required. Leadership informed when business impact is material. |
-| Medium | Limited impact, workaround available, not release-blocking. | Track in normal status or team-level update. Escalate if impact grows. |
-| Low | Minor issue, cosmetic defect, small usability issue, or low-risk follow-up. | No broad communication required unless bundled in digest or release notes. |
+## Criticality Gate
+
+| Classification | Communication Requirement |
+| --- | --- |
+| Critical | Leadership communication required. Use the critical bug template and continue updates until stabilized, downgraded, or closed. |
+| Non-critical | No leadership communication. Track through normal bug workflow, project status, release notes, or team-level channels as appropriate. |
+
+## Critical Criteria
+
+Classify a bug or incident as critical when one or more are true:
+
+- Broad customer or user impact.
+- Major operational disruption.
+- Safety, privacy, security, compliance, or data integrity risk.
+- Revenue, contractual, reputational, or executive trust risk.
+- Release-blocking defect for a committed production release.
+- Severe regression in existing expected behavior.
+- No acceptable workaround for a material business or customer function.
 
 ## Critical Bug Communication Must Answer
 
@@ -26,21 +41,16 @@ Critical bugs require leadership-level communication.
 
 ## Leadership Communication Rule
 
-Send leadership communication when any of the following are true:
+Leadership communication is controlled by the criticality gate.
 
-- Severity is Critical.
-- Customer-facing outage or severe degradation exists.
-- Safety, privacy, security, compliance, or data integrity risk exists.
-- A release must be stopped, delayed, rolled back, or hotfixed.
-- A high-visibility customer, executive, or business function is materially affected.
-- The issue creates reputational or contractual risk.
+- If critical: send leadership communication.
+- If non-critical: do not send leadership communication.
+- If uncertain: treat as critical until downgraded by the accountable owner.
 
 ## Update Cadence
 
-| Severity | Minimum Update Cadence |
+| Classification | Minimum Update Cadence |
 | --- | --- |
 | Critical | Initial communication as soon as confirmed; updates every 30-60 minutes or at agreed milestones until stabilized. |
-| High | Same business day; then daily or at major status changes. |
-| Medium | Normal project or team status cadence. |
-| Low | No required cadence unless included in digest or release notes. |
+| Non-critical | No leadership cadence. Use normal bug workflow, release notes, or team-level updates. |
 

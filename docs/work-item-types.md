@@ -9,7 +9,7 @@ Each work item type has different ownership, trigger rules, communication expect
 | Work Item Type | Source of Truth | Primary Owner | Communication Pattern |
 | --- | --- | --- | --- |
 | Project | Executive dashboard | TPM updates dashboard; Lead PM owns communication quality. | Dashboard state changes trigger communication candidates. Planned status updates and weekly digest use dashboard fields. |
-| Incident / Bug Report | Incident or bug tracker | Phase owner based on issue; QA / Dev / IT Product Management contribute depending on root cause. | Critical bugs trigger leadership communication. Other bugs follow severity-based communication rules. |
+| Incident / Bug Report | Incident or bug tracker | Phase owner based on issue; QA / Dev / IT Product Management contribute depending on root cause. | Critical bugs trigger leadership communication. Non-critical bugs do not trigger leadership communication. |
 | Stray Story | Backlog or intake list | Scrum Product Owner / Product intake owner | Reviewed in weekly prioritization meeting. Communication focuses on disposition, priority, owner, and next step. |
 | Production Release | Release tracker / release calendar | Release Owner | Release communications bundle projects, fixes, incidents, and stray stories where possible to avoid overcommunication. |
 
@@ -39,7 +39,7 @@ Incident / bug communication is driven by:
 - Executive visibility requirement.
 - Root-cause and remediation progress.
 
-Critical bugs require leadership-level communication.
+Critical bugs require leadership-level communication. Non-critical bugs do not.
 
 ## Stray Stories
 
