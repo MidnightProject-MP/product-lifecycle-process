@@ -1,0 +1,106 @@
+# Automation Dashboard Schema
+
+The Automation Dashboard is the middle layer between the stakeholder-facing Executive Dashboard and the Stakeholder Communication Hub.
+
+It should be optimized for scripts and trigger logic, not presentation.
+
+```text
+Leadership Executive Dashboard
+        |
+        v
+Automation Dashboard
+        |
+        v
+Stakeholder Communication Hub
+        |
+        v
+Slack
+```
+
+## Recommended Tabs
+
+| Tab | Purpose |
+| --- | --- |
+| `Projects_Normalized` | Normalized project rows from the executive dashboard project table. |
+| `Gates_Normalized` | Normalized phase gate rows from the executive dashboard phase gates section. |
+| `Releases_Normalized` | Normalized release activity rows from the executive dashboard release activity section. |
+| `Snapshots` | Prior state records used to compare old state vs new state. |
+| `Trigger_Log` | Audit trail of detected trigger candidates and Hub draft creation attempts. |
+| `Config` | Non-secret integration configuration for source sheet names, start rows, and gate lead times. |
+
+## Source Mapping
+
+Based on the current Executive Dashboard layout:
+
+| Source Section | Approximate Source Rows | Automation Tab |
+| --- | --- | --- |
+| Project status table | Row 3 onward | `Projects_Normalized` |
+| Phase Gates | Row 24 onward | `Gates_Normalized` |
+| Release Activity | Row 57 onward | `Releases_Normalized` |
+
+## Projects_Normalized
+
+Use this for project status and weekly digest logic.
+
+Key fields:
+
+- `Flow ID`: stable project flow identifier.
+- `Current State Hash`: hash of current normalized row.
+- `Previous State Hash`: prior hash from last processed state.
+- `Trigger Candidate`: detected trigger before Hub draft creation.
+- `Communication Event`: event catalog value, such as `Unexpected status change`.
+- `Dedupe Key`: prevents duplicate Hub drafts.
+- `Hub Queue ID`: queue row created in the Hub.
+- `Processing Status`: pending, processed, skipped, or error.
+
+## Gates_Normalized
+
+Use this for gate approaching, passed, missed, failed, or delayed communication.
+
+Key fields:
+
+- `Days Until Target`
+- `Is Gate Approaching`
+- `Is Gate Missed`
+- `Gate Status`
+- `Previous Gate Status`
+- `Communication Event`
+
+## Releases_Normalized
+
+Use this for production release communication.
+
+This normalizes the presentation-friendly Release Activity section into one row per release event.
+
+Key fields:
+
+- `Release ID`
+- `Release Event`
+- `Normalized Release Status`
+- `Go / No-Go Required`
+- `Slack Thread ID`
+- `Communication Event`
+
+## Snapshots
+
+The snapshot table stores the last known state for comparison.
+
+The script should:
+
+1. Build a normalized row.
+2. Create `State JSON`.
+3. Hash `State JSON`.
+4. Compare to the previous snapshot.
+5. If changed, evaluate trigger rules.
+
+## Trigger_Log
+
+The trigger log records what the automation saw and what it did.
+
+Use it to debug:
+
+- Why a Hub draft was created.
+- Why a change was skipped.
+- Whether dedupe suppressed a duplicate.
+- Whether Hub draft creation failed.
+
