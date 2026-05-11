@@ -60,6 +60,7 @@ The process is designed to make strong PM behavior the default:
 - `docs/release-communication.md`: Production release communication, bundling, go / no-go, execution, rollback, and postmortem rules.
 - `docs/stray-story-prioritization.md`: Weekly prioritization process for stray stories.
 - `templates/`: Reusable process artifacts.
+- `poc/`: Google Sheets + Apps Script + Slack proof of concept.
 - `decisions/`: Process decision records.
 - `changes/`: Proposed process changes.
 
