@@ -2,6 +2,7 @@ function setupHubSheets() {
   const ss = SpreadsheetApp.getActive();
   ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
   ensureSheet_(ss, HUB.SHEETS.HISTORY, HUB.HEADERS.HISTORY);
+  ensureSheet_(ss, HUB.SHEETS.RUN_LOG, HUB.HEADERS.RUN_LOG);
   ensureSheet_(ss, HUB.SHEETS.TEMPLATES, HUB.HEADERS.TEMPLATES);
   ensureSheet_(ss, HUB.SHEETS.CONFIG, HUB.HEADERS.CONFIG);
 }
@@ -213,20 +214,39 @@ function seedHubPocData() {
 }
 
 function onHubEdit(e) {
-  if (!e || !e.range) return;
+  if (!e || !e.range) {
+    logHub_('WARN', 'onHubEdit', '', 'Skipped because event/range was missing.', {});
+    return;
+  }
 
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== HUB.SHEETS.QUEUE) return;
+  if (sheet.getName() !== HUB.SHEETS.QUEUE) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped edit outside Queue.', { sheet: sheet.getName() });
+    return;
+  }
 
   const row = e.range.getRow();
-  if (row === 1) return;
+  if (row === 1) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped header row edit.', {});
+    return;
+  }
 
   const headers = getHeaders_(sheet);
   const editedHeader = headers[e.range.getColumn() - 1];
-  if (editedHeader !== 'Status') return;
+  if (editedHeader !== 'Status') {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped non-status edit.', { editedHeader: editedHeader, row: row });
+    return;
+  }
 
   const status = String(e.value || '').trim();
-  if (status !== HUB.STATUS.APPROVED) return;
+  const item = getRowObject_(sheet, row);
+  const queueId = item['Queue ID'] || '';
+  logHub_('INFO', 'onHubEdit', queueId, 'Status edit detected.', { row: row, status: status });
+
+  if (status !== HUB.STATUS.APPROVED) {
+    logHub_('INFO', 'onHubEdit', queueId, 'Skipped because status is not Approved.', { status: status });
+    return;
+  }
 
   sendApprovedQueueRow_(sheet, row);
 }
@@ -257,6 +277,24 @@ function enforceHeaders_(sheet, headers) {
 
 function getHeaders_(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+}
+
+function logHub_(level, fn, queueId, message, details) {
+  try {
+    const ss = SpreadsheetApp.getActive();
+    const sheet = ensureSheet_(ss, HUB.SHEETS.RUN_LOG, HUB.HEADERS.RUN_LOG);
+    sheet.appendRow([
+      uuid_(),
+      nowIso_(),
+      level,
+      fn,
+      queueId || '',
+      message,
+      details ? JSON.stringify(details) : ''
+    ]);
+  } catch (error) {
+    console.log(level + ' ' + fn + ' ' + message + ' ' + JSON.stringify(details || {}) + ' log_error=' + error);
+  }
 }
 
 function seedRows_(sheet, keyField, rows) {

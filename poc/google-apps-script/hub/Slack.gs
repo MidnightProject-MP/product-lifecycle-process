@@ -21,6 +21,12 @@ function postSlackMessage_(channel, text, threadTs) {
 
   const body = JSON.parse(response.getContentText());
   if (!body.ok) {
+    logHub_('ERROR', 'postSlackMessage_', '', 'Slack API returned error.', {
+      error: body.error,
+      channel: channel,
+      threadTs: threadTs,
+      response: body
+    });
     throw new Error('Slack post failed: ' + (body.error || response.getContentText()));
   }
 
@@ -49,4 +55,3 @@ function getSlackPermalink_(channel, ts) {
   const body = JSON.parse(response.getContentText());
   return body.ok ? body.permalink : '';
 }
-

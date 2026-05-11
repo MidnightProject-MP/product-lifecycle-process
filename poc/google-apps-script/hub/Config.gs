@@ -2,6 +2,7 @@ const HUB = {
   SHEETS: {
     QUEUE: 'Queue',
     HISTORY: 'History',
+    RUN_LOG: 'Run_Log',
     TEMPLATES: 'Templates',
     CONFIG: 'Config'
   },
@@ -73,6 +74,15 @@ const HUB = {
       'Sent At',
       'Slack Message URL',
       'Error'
+    ],
+    RUN_LOG: [
+      'Log ID',
+      'Timestamp',
+      'Level',
+      'Function',
+      'Queue ID',
+      'Message',
+      'Details'
     ],
     TEMPLATES: [
       'Template Key',

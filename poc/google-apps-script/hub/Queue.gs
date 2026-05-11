@@ -3,7 +3,10 @@ function appendQueueDraft_(draft) {
   const sheet = ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
   const dedupeKey = draft['Dedupe Key'] || buildDedupeKey_(draft);
   const existingQueueId = findActiveQueueIdByDedupeKey_(sheet, dedupeKey);
-  if (existingQueueId) return existingQueueId;
+  if (existingQueueId) {
+    logHub_('INFO', 'appendQueueDraft_', existingQueueId, 'Skipped duplicate active draft.', { dedupeKey: dedupeKey });
+    return existingQueueId;
+  }
 
   const rowObject = Object.assign({
     'Queue ID': uuid_(),
@@ -15,6 +18,11 @@ function appendQueueDraft_(draft) {
   }, draft);
 
   appendObjectRow_(sheet, rowObject);
+  logHub_('INFO', 'appendQueueDraft_', rowObject['Queue ID'], 'Draft appended to Queue.', {
+    lane: rowObject.Lane,
+    event: rowObject['Communication Event'],
+    templateKey: rowObject['Template Key']
+  });
   return rowObject['Queue ID'];
 }
 
@@ -22,15 +30,31 @@ function sendApprovedQueueRow_(sheet, row) {
   const item = getRowObject_(sheet, row);
 
   try {
+    logHub_('INFO', 'sendApprovedQueueRow_', item['Queue ID'], 'Preparing approved queue row.', {
+      row: row,
+      lane: item.Lane,
+      event: item['Communication Event'],
+      templateKey: item['Template Key']
+    });
     if (!item['Approved At']) {
       updateRowFields_(sheet, row, { 'Approved At': nowIso_() });
     }
     const template = findTemplate_(item);
+    logHub_('INFO', 'sendApprovedQueueRow_', item['Queue ID'], 'Template found.', {
+      templateKey: template['Template Key'],
+      postMode: template['Post Mode'],
+      defaultChannelType: template['Default Channel Type']
+    });
     applyTemplateDefaults_(sheet, row, item, template);
     const hydratedItem = getRowObject_(sheet, row);
     const text = renderTemplate_(template.Text, hydratedItem);
     const channel = hydratedItem.Channel || resolveDefaultChannel_(template['Default Channel Type']);
     const threadTs = resolveThreadTs_(template, hydratedItem);
+    logHub_('INFO', 'sendApprovedQueueRow_', item['Queue ID'], 'Posting Slack message.', {
+      channel: channel,
+      threadTs: threadTs,
+      textLength: text.length
+    });
     const result = postSlackMessage_(channel, text, threadTs);
 
     updateRowFields_(sheet, row, {
@@ -42,11 +66,19 @@ function sendApprovedQueueRow_(sheet, row) {
       'Error': ''
     });
     appendHistoryFromQueueRow_(sheet, row);
+    logHub_('INFO', 'sendApprovedQueueRow_', item['Queue ID'], 'Slack message sent and history recorded.', {
+      slackThreadId: threadTs || result.ts,
+      permalink: result.permalink || ''
+    });
   } catch (error) {
     updateRowFields_(sheet, row, {
       'Status': HUB.STATUS.ERROR,
       'Updated At': nowIso_(),
       'Error': error.message || String(error)
+    });
+    logHub_('ERROR', 'sendApprovedQueueRow_', item['Queue ID'], 'Failed to send approved queue row.', {
+      error: error.message || String(error),
+      stack: error.stack || ''
     });
   }
 }
@@ -59,7 +91,10 @@ function applyTemplateDefaults_(sheet, row, item, template) {
   if (!item.Channel && template['Default Channel Type']) {
     updates.Channel = resolveDefaultChannel_(template['Default Channel Type']);
   }
-  if (Object.keys(updates).length) updateRowFields_(sheet, row, updates);
+  if (Object.keys(updates).length) {
+    updateRowFields_(sheet, row, updates);
+    logHub_('INFO', 'applyTemplateDefaults_', item['Queue ID'], 'Applied template defaults.', updates);
+  }
 }
 
 function appendHistoryFromQueueRow_(queueSheet, row) {
@@ -67,6 +102,10 @@ function appendHistoryFromQueueRow_(queueSheet, row) {
   const historySheet = ensureSheet_(ss, HUB.SHEETS.HISTORY, HUB.HEADERS.HISTORY);
   const item = getRowObject_(queueSheet, row);
   appendObjectRow_(historySheet, item);
+  logHub_('INFO', 'appendHistoryFromQueueRow_', item['Queue ID'], 'Copied queue row to History.', {
+    flowId: item['Flow ID'],
+    status: item.Status
+  });
 }
 
 function getRowObject_(sheet, row) {
@@ -123,6 +162,10 @@ function resolveThreadTs_(template, item) {
   if (!shouldReplyInThread_(template, item)) return '';
 
   const priorThread = findThreadForFlow_(item['Flow ID']);
+  logHub_('INFO', 'resolveThreadTs_', item['Queue ID'], 'Resolved thread from history.', {
+    flowId: item['Flow ID'],
+    priorThread: priorThread
+  });
   return priorThread || '';
 }
 
@@ -174,4 +217,11 @@ function buildWeeklyProjectDigestDraft() {
     'So What': 'This is the heartbeat summary for active project movement, risks, and gates.',
     "What's Next": 'Review exceptions, decisions, and high-risk gates. Approve this draft to send the weekly digest.'
   });
+}
+
+function debugSendQueueRow(rowNumber) {
+  const ss = SpreadsheetApp.getActive();
+  const sheet = ss.getSheetByName(HUB.SHEETS.QUEUE);
+  if (!sheet) throw new Error('Queue sheet is missing.');
+  sendApprovedQueueRow_(sheet, rowNumber);
 }

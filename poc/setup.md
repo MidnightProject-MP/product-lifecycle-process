@@ -12,6 +12,7 @@ In the Hub spreadsheet, create tabs:
 
 - `Queue`
 - `History`
+- `Run_Log`
 - `Templates`
 - `Config`
 
@@ -26,6 +27,7 @@ Relevant schema files:
 
 - `hub-queue.csv`
 - `hub-history.csv`
+- `hub-run-log.csv`
 - `hub-templates.csv`
 - `hub-config.csv`
 - `dashboard-projects.csv`
@@ -187,6 +189,15 @@ Install the app to the workspace and copy the bot token into Hub Script Properti
 2. Fill `Lane`, `Communication Event`, `Project`, `Owner`, `Template Key`, `What`, `So What`, and `What's Next`.
 3. Set `Status` to `Approved`.
 4. Confirm Slack receives the message and the row is copied to `History`.
+5. If nothing happens, check `Run_Log`.
+
+Debug helper:
+
+```text
+debugSendQueueRow
+```
+
+Run it manually with a row number in Apps Script if the edit trigger appears to complete silently.
 
 ### Release Test
 

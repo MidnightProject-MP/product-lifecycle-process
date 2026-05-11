@@ -9,6 +9,7 @@ function findTemplate_(item) {
   if (key) {
     const match = rows.find(row => row['Template Key'] === key);
     if (match) return match;
+    logHub_('WARN', 'findTemplate_', item['Queue ID'], 'Template key did not match any template.', { templateKey: key });
   }
 
   const match = rows.find(row =>
@@ -19,6 +20,12 @@ function findTemplate_(item) {
   );
 
   if (!match) {
+    logHub_('ERROR', 'findTemplate_', item['Queue ID'], 'No matching template found.', {
+      lane: item.Lane,
+      event: item['Communication Event'],
+      lifecycleStage: item['Lifecycle Stage'],
+      scenario: item.Scenario
+    });
     throw new Error('No matching template found for queue item.');
   }
   return match;
