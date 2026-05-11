@@ -10,6 +10,7 @@ Create two spreadsheets:
 In the Hub spreadsheet, create tabs:
 
 - `Queue`
+- `History`
 - `Templates`
 - `Config`
 
@@ -23,6 +24,7 @@ Use the CSV files in `schemas/` to create the headers and starter rows.
 Relevant schema files:
 
 - `hub-queue.csv`
+- `hub-history.csv`
 - `hub-templates.csv`
 - `hub-config.csv`
 - `dashboard-projects.csv`
@@ -50,6 +52,7 @@ Script Properties required:
 | `DEFAULT_INCIDENT_CHANNEL` | Slack channel ID for incident updates. |
 | `DEFAULT_RELEASE_CHANNEL` | Slack channel ID for release updates. |
 | `SLACK_VERIFICATION_TOKEN` | Optional Slack slash-command verification token. |
+| `DASHBOARD_SPREADSHEET_ID` | Optional Executive Dashboard spreadsheet ID for weekly digest generation. |
 
 Run `setupHubSheets()` once from Apps Script to create missing headers.
 
@@ -60,6 +63,12 @@ Create an installable trigger:
 - Function: `onHubEdit`
 - Event source: From spreadsheet
 - Event type: On edit
+
+Optional weekly digest trigger:
+
+- Function: `buildWeeklyProjectDigestDraft`
+- Event source: Time-driven
+- Cadence: Weekly, before the leadership digest review window
 
 Deploy the Hub script as a Web App:
 
@@ -121,6 +130,13 @@ Install the app to the workspace and copy the bot token into Hub Script Properti
 4. Approve it.
 5. Confirm Slack receives the project risk update.
 
+### Manual Hub Test
+
+1. Add a row directly to Hub `Queue`.
+2. Fill `Lane`, `Communication Event`, `Project`, `Owner`, `Template Key`, `What`, `So What`, and `What's Next`.
+3. Set `Status` to `Approved`.
+4. Confirm Slack receives the message and the row is copied to `History`.
+
 ### Release Test
 
 1. Add a release row in Executive Dashboard `Releases`.
@@ -130,3 +146,10 @@ Install the app to the workspace and copy the bot token into Hub Script Properti
 5. Confirm Slack receives the release update.
 6. Change `Status` to `Started`, `Completed`, or `Delayed`, or set `Rollback Status` to `Full` / `Partial`.
 7. Confirm the matching release draft is created.
+
+### Weekly Digest Test
+
+1. Add `DASHBOARD_SPREADSHEET_ID` to Hub Script Properties.
+2. Run `buildWeeklyProjectDigestDraft()`.
+3. Confirm a `Weekly project digest item` draft appears in Hub `Queue`.
+4. Review and approve the draft.

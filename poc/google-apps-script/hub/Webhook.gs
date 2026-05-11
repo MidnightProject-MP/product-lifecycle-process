@@ -29,6 +29,8 @@ function handleIncidentCommand_(params) {
     Project: text,
     Owner: user,
     'Template Key': 'critical-bug-identified',
+    'Flow ID': 'incident-' + uuid_(),
+    'Dedupe Key': 'incident|critical-bug-identified|' + text,
     What: text,
     'So What': 'This has been reported as a critical issue and requires review before leadership communication.',
     "What's Next": 'Triage owner should confirm impact, assign investigation owner, and approve communication.',
@@ -57,6 +59,8 @@ function handleReleaseCommand_(params) {
     Project: parsed.releaseName,
     Owner: user,
     'Template Key': parsed.templateKey,
+    'Flow ID': parsed.flowId,
+    'Dedupe Key': parsed.dedupeKey,
     What: parsed.what,
     'So What': parsed.soWhat,
     "What's Next": parsed.whatsNext
@@ -96,10 +100,19 @@ function parseReleaseCommandText_(text) {
     templateKey: templateKey,
     priority: priority,
     releaseName: text,
+    flowId: 'release-' + normalizeKey_(text),
+    dedupeKey: 'release|' + event + '|' + normalizeKey_(text),
     what: text,
     soWhat: 'This production release event may affect deployment timing, stakeholder readiness, support, or monitoring.',
     whatsNext: 'Release Owner should review the draft, confirm impact, and approve the communication.'
   };
+}
+
+function normalizeKey_(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function parsePost_(e) {

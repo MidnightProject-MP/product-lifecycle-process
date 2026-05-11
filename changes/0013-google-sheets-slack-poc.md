@@ -19,6 +19,7 @@ Follow-up additions include:
 - Release dashboard schema and release update flow.
 - `/release` slash command support.
 - Optional Slack verification token check for inbound slash commands.
+- Flow IDs, dedupe keys, History tab, thread lookup, approval timestamps, and weekly digest draft generation.
 
 ## Expected Impact
 

@@ -45,7 +45,7 @@ function getObjects_(sheet) {
 }
 
 function shouldReplyInThread_(template, item) {
-  return Boolean(item['Slack Thread ID']) && String(template['Post Mode']) === 'Reply In Thread';
+  return String(template['Post Mode']) === 'Reply In Thread';
 }
 
 function resolveDefaultChannel_(channelType) {
@@ -54,4 +54,3 @@ function resolveDefaultChannel_(channelType) {
   if (type === 'RELEASE') return getScriptProperty_('DEFAULT_RELEASE_CHANNEL');
   return getScriptProperty_('DEFAULT_PROJECT_CHANNEL');
 }
-

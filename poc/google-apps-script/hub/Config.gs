@@ -1,6 +1,7 @@
 const HUB = {
   SHEETS: {
     QUEUE: 'Queue',
+    HISTORY: 'History',
     TEMPLATES: 'Templates',
     CONFIG: 'Config'
   },
@@ -13,6 +14,8 @@ const HUB = {
   HEADERS: {
     QUEUE: [
       'Queue ID',
+      'Flow ID',
+      'Dedupe Key',
       'Created At',
       'Updated At',
       'Source',
@@ -27,6 +30,38 @@ const HUB = {
       'Channel',
       'Slack Thread ID',
       'Template Key',
+      'Send Rule',
+      'What',
+      'So What',
+      "What's Next",
+      'Reason',
+      'Destination',
+      'Reviewer',
+      'Approver',
+      'Approved At',
+      'Sent At',
+      'Slack Message URL',
+      'Error'
+    ],
+    HISTORY: [
+      'Queue ID',
+      'Flow ID',
+      'Dedupe Key',
+      'Created At',
+      'Updated At',
+      'Source',
+      'Lane',
+      'Communication Event',
+      'Lifecycle Stage',
+      'Scenario',
+      'Status',
+      'Priority',
+      'Project',
+      'Owner',
+      'Channel',
+      'Slack Thread ID',
+      'Template Key',
+      'Send Rule',
       'What',
       'So What',
       "What's Next",
@@ -47,6 +82,7 @@ const HUB = {
       'Scenario',
       'Default Channel Type',
       'Post Mode',
+      'Default Send Rule',
       'Text'
     ],
     CONFIG: ['Key', 'Value']

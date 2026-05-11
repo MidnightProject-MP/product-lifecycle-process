@@ -12,6 +12,12 @@ This POC turns the process repo into a working Google Sheets + Apps Script + Sla
 
 ## Workflows
 
+## Inputs
+
+- Slack `/incident` for critical issue flow start.
+- Executive Dashboard edits for project and release updates.
+- Manual rows entered directly in the Hub `Queue`.
+
 ### Fast Path: Critical Incidents
 
 ```text
