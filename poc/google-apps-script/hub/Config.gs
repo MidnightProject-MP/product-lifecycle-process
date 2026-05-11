@@ -65,3 +65,8 @@ function uuid_() {
   return Utilities.getUuid();
 }
 
+function verifySlackToken_(params) {
+  const expected = getScriptProperty_('SLACK_VERIFICATION_TOKEN');
+  if (!expected) return true;
+  return params && params.token === expected;
+}

@@ -1,5 +1,21 @@
 function doPost(e) {
   const params = parsePost_(e);
+  if (!verifySlackToken_(params)) {
+    return ContentService
+      .createTextOutput('Unauthorized request.')
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  const command = String(params.command || '').toLowerCase();
+
+  if (command === '/release') {
+    return handleReleaseCommand_(params);
+  }
+
+  return handleIncidentCommand_(params);
+}
+
+function handleIncidentCommand_(params) {
   const text = params.text || 'Critical incident reported from Slack.';
   const user = params.user_name || params.user_id || 'Slack user';
 
@@ -25,6 +41,67 @@ function doPost(e) {
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
+function handleReleaseCommand_(params) {
+  const text = params.text || 'Production release update.';
+  const user = params.user_name || params.user_id || 'Slack user';
+  const parsed = parseReleaseCommandText_(text);
+
+  const queueId = appendQueueDraft_({
+    Source: 'Slack Slash Command',
+    Lane: 'Production Release',
+    'Communication Event': parsed.event,
+    'Lifecycle Stage': 'Release',
+    Scenario: parsed.scenario,
+    Status: HUB.STATUS.DRAFT,
+    Priority: parsed.priority,
+    Project: parsed.releaseName,
+    Owner: user,
+    'Template Key': parsed.templateKey,
+    What: parsed.what,
+    'So What': parsed.soWhat,
+    "What's Next": parsed.whatsNext
+  });
+
+  return ContentService
+    .createTextOutput('Draft release communication created in the Hub queue: ' + queueId)
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+function parseReleaseCommandText_(text) {
+  const lower = String(text || '').toLowerCase();
+  let event = 'Release scheduled';
+  let scenario = 'Release Scheduled';
+  let templateKey = 'release-scheduled';
+  let priority = 'Medium';
+
+  if (lower.indexOf('rollback') >= 0 || lower.indexOf('rolled back') >= 0) {
+    event = 'Release rolled back';
+    scenario = 'Release Rollback';
+    templateKey = 'release-rolled-back';
+    priority = 'Critical';
+  } else if (lower.indexOf('delay') >= 0 || lower.indexOf('delayed') >= 0) {
+    event = 'Release delayed';
+    scenario = 'Release Delay';
+    templateKey = 'release-delayed';
+    priority = 'High';
+  } else if (lower.indexOf('start') >= 0 || lower.indexOf('started') >= 0) {
+    event = 'Release started';
+    scenario = 'Release Execution';
+    templateKey = 'release-execution';
+  }
+
+  return {
+    event: event,
+    scenario: scenario,
+    templateKey: templateKey,
+    priority: priority,
+    releaseName: text,
+    what: text,
+    soWhat: 'This production release event may affect deployment timing, stakeholder readiness, support, or monitoring.',
+    whatsNext: 'Release Owner should review the draft, confirm impact, and approve the communication.'
+  };
+}
+
 function parsePost_(e) {
   if (!e || !e.postData) return {};
 
@@ -43,4 +120,3 @@ function parsePost_(e) {
     return obj;
   }, {});
 }
-

@@ -44,6 +44,36 @@ function seedHubPocData() {
       Text: '*Release Update*: {{Project}}\n*What*: {{What}}\n*So What*: {{So What}}\n*What\'s Next*: {{What\'s Next}}'
     },
     {
+      'Template Key': 'release-scheduled',
+      Lane: 'Production Release',
+      'Communication Event': 'Release scheduled',
+      'Lifecycle Stage': 'Release',
+      Scenario: 'Release Scheduled',
+      'Default Channel Type': 'Release',
+      'Post Mode': 'New Thread',
+      Text: '*Release Scheduled*: {{Project}}\n*What*: {{What}}\n*So What*: {{So What}}\n*What\'s Next*: {{What\'s Next}}\n*Owner*: {{Owner}}'
+    },
+    {
+      'Template Key': 'release-delayed',
+      Lane: 'Production Release',
+      'Communication Event': 'Release delayed',
+      'Lifecycle Stage': 'Release',
+      Scenario: 'Release Delay',
+      'Default Channel Type': 'Release',
+      'Post Mode': 'New Thread',
+      Text: '*Release Delayed*: {{Project}}\n*What*: {{What}}\n*So What*: {{So What}}\n*What\'s Next*: {{What\'s Next}}\n*Owner*: {{Owner}}'
+    },
+    {
+      'Template Key': 'release-rolled-back',
+      Lane: 'Production Release',
+      'Communication Event': 'Release rolled back',
+      'Lifecycle Stage': 'Release',
+      Scenario: 'Release Rollback',
+      'Default Channel Type': 'Release',
+      'Post Mode': 'New Thread',
+      Text: '*Release Rolled Back*: {{Project}}\n*What*: {{What}}\n*So What*: {{So What}}\n*What\'s Next*: {{What\'s Next}}\n*Owner*: {{Owner}}'
+    },
+    {
       'Template Key': 'stray-story-disposition',
       Lane: 'Stray Story',
       'Communication Event': 'Disposition changed',
@@ -58,7 +88,8 @@ function seedHubPocData() {
   seedRows_(config, 'Key', [
     { Key: 'DEFAULT_PROJECT_CHANNEL', Value: '' },
     { Key: 'DEFAULT_INCIDENT_CHANNEL', Value: '' },
-    { Key: 'DEFAULT_RELEASE_CHANNEL', Value: '' }
+    { Key: 'DEFAULT_RELEASE_CHANNEL', Value: '' },
+    { Key: 'SLACK_VERIFICATION_TOKEN', Value: '' }
   ]);
 }
 

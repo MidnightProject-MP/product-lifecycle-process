@@ -10,9 +10,15 @@ Add a POC with:
 
 - Google Sheet schemas for the Stakeholder Communication Hub and Executive Dashboard.
 - Hub Apps Script for queue setup, template rendering, Slack outbound sending, and Slack slash command intake.
-- Dashboard Apps Script for monitoring project status changes and creating draft communications.
+- Dashboard Apps Script for monitoring project and release status changes and creating draft communications.
 - Slack-ready template examples.
 - Setup guide.
+
+Follow-up additions include:
+
+- Release dashboard schema and release update flow.
+- `/release` slash command support.
+- Optional Slack verification token check for inbound slash commands.
 
 ## Expected Impact
 
@@ -22,11 +28,10 @@ Add a POC with:
 
 ## Risks
 
-- This POC is intentionally lightweight and does not yet verify Slack request signatures.
+- This POC is intentionally lightweight. It supports Slack verification tokens, but not full Slack request signature verification.
 - Slash command security, richer approval routing, and production-grade error handling are future work.
 - Apps Script trigger permissions must be configured manually.
 
 ## Adoption Notes
 
 Use the POC to validate workflow shape before investing in a standalone service or deeper automation.
-

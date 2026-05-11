@@ -1,6 +1,9 @@
 const DASHBOARD = {
-  SHEET_NAME: 'Projects',
-  HEADERS: [
+  SHEETS: {
+    PROJECTS: 'Projects',
+    RELEASES: 'Releases'
+  },
+  PROJECT_HEADERS: [
     'Project',
     'Lead PM',
     'Owner',
@@ -16,7 +19,26 @@ const DASHBOARD = {
     'Primary Target',
     'Last Communication Triggered At'
   ],
-  WATCHED_FIELDS: [
+  RELEASE_HEADERS: [
+    'Release ID',
+    'Release Name',
+    'Release Owner',
+    'Status',
+    'Planned Start',
+    'Actual Start',
+    'Completed At',
+    'Rollback Status',
+    'Included Projects',
+    'Included Bugs',
+    'Included Stray Stories',
+    'Known Issues',
+    'Go / No-Go Required',
+    'Decision Owner',
+    'Primary Channel',
+    'Slack Thread ID',
+    'Last Communication Triggered At'
+  ],
+  PROJECT_WATCHED_FIELDS: [
     'Status',
     'Current Phase',
     'Confidence of Owner (1-10)',
@@ -25,6 +47,15 @@ const DASHBOARD = {
     'Next Major Gate',
     'Next Gate ETA',
     'User Exposure'
+  ],
+  RELEASE_WATCHED_FIELDS: [
+    'Status',
+    'Planned Start',
+    'Actual Start',
+    'Completed At',
+    'Rollback Status',
+    'Known Issues',
+    'Go / No-Go Required'
   ]
 };
 
@@ -35,4 +66,3 @@ function dashboardNowIso_() {
 function getDashboardScriptProperty_(key) {
   return PropertiesService.getScriptProperties().getProperty(key);
 }
-

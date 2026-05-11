@@ -16,8 +16,17 @@ In the Hub spreadsheet, create tabs:
 In the Executive Dashboard spreadsheet, create tab:
 
 - `Projects`
+- `Releases`
 
 Use the CSV files in `schemas/` to create the headers and starter rows.
+
+Relevant schema files:
+
+- `hub-queue.csv`
+- `hub-templates.csv`
+- `hub-config.csv`
+- `dashboard-projects.csv`
+- `dashboard-releases.csv`
 
 ## 2. Configure the Hub Apps Script
 
@@ -40,6 +49,7 @@ Script Properties required:
 | `DEFAULT_PROJECT_CHANNEL` | Slack channel ID for project updates. |
 | `DEFAULT_INCIDENT_CHANNEL` | Slack channel ID for incident updates. |
 | `DEFAULT_RELEASE_CHANNEL` | Slack channel ID for release updates. |
+| `SLACK_VERIFICATION_TOKEN` | Optional Slack slash-command verification token. |
 
 Run `setupHubSheets()` once from Apps Script to create missing headers.
 
@@ -56,7 +66,9 @@ Deploy the Hub script as a Web App:
 - Execute as: Me
 - Who has access: Anyone with the link, or internal domain if Slack can reach it
 
-Use the Web App URL for the Slack slash command.
+Use the Web App URL for both Slack slash commands.
+
+For the POC, `SLACK_VERIFICATION_TOKEN` checks Slack's legacy slash-command token. Full Slack signing-secret verification is a later hardening step because Apps Script web apps do not expose request headers as cleanly as a normal server runtime.
 
 ## 3. Configure the Dashboard Apps Script
 
@@ -86,7 +98,7 @@ Create an installable trigger:
 Create a Slack App with:
 
 - Bot token scopes: `chat:write`, `commands`
-- Slash command: `/incident`
+- Slash commands: `/incident`, `/release`
 - Request URL: Hub Web App URL
 
 Install the app to the workspace and copy the bot token into Hub Script Properties.
@@ -108,3 +120,13 @@ Install the app to the workspace and copy the bot token into Hub Script Properti
 3. Confirm a `Draft` row appears in Hub `Queue`.
 4. Approve it.
 5. Confirm Slack receives the project risk update.
+
+### Release Test
+
+1. Add a release row in Executive Dashboard `Releases`.
+2. Set `Planned Start` to a date/time.
+3. Confirm a `Draft` row appears in Hub `Queue` for `Release scheduled`.
+4. Approve it.
+5. Confirm Slack receives the release update.
+6. Change `Status` to `Started`, `Completed`, or `Delayed`, or set `Rollback Status` to `Full` / `Partial`.
+7. Confirm the matching release draft is created.
