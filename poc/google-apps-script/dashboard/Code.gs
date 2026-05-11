@@ -173,8 +173,23 @@ function ensureDashboardSheet_(ss, name, headers) {
   const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(headers);
+    return sheet;
   }
+  enforceDashboardHeaders_(sheet, headers);
   return sheet;
+}
+
+function enforceDashboardHeaders_(sheet, headers) {
+  const currentLastColumn = Math.max(sheet.getLastColumn(), 1);
+  const current = sheet.getRange(1, 1, 1, currentLastColumn).getValues()[0];
+  const existing = current.filter(value => value !== '');
+  const merged = headers.slice();
+
+  existing.forEach(header => {
+    if (merged.indexOf(header) < 0) merged.push(header);
+  });
+
+  sheet.getRange(1, 1, 1, merged.length).setValues([merged]);
 }
 
 function getDashboardHeaders_(sheet) {

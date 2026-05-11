@@ -6,6 +6,7 @@ Create two spreadsheets:
 
 1. `Stakeholder Communication Hub`
 2. `Executive Dashboard`
+3. `Automation Dashboard`
 
 In the Hub spreadsheet, create tabs:
 
@@ -29,6 +30,14 @@ Relevant schema files:
 - `hub-config.csv`
 - `dashboard-projects.csv`
 - `dashboard-releases.csv`
+- `automation-projects-normalized.csv`
+- `automation-gates-normalized.csv`
+- `automation-releases-normalized.csv`
+- `automation-snapshots.csv`
+- `automation-trigger-log.csv`
+- `automation-config.csv`
+
+You can also create/enforce these schemas through Apps Script setup functions instead of importing the CSVs.
 
 ## 2. Configure the Hub Apps Script
 
@@ -102,7 +111,31 @@ Create an installable trigger:
 - Event source: From spreadsheet
 - Event type: On edit
 
-## 4. Configure Slack
+## 4. Configure the Automation Dashboard Apps Script
+
+Open the Automation Dashboard spreadsheet, then go to Extensions > Apps Script.
+
+Create these files and paste the matching code:
+
+- `automation/Code.gs`
+- `automation/Config.gs`
+
+Run:
+
+```text
+setupAutomationSheets
+```
+
+This creates or repairs:
+
+- `Projects_Normalized`
+- `Gates_Normalized`
+- `Releases_Normalized`
+- `Snapshots`
+- `Trigger_Log`
+- `Config`
+
+## 5. Configure Slack
 
 Create a Slack App with:
 
@@ -112,7 +145,7 @@ Create a Slack App with:
 
 Install the app to the workspace and copy the bot token into Hub Script Properties.
 
-## 5. Test the POC
+## 6. Test the POC
 
 ### Incident Test
 

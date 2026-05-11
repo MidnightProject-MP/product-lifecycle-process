@@ -238,12 +238,21 @@ function ensureSheet_(ss, name, headers) {
     return sheet;
   }
 
-  const current = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
-  const isEmpty = current.every(value => value === '');
-  if (isEmpty) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
+  enforceHeaders_(sheet, headers);
   return sheet;
+}
+
+function enforceHeaders_(sheet, headers) {
+  const currentLastColumn = Math.max(sheet.getLastColumn(), 1);
+  const current = sheet.getRange(1, 1, 1, currentLastColumn).getValues()[0];
+  const existing = current.filter(value => value !== '');
+  const merged = headers.slice();
+
+  existing.forEach(header => {
+    if (merged.indexOf(header) < 0) merged.push(header);
+  });
+
+  sheet.getRange(1, 1, 1, merged.length).setValues([merged]);
 }
 
 function getHeaders_(sheet) {

@@ -7,7 +7,8 @@ This POC turns the process repo into a working Google Sheets + Apps Script + Sla
 | Component | Purpose |
 | --- | --- |
 | Stakeholder Communication Hub | Queue, templates, and outbound Slack sender. |
-| Executive Dashboard | Project and release status source that creates draft communications when material changes happen. |
+| Executive Dashboard | Presentation-friendly leadership view and source data. |
+| Automation Dashboard | Script-friendly middle layer with normalized rows, snapshots, trigger logs, and processing fields. |
 | Slack App | Slash command intake and bot-token message delivery. |
 
 ## Workflows
@@ -80,4 +81,5 @@ Message posts to release Slack channel
 - `schemas/`: CSV headers and starter template rows for the Google Sheets tabs.
 - `google-apps-script/hub/`: Apps Script files for the Stakeholder Communication Hub.
 - `google-apps-script/dashboard/`: Apps Script files for the Executive Dashboard monitor.
+- `google-apps-script/automation/`: Apps Script setup files for the Automation Dashboard schema.
 - `setup.md`: Step-by-step setup guide.
