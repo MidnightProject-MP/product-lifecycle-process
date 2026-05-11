@@ -143,9 +143,11 @@ const AUTOMATION = {
     ['GATES_SOURCE_SHEET', 'Executive Dashboard'],
     ['RELEASES_SOURCE_SHEET', 'Executive Dashboard'],
     ['PROJECTS_START_ROW', '3'],
+    ['PROJECTS_END_ROW', '20'],
     ['GATES_START_ROW', '24'],
+    ['GATES_END_ROW', '50'],
     ['RELEASES_START_ROW', '57'],
+    ['RELEASES_END_ROW', '80'],
     ['GATE_APPROACHING_DAYS', '14']
   ]
 };
-

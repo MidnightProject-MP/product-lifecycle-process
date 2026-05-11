@@ -135,6 +135,24 @@ This creates or repairs:
 - `Trigger_Log`
 - `Config`
 
+In the Automation Dashboard `Config` tab, set:
+
+| Key | Value |
+| --- | --- |
+| `LEADERSHIP_SPREADSHEET_ID` | Spreadsheet ID of the leadership-facing executive dashboard. |
+| `HUB_SPREADSHEET_ID` | Spreadsheet ID of the Stakeholder Communication Hub. |
+| `PROJECTS_SOURCE_SHEET` | Sheet/tab name containing the project table. |
+| `GATES_SOURCE_SHEET` | Sheet/tab name containing the phase gate table. |
+| `RELEASES_SOURCE_SHEET` | Sheet/tab name containing the release activity table. |
+
+Then run:
+
+```text
+syncLeadershipDashboardToAutomation
+```
+
+This normalizes leadership dashboard rows into the automation tabs and logs trigger candidates. For the POC, it does not yet create Hub drafts.
+
 ## 5. Configure Slack
 
 Create a Slack App with:

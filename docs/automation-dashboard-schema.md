@@ -38,6 +38,34 @@ Based on the current Executive Dashboard layout:
 | Phase Gates | Row 24 onward | `Gates_Normalized` |
 | Release Activity | Row 57 onward | `Releases_Normalized` |
 
+These row ranges are configurable in the Automation Dashboard `Config` tab:
+
+- `PROJECTS_START_ROW`
+- `PROJECTS_END_ROW`
+- `GATES_START_ROW`
+- `GATES_END_ROW`
+- `RELEASES_START_ROW`
+- `RELEASES_END_ROW`
+
+## Sync Function
+
+The Automation Dashboard Apps Script provides:
+
+```text
+syncLeadershipDashboardToAutomation
+```
+
+This function:
+
+1. Opens the leadership dashboard using `LEADERSHIP_SPREADSHEET_ID`.
+2. Reads configured source ranges.
+3. Normalizes project, gate, and release rows.
+4. Writes normalized rows into the Automation Dashboard.
+5. Records snapshots.
+6. Logs trigger candidates.
+
+For the POC, this stops before creating Hub drafts. That keeps the adapter layer testable before it starts writing into the communication queue.
+
 ## Projects_Normalized
 
 Use this for project status and weekly digest logic.
@@ -103,4 +131,3 @@ Use it to debug:
 - Why a change was skipped.
 - Whether dedupe suppressed a duplicate.
 - Whether Hub draft creation failed.
-
