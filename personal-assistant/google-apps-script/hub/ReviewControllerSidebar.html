@@ -24,6 +24,7 @@
     }
 
     select,
+    input,
     textarea {
       box-sizing: border-box;
       width: 100%;
@@ -119,10 +120,13 @@
   </style>
 </head>
 <body>
-  <div id="status" class="status">Loading selected draft...</div>
+  <div id="status" class="status">Loading communication console...</div>
   <div id="app" hidden>
+    <label for="communicationSelect">Communication</label>
+    <select id="communicationSelect"></select>
+
     <div class="meta">
-      <div><span class="key">Subject:</span> <span id="subject"></span></div>
+      <div><span class="key">Subject:</span> <span id="previewSubject"></span></div>
       <div><span class="key">Action:</span> <span id="previewAction"></span></div>
       <div><span class="key">What:</span> <span id="previewWhat"></span></div>
       <div><span class="key">So what:</span> <span id="previewSoWhat"></span></div>
@@ -132,6 +136,12 @@
 
     <label for="flowAction">Action</label>
     <select id="flowAction"></select>
+
+    <label for="subjectInput">Subject</label>
+    <input id="subjectInput" type="text" placeholder="Example: May Prod Release">
+
+    <label for="ownerInput">Owner</label>
+    <input id="ownerInput" type="text" placeholder="Communication owner">
 
     <label for="what">What changed?</label>
     <textarea id="what"></textarea>
@@ -160,18 +170,18 @@
     }
 
     function setBusy(isBusy) {
-      ['queueBtn', 'approveBtn'].forEach(id => {
+      ['communicationSelect', 'flowAction', 'subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext', 'queueBtn', 'approveBtn'].forEach(id => {
         document.getElementById(id).disabled = isBusy;
       });
     }
 
-    function load() {
+    function load(selection) {
       setBusy(true);
-      setStatus('Loading selected draft...');
+      setStatus('Loading communication console...');
       google.script.run
         .withSuccessHandler(render)
         .withFailureHandler(showFailure)
-        .getReviewControllerContext();
+        .getReviewControllerContext(selection || '');
     }
 
     function render(context) {
@@ -180,13 +190,28 @@
       const app = document.getElementById('app');
       if (!context || !context.ok) {
         app.hidden = true;
-        setStatus(context && context.message ? context.message : 'Select a Review row first.', 'error');
+        setStatus(context && context.message ? context.message : 'Unable to load Communication Console.', 'error');
         return;
       }
 
       app.hidden = false;
       setStatus(context.message || 'Ready.', 'success');
-      document.getElementById('subject').textContent = context.queue.subject || '';
+
+      const communicationSelect = document.getElementById('communicationSelect');
+      communicationSelect.textContent = '';
+      (context.communications || []).forEach(optionData => {
+        const option = document.createElement('option');
+        option.value = optionData.value;
+        option.textContent = optionData.label;
+        communicationSelect.appendChild(option);
+      });
+      communicationSelect.value = context.selectedCommunication || 'new';
+      communicationSelect.onchange = function() {
+        load(communicationSelect.value);
+      };
+
+      document.getElementById('subjectInput').value = context.queue.subject || '';
+      document.getElementById('ownerInput').value = context.queue.owner || '';
       document.getElementById('what').value = context.queue.what || '';
       document.getElementById('soWhat').value = context.queue.soWhat || '';
       document.getElementById('whatsNext').value = context.queue.whatsNext || '';
@@ -212,11 +237,12 @@
         actionDefaults[action.value] = action.defaults || {};
       });
       actionSelect.onchange = applyActionDefaults;
-      ['what', 'soWhat', 'whatsNext'].forEach(id => {
+      ['subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext'].forEach(id => {
         const field = document.getElementById(id);
         field.oninput = refreshPreviewForChosenAction;
         field.onchange = refreshPreviewForChosenAction;
       });
+      if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) applyActionDefaults();
       refreshPreviewForChosenAction();
     }
 
@@ -237,6 +263,7 @@
 
       const actionSelect = document.getElementById('flowAction');
       const selected = actionSelect.options[actionSelect.selectedIndex];
+      document.getElementById('previewSubject').textContent = document.getElementById('subjectInput').value || '';
       document.getElementById('previewAction').textContent = selected ? selected.textContent : '';
       document.getElementById('previewWhat').textContent = document.getElementById('what').value || '';
       document.getElementById('previewSoWhat').textContent = document.getElementById('soWhat').value || '';
@@ -245,23 +272,29 @@
 
     function collectForm() {
       return {
+        selection: document.getElementById('communicationSelect').value,
         queueId: currentContext && currentContext.queue ? currentContext.queue.queueId : '',
+        flowId: currentContext && currentContext.queue ? currentContext.queue.flowId : '',
         flowAction: document.getElementById('flowAction').value,
+        eventKey: selectedActionEventKey(),
+        subject: document.getElementById('subjectInput').value,
         what: document.getElementById('what').value,
         soWhat: document.getElementById('soWhat').value,
         whatsNext: document.getElementById('whatsNext').value,
-        owner: currentContext && currentContext.queue ? currentContext.queue.owner : '',
+        owner: document.getElementById('ownerInput').value,
         priority: currentContext && currentContext.queue ? currentContext.queue.priority : ''
       };
     }
 
+    function selectedActionEventKey() {
+      const actionSelect = document.getElementById('flowAction');
+      const selected = actionSelect.options[actionSelect.selectedIndex];
+      return selected ? selected.dataset.eventKey || '' : '';
+    }
+
     function queueDraft() {
       const form = collectForm();
-      if (form.flowAction === 'selected') {
-        runAction('Queueing draft...', 'saveReviewControllerDraft', form, render);
-        return;
-      }
-      runAction('Queueing draft...', 'createReviewControllerFlowActionDraft', form, render);
+      runAction('Queueing draft...', 'queueReviewControllerDraft', form, render);
     }
 
     function approveDraft() {
@@ -277,6 +310,8 @@
 
       if (fnName === 'saveReviewControllerDraft') {
         runner.saveReviewControllerDraft(form);
+      } else if (fnName === 'queueReviewControllerDraft') {
+        runner.queueReviewControllerDraft(form);
       } else if (fnName === 'approveReviewControllerDraft') {
         runner.approveReviewControllerDraft(form);
       } else if (fnName === 'approveReviewControllerSelection') {

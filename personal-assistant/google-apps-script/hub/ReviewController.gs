@@ -2,7 +2,7 @@ function openReviewController() {
   const html = buildReviewControllerHtml_()
     .setWidth(640)
     .setHeight(680);
-  SpreadsheetApp.getUi().showModelessDialog(html, 'Review Controller');
+  SpreadsheetApp.getUi().showModelessDialog(html, 'Communication Console');
 }
 
 function openReviewControllerSidebar() {
@@ -13,12 +13,12 @@ function openReviewControllerSidebar() {
 
 function buildReviewControllerHtml_() {
   return HtmlService.createHtmlOutputFromFile('ReviewControllerSidebar')
-    .setTitle('Review Controller')
+    .setTitle('Communication Console')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getReviewControllerContext() {
-  return getReviewControllerContextForQueueId_('');
+function getReviewControllerContext(selection) {
+  return getReviewControllerContextForSelection_(selection || '');
 }
 
 function saveReviewControllerDraft(form) {
@@ -28,6 +28,25 @@ function saveReviewControllerDraft(form) {
   });
 
   return getReviewControllerContextForQueueId_(result.queueId);
+}
+
+function queueReviewControllerDraft(form) {
+  const parsed = parseReviewControllerSelection_(form && form.selection);
+  const action = String(form && form.flowAction || '').trim();
+
+  if (parsed.mode === 'new') {
+    return createReviewControllerNewCommunicationDraft(form || {});
+  }
+
+  if (parsed.mode === 'flow') {
+    return createReviewControllerFlowActionDraft(form || {});
+  }
+
+  if (action && action !== 'selected') {
+    return createReviewControllerFlowActionDraft(form || {});
+  }
+
+  return saveReviewControllerDraft(form || {});
 }
 
 function approveReviewControllerDraft(form) {
@@ -44,9 +63,12 @@ function approveReviewControllerDraft(form) {
 }
 
 function approveReviewControllerSelection(form) {
+  const parsed = parseReviewControllerSelection_(form && form.selection);
   const action = String(form && form.flowAction || '').trim();
-  if (action && action !== 'selected') {
-    const queued = createReviewControllerFlowActionDraft(form || {});
+  if (parsed.mode === 'new' || parsed.mode === 'flow' || (action && action !== 'selected')) {
+    const queued = parsed.mode === 'new' ?
+      createReviewControllerNewCommunicationDraft(form || {}) :
+      createReviewControllerFlowActionDraft(form || {});
     if (!queued || !queued.ok || !queued.queue || !queued.queue.queueId) {
       throw new Error('Unable to queue chosen action before approval.');
     }
@@ -61,7 +83,7 @@ function approveReviewControllerSelection(form) {
 }
 
 function discardReviewControllerDraft(form) {
-  const reason = form && form.discardReason ? String(form.discardReason) : 'Discarded from Review Controller.';
+  const reason = form && form.discardReason ? String(form.discardReason) : 'Discarded from Communication Console.';
   const result = runSkillOrThrow_('discard_draft', {
     queueId: form && form.queueId,
     reason: reason
@@ -75,6 +97,15 @@ function discardReviewControllerDraft(form) {
 }
 
 function createReviewControllerFlowActionDraft(form) {
+  const parsed = parseReviewControllerSelection_(form && form.selection);
+  const useFlowOnlyContext = parsed.mode === 'flow' || (form && form.flowId && !form.selection);
+  if (useFlowOnlyContext) {
+    const flowId = parsed.id || form.flowId;
+    const flow = findFlowStateByFlowId_(flowId);
+    if (!flow) throw new Error('Flow not found in Flow_State: ' + flowId);
+    return getReviewControllerContextForQueueId_(createReviewControllerFlowActionDraftForFlow_(form || {}, flow, buildReviewControllerItemFromFlow_(flow)));
+  }
+
   const result = withReviewControllerQueueRow_(form && form.queueId, function(queueSheet, row) {
     const selectedItem = getRowObject_(queueSheet, row);
     const flowId = selectedItem['Flow ID'];
@@ -83,54 +114,119 @@ function createReviewControllerFlowActionDraft(form) {
     const flow = findFlowStateByFlowId_(flowId);
     if (!flow) throw new Error('Flow not found in Flow_State: ' + flowId);
 
-    const action = String(form && form.flowAction || '').trim();
-    if (!action || action === 'selected') {
-      throw new Error('Choose an expected path or detour action first.');
-    }
-
-    const eventKey = resolveFlowConsoleEventKey_(flow, action);
-    if (!eventKey) throw new Error('No event could be resolved for action: ' + action);
-
-    const event = findRegistryRow_('Event_Catalog', 'Event Key', eventKey);
-    if (!event) throw new Error('Registry is missing Event_Catalog row for: ' + eventKey);
-
-    const values = buildReviewControllerFlowValues_(form || {}, selectedItem);
-    const payload = buildFlowConsolePayload_(flow, values, eventKey);
-    const priority = values.Priority || event.Severity || selectedItem.Priority || 'Medium';
-    const draft = {
-      Source: 'Review Controller',
-      Lane: flow['Flow Type'] || event.Lane || inferLaneFromEventKey_(eventKey),
-      'Event Key': eventKey,
-      Status: HUB.STATUS.DRAFT,
-      Priority: priority,
-      Owner: values.Owner || flow.Owner || payload.owner || '',
-      'Flow ID': flowId,
-      'Dedupe Key': buildFlowConsoleDedupeKey_(flow, eventKey, payload),
-      'Parent Queue ID': flow['Last Queue ID'] || selectedItem['Queue ID'] || '',
-      'Expected Previous Event Key': flow['Current Event Key'] || '',
-      'Path Override': action === HUB.FLOW_ACTION.CONTINUE ? 'Happy Path' : 'Sad Path',
-      'Payload JSON': stringifyJson_(payload)
-    };
-
-    const queueId = upsertFlowConsoleDraft_(draft);
-    if (action !== HUB.FLOW_ACTION.CONTINUE) {
-      archiveScheduledDraftsForFlowExceptEvent_(flowId, eventKey, 'Superseded by Review Controller detour draft ' + queueId);
-    }
-    syncReviewSheetFromQueueSafe_();
-    logHub_('INFO', 'createReviewControllerFlowActionDraft', queueId, 'Review Controller created flow action draft.', {
-      flowId: flowId,
-      action: action,
-      eventKey: eventKey
-    });
-    return queueId;
+    return createReviewControllerFlowActionDraftForFlow_(form || {}, flow, selectedItem);
   });
 
   return getReviewControllerContextForQueueId_(result.queueId);
 }
 
+function createReviewControllerFlowActionDraftForFlow_(form, flow, selectedItem) {
+  const flowId = flow['Flow ID'];
+  const action = String(form && form.flowAction || '').trim();
+  if (!action || action === 'selected') {
+    throw new Error('Choose an expected path or detour action first.');
+  }
+
+  const eventKey = resolveFlowConsoleEventKey_(flow, action);
+  if (!eventKey) throw new Error('No event could be resolved for action: ' + action);
+
+  const event = findRegistryRow_('Event_Catalog', 'Event Key', eventKey);
+  if (!event) throw new Error('Registry is missing Event_Catalog row for: ' + eventKey);
+
+  const values = buildReviewControllerFlowValues_(form || {}, selectedItem || buildReviewControllerItemFromFlow_(flow));
+  const payload = buildFlowConsolePayload_(flow, values, eventKey);
+  const priority = values.Priority || event.Severity || selectedItem && selectedItem.Priority || 'Medium';
+  const draft = {
+    Source: 'Communication Console',
+    Lane: flow['Flow Type'] || event.Lane || inferLaneFromEventKey_(eventKey),
+    'Event Key': eventKey,
+    Status: HUB.STATUS.DRAFT,
+    Priority: priority,
+    Owner: values.Owner || flow.Owner || payload.owner || '',
+    'Flow ID': flowId,
+    'Dedupe Key': buildFlowConsoleDedupeKey_(flow, eventKey, payload),
+    'Parent Queue ID': flow['Last Queue ID'] || selectedItem && selectedItem['Queue ID'] || '',
+    'Expected Previous Event Key': flow['Current Event Key'] || '',
+    'Path Override': action === HUB.FLOW_ACTION.CONTINUE ? 'Happy Path' : 'Sad Path',
+    'Payload JSON': stringifyJson_(payload)
+  };
+
+  const queueId = upsertFlowConsoleDraft_(draft);
+  if (action !== HUB.FLOW_ACTION.CONTINUE) {
+    archiveScheduledDraftsForFlowExceptEvent_(flowId, eventKey, 'Superseded by Communication Console detour draft ' + queueId);
+  }
+  syncReviewSheetFromQueueSafe_();
+  logHub_('INFO', 'createReviewControllerFlowActionDraft', queueId, 'Communication Console created flow action draft.', {
+    flowId: flowId,
+    action: action,
+    eventKey: eventKey
+  });
+  return queueId;
+}
+
+function createReviewControllerNewCommunicationDraft(form) {
+  const eventKey = resolveCanonicalEventKey_(form && (form.eventKey || form.startEventKey || form.flowAction) || '', '');
+  if (!eventKey) throw new Error('Choose a communication type first.');
+
+  const event = findRegistryRow_('Event_Catalog', 'Event Key', eventKey);
+  if (!event) throw new Error('Registry is missing Event_Catalog row for: ' + eventKey);
+
+  const lane = event.Lane || inferLaneFromEventKey_(eventKey);
+  const payload = {
+    event_key: eventKey,
+    lane: lane,
+    subject: stringFromForm_(form.subject),
+    owner: stringFromForm_(form.owner),
+    what: stringFromForm_(form.what),
+    so_what: stringFromForm_(form.soWhat),
+    whats_next: stringFromForm_(form.whatsNext),
+    priority: event.Severity || 'Medium'
+  };
+  if (!payload.subject) throw new Error('Add a subject before queueing a new communication.');
+  if (!payload.owner) throw new Error('Add an owner before queueing a new communication.');
+
+  const draft = {
+    Source: 'Communication Console',
+    Lane: lane,
+    'Event Key': eventKey,
+    Status: HUB.STATUS.DRAFT,
+    Priority: payload.priority,
+    Owner: payload.owner,
+    'Payload JSON': stringifyJson_(payload)
+  };
+  draft['Flow ID'] = buildFlowId_(draft);
+  draft['Dedupe Key'] = buildDedupeKey_(draft);
+
+  const queueId = insertQueueDraftAtTop_(draft);
+  logHub_('INFO', 'createReviewControllerNewCommunicationDraft', queueId, 'Communication Console created new communication draft.', {
+    eventKey: eventKey,
+    lane: lane
+  });
+  return getReviewControllerContextForQueueId_(queueId);
+}
+
 function getReviewControllerContextForQueueId_(queueId) {
+  return getReviewControllerContextForSelection_(queueId ? 'queue:' + queueId : '');
+}
+
+function getReviewControllerContextForSelection_(selection) {
   try {
-    const resolved = resolveReviewControllerSelection_(queueId);
+    const options = buildReviewControllerCommunicationOptions_();
+    const selectedValue = resolveReviewControllerSelectedValue_(selection, options);
+    const parsed = parseReviewControllerSelection_(selectedValue);
+    if (parsed.mode === 'new') return buildReviewControllerNewContext_(options, selectedValue);
+    if (parsed.mode === 'flow') return buildReviewControllerFlowOnlyContext_(parsed.id, options, selectedValue);
+    return buildReviewControllerQueueContext_(parsed.id, options, selectedValue);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error.message || String(error)
+    };
+  }
+}
+
+function buildReviewControllerQueueContext_(queueId, communicationOptions, selectedValue) {
+  const resolved = resolveReviewControllerSelection_(queueId);
     const queueSheet = resolved.queueSheet;
     const row = resolved.row;
     const item = getRowObject_(queueSheet, row);
@@ -139,6 +235,9 @@ function getReviewControllerContextForQueueId_(queueId) {
 
     return {
       ok: true,
+      mode: 'queue',
+      communications: communicationOptions,
+      selectedCommunication: selectedValue,
       selection: {
         sourceSheet: resolved.sourceSheet,
         row: resolved.sourceRow,
@@ -161,15 +260,139 @@ function getReviewControllerContextForQueueId_(queueId) {
         slackUrl: item['Slack Message URL'] || ''
       },
       flow: buildReviewControllerFlowContext_(flow),
-      actions: buildReviewControllerActions_(item, flow),
+      actions: buildReviewControllerActions_(item, flow, { includeSelected: true }),
       message: ''
     };
-  } catch (error) {
-    return {
-      ok: false,
-      message: error.message || String(error)
-    };
+}
+
+function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, selectedValue) {
+  const flow = findFlowStateByFlowId_(flowId);
+  if (!flow) throw new Error('Flow not found in Flow_State: ' + flowId);
+  const item = buildReviewControllerItemFromFlow_(flow);
+  const payload = normalizePayload_(item);
+  return {
+    ok: true,
+    mode: 'flow',
+    communications: communicationOptions,
+    selectedCommunication: selectedValue,
+    selection: {
+      sourceSheet: HUB.SHEETS.FLOW_STATE,
+      row: 0,
+      queueRow: 0
+    },
+    queue: {
+      queueId: '',
+      flowId: flowId,
+      eventKey: flow['Current Event Key'] || '',
+      eventName: getReviewControllerEventDisplayName_(flow['Current Event Key']),
+      lane: flow['Flow Type'] || '',
+      status: flow['Flow Status'] || '',
+      source: 'Flow_State',
+      priority: payload.priority || '',
+      owner: flow.Owner || payload.owner || '',
+      subject: flow.Subject || payload.subject || flowId,
+      what: payload.what || '',
+      soWhat: payload.so_what || '',
+      whatsNext: payload.whats_next || '',
+      slackUrl: flow['Anchor Message URL'] || ''
+    },
+    flow: buildReviewControllerFlowContext_(flow),
+    actions: buildReviewControllerActions_(item, flow, { includeSelected: false }),
+    message: ''
+  };
+}
+
+function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
+  const startEvents = buildReviewControllerStartEventActions_();
+  return {
+    ok: true,
+    mode: 'new',
+    communications: communicationOptions,
+    selectedCommunication: selectedValue,
+    selection: {
+      sourceSheet: '',
+      row: 0,
+      queueRow: 0
+    },
+    queue: {
+      queueId: '',
+      flowId: '',
+      eventKey: '',
+      eventName: '',
+      lane: '',
+      status: 'New',
+      source: 'Communication Console',
+      priority: '',
+      owner: '',
+      subject: '',
+      what: '',
+      soWhat: '',
+      whatsNext: '',
+      slackUrl: ''
+    },
+    flow: buildReviewControllerFlowContext_(null),
+    actions: startEvents,
+    message: 'Choose a communication type.'
+  };
+}
+
+function buildReviewControllerCommunicationOptions_() {
+  const ss = SpreadsheetApp.getActive();
+  const options = [{
+    value: 'new',
+    label: '+ New communication'
+  }];
+
+  const queueSheet = ss.getSheetByName(HUB.SHEETS.QUEUE);
+  if (queueSheet) {
+    getObjects_(queueSheet)
+      .filter(row => [HUB.STATUS.DRAFT, HUB.STATUS.SCHEDULED, HUB.STATUS.ERROR].indexOf(String(row.Status || '').trim()) >= 0)
+      .forEach(row => {
+        const payload = normalizePayload_(row);
+        const subject = getReviewControllerSubject_(row, payload);
+        options.push({
+          value: 'queue:' + row['Queue ID'],
+          label: 'Draft: ' + subject + ' - ' + getReviewControllerEventDisplayName_(row['Event Key'])
+        });
+      });
   }
+
+  const flowSheet = ss.getSheetByName(HUB.SHEETS.FLOW_STATE);
+  if (flowSheet) {
+    getObjects_(flowSheet)
+      .filter(row => row['Flow ID'])
+      .forEach(row => {
+        const subject = row.Subject || row['Flow ID'];
+        options.push({
+          value: 'flow:' + row['Flow ID'],
+          label: 'Existing: ' + subject + ' - ' + getReviewControllerEventDisplayName_(row['Current Event Key'])
+        });
+      });
+  }
+
+  return options;
+}
+
+function resolveReviewControllerSelectedValue_(selection, options) {
+  const requested = String(selection || '').trim();
+  if (requested && options.some(option => option.value === requested)) return requested;
+
+  const ss = SpreadsheetApp.getActive();
+  const selectedQueueId = getQueueIdFromActiveReviewControllerSelection_(ss);
+  if (selectedQueueId) {
+    const queueSelection = 'queue:' + selectedQueueId;
+    if (options.some(option => option.value === queueSelection)) return queueSelection;
+  }
+
+  return 'new';
+}
+
+function parseReviewControllerSelection_(selection) {
+  const value = String(selection || '').trim();
+  if (!value || value === 'new') return { mode: 'new', id: '' };
+  if (value.indexOf('queue:') === 0) return { mode: 'queue', id: value.slice(6) };
+  if (value.indexOf('flow:') === 0) return { mode: 'flow', id: value.slice(5) };
+  return { mode: 'queue', id: value };
 }
 
 function withReviewControllerQueueRow_(queueId, callback) {
@@ -218,6 +441,7 @@ function getQueueIdFromActiveReviewControllerSelection_(ss) {
 function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
   const item = getRowObject_(queueSheet, row);
   const payload = normalizePayload_(item);
+  payload.subject = stringFromForm_(form.subject) || payload.subject || '';
   payload.what = stringFromForm_(form.what);
   payload.so_what = stringFromForm_(form.soWhat);
   payload.whats_next = stringFromForm_(form.whatsNext);
@@ -271,14 +495,18 @@ function buildReviewControllerFlowContext_(flow) {
   };
 }
 
-function buildReviewControllerActions_(item, flow) {
+function buildReviewControllerActions_(item, flow, options) {
+  options = options || {};
   const selectedDefaults = buildReviewControllerSelectedDefaults_(item);
-  const actions = [{
-    value: 'selected',
-    label: 'Use selected draft: ' + getReviewControllerEventDisplayName_(item['Event Key']),
-    eventKey: item['Event Key'] || '',
-    defaults: selectedDefaults
-  }];
+  const actions = [];
+  if (options.includeSelected !== false) {
+    actions.push({
+      value: 'selected',
+      label: 'Use selected draft: ' + getReviewControllerEventDisplayName_(item['Event Key']),
+      eventKey: item['Event Key'] || '',
+      defaults: selectedDefaults
+    });
+  }
 
   if (!flow) return actions;
 
@@ -296,6 +524,38 @@ function buildReviewControllerActions_(item, flow) {
   return actions.filter((action, index, list) =>
     list.findIndex(candidate => candidate.value === action.value && candidate.eventKey === action.eventKey) === index
   );
+}
+
+function buildReviewControllerStartEventActions_() {
+  return getRegistryObjects_('Event_Catalog')
+    .filter(row => String(row.Active || 'TRUE').toUpperCase() !== 'FALSE')
+    .filter(row => String(row.Path || '').toLowerCase() === 'start')
+    .map(row => {
+      const eventKey = row['Event Key'];
+      return {
+        value: 'new_start:' + eventKey,
+        label: row.Lane + ': ' + getReviewControllerEventDisplayName_(eventKey),
+        eventKey: eventKey,
+        defaults: buildReviewControllerNewStartDefaults_(eventKey)
+      };
+    });
+}
+
+function buildReviewControllerItemFromFlow_(flow) {
+  const payload = getFlowStatePayload_(flow);
+  return {
+    'Queue ID': '',
+    'Flow ID': flow['Flow ID'] || '',
+    'Event Key': flow['Current Event Key'] || payload.event_key || '',
+    Lane: flow['Flow Type'] || payload.lane || '',
+    Status: flow['Flow Status'] || '',
+    Owner: flow.Owner || payload.owner || '',
+    Priority: payload.priority || '',
+    'Payload JSON': stringifyJson_(Object.assign({}, payload, {
+      subject: flow.Subject || payload.subject || flow['Flow ID'],
+      owner: flow.Owner || payload.owner || ''
+    }))
+  };
 }
 
 function buildReviewControllerSelectedDefaults_(item) {
@@ -399,6 +659,39 @@ function buildReviewControllerActionDefaults_(item, flow, eventKey, action) {
   return {
     what: eventName + ' for ' + subject + '.',
     soWhat: 'Stakeholders should understand what changed and how it affects expectations.',
+    whatsNext: 'Owner will confirm the next action, timing, or decision.'
+  };
+}
+
+function buildReviewControllerNewStartDefaults_(eventKey) {
+  const eventName = getReviewControllerEventDisplayName_(eventKey);
+  if (eventKey === 'release.scheduled') {
+    return {
+      what: 'A production release has been scheduled.',
+      soWhat: 'Stakeholders should be aware of the planned production change window and readiness path.',
+      whatsNext: 'Release owner will confirm go / no-go readiness before the release window.'
+    };
+  }
+
+  if (eventKey === 'incident.critical.identified') {
+    return {
+      what: 'A critical issue has been identified and triage is underway.',
+      soWhat: 'Leadership visibility is needed because customer, operational, support, or stakeholder impact may be material.',
+      whatsNext: 'Owner will confirm impact, recovery path, and next update timing.'
+    };
+  }
+
+  if (eventKey === 'project.kickoff') {
+    return {
+      what: 'The project is entering the managed communication lifecycle.',
+      soWhat: 'Stakeholders should have a clear owner, scope intent, and first checkpoint.',
+      whatsNext: 'Owner will confirm the next gate, target timing, and key risks.'
+    };
+  }
+
+  return {
+    what: eventName + ' has been created.',
+    soWhat: 'Stakeholders should understand why this communication is being opened.',
     whatsNext: 'Owner will confirm the next action, timing, or decision.'
   };
 }

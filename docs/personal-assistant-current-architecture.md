@@ -35,7 +35,7 @@ Queue stores only workflow handles, routing override, send rule, payload, and cu
 | Sheet | Role |
 | --- | --- |
 | `Queue` | Lean active work state for drafts awaiting review, approval, retry, or scheduled handling. |
-| `Review` | Readable PM-facing projection used by the Review Controller and manual review. |
+| `Review` | Readable PM-facing projection used by the Communication Console and manual review. |
 | `History` | Compact audit of completed, logged, sent, or discarded communication items. |
 | `Flow_State` | One live parent-flow row per project, incident, release, or story communication thread. |
 | `Graph_*` | Hidden long-term memory for entity/W-node continuity and audit events. |

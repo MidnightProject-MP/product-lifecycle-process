@@ -2,7 +2,7 @@
 
 Personal Assistant treats each meaningful action as an independently callable skill.
 
-In this phase, skills are internal Apps Script calls only. There is no public skill endpoint. Existing presentation layers remain stable: Hub sheets, Review Controller, Registry, Slack anchors, Slack threads, slash commands, and triggers continue to behave as before.
+In this phase, skills are internal Apps Script calls only. There is no public skill endpoint. Existing presentation layers remain stable: Hub sheets, Communication Console, Registry, Slack anchors, Slack threads, slash commands, and triggers continue to behave as before.
 
 ## Skill Kernel
 
@@ -33,7 +33,7 @@ Skill runs are logged in the hidden `Skill_Run_Log` sheet. This gives each inter
 | Skill | Purpose | Reads | Writes / Side Effects | Approval | Idempotency | Failure Behavior |
 | --- | --- | --- | --- | --- | --- | --- |
 | `queue_communication_draft` | Create or dedupe a communication draft. | Registry indirectly through queue normalization. | Lean `Queue`, `Review`, lightweight graph event. | No. | Uses `Dedupe Key` to avoid duplicate active drafts. | Fails if event key cannot be resolved. |
-| `save_review_draft` | Save Review Controller edits back to the Queue payload. | `Queue`, selected Review/Queue row. | `Queue`, `Review`, lightweight graph event. | No. | Updates the selected draft in place. | Fails if the Queue row no longer exists. |
+| `save_review_draft` | Save Communication Console edits back to the Queue payload. | `Queue`, selected Review/Queue row. | `Queue`, `Review`, lightweight graph event. | No. | Updates the selected draft in place. | Fails if the Queue row no longer exists. |
 | `approve_draft` | Approve and process a Queue draft. | `Queue`, Registry, Flow_State, Slack config. | Slack, `Queue`, compact `History`, `Flow_State`, `Review`, graph verified memory, possibly next scheduled draft. | Yes, human-driven. | Existing flow sequence checks prevent stale drafts from moving silently. | If send fails, Queue row moves to `Error`; the skill returns failure. |
 | `discard_draft` | Archive and remove an active draft. | `Queue`. | Compact `History`, `Queue`, `Review`, graph discard event. | Yes, human-driven. | Removes the active row once archived. | Fails if the Queue row is missing. |
 | `resolve_template_policy` | Resolve event/template/routing behavior from the Registry. | Registry `Event_Catalog`, `Templates`, `Settings`. | None. | No. | Read-only. | Fails if event or template is missing/inactive. |

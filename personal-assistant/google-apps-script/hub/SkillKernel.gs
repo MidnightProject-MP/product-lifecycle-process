@@ -6,7 +6,7 @@ const SKILL_CATALOG = {
   ),
   save_review_draft: skillContract_(
     'save_review_draft',
-    'Save Review Controller draft edits back to Queue.',
+    'Save Communication Console draft edits back to Queue.',
     handleSaveReviewDraftSkill_
   ),
   approve_draft: skillContract_(

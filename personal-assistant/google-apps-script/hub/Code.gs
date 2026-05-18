@@ -49,8 +49,8 @@ function seedHubPocData() {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Personal Assistant')
-    .addItem('Open Review Controller', 'openReviewController')
-    .addItem('Open Review Controller Sidebar', 'openReviewControllerSidebar')
+    .addItem('Open Communication Console', 'openReviewController')
+    .addItem('Open Communication Console Sidebar', 'openReviewControllerSidebar')
     .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
     .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
     .addItem('Discard selected row(s)', 'discardSelectedQueueRows')

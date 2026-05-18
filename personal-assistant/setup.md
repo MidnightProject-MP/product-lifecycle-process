@@ -134,7 +134,7 @@ This creates or repairs:
 - `Run_Log`
 - `Skill_Run_Log`
 
-The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The `Flow_Console` is the PM-facing surface for selecting a flow, choosing an expected-path or detour action, and creating a draft. The `Review` sheet is a readable PM projection and the Review Controller remains the primary approval UX. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
+The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the primary PM UX for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, and approving a draft. `Review` remains the readable PM projection behind that console. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
 
 The graph sheets are hidden by default. They are the passive long-term memory layer for Personal Assistant and should not be used as a manual review surface.
 
@@ -290,7 +290,7 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 1. Run `/incident api outage affecting centers` in Slack.
 2. Confirm a `Draft` row appears in Hub `Queue` with `Event Key = incident.critical.identified`.
-3. Approve the draft from `Review` or the Review Controller.
+3. Approve the draft from `Review` or the Communication Console.
 4. Confirm Slack receives the message.
 5. Confirm compact Slack metadata appears in `History` and parent state appears in `Flow_State`.
 
