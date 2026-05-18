@@ -114,6 +114,12 @@ Run:
 setupHubSheets
 ```
 
+For the v2 dev schema reset, run this first. It clears existing Hub test rows and rebuilds the Hub tabs with the lean v2 headers:
+
+```text
+resetHubForV2Dev
+```
+
 This creates or repairs:
 
 - `Queue`
@@ -128,7 +134,7 @@ This creates or repairs:
 - `Run_Log`
 - `Skill_Run_Log`
 
-The `Queue` remains the active technical worklist. The `Flow_Console` is the PM-facing surface for selecting a flow, choosing an expected-path or detour action, and creating a draft. The `Review` sheet is the approval surface: it shows draft context, keeps technical Slack/script fields out of the way, and provides a `Decision` dropdown. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into `History` and removed from `Queue`.
+The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The `Flow_Console` is the PM-facing surface for selecting a flow, choosing an expected-path or detour action, and creating a draft. The `Review` sheet is a readable PM projection and the Review Controller remains the primary approval UX. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
 
 The graph sheets are hidden by default. They are the passive long-term memory layer for Personal Assistant and should not be used as a manual review surface.
 
@@ -284,9 +290,9 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 1. Run `/incident api outage affecting centers` in Slack.
 2. Confirm a `Draft` row appears in Hub `Queue` with `Event Key = incident.critical.identified`.
-3. Change `Status` to `Approved`.
+3. Approve the draft from `Review` or the Review Controller.
 4. Confirm Slack receives the message.
-5. Confirm `Slack Thread ID`, `Slack Channel`, `Slack Message TS`, `Sent At`, and `Slack Message URL` are populated.
+5. Confirm compact Slack metadata appears in `History` and parent state appears in `Flow_State`.
 
 ### Project / Release Polling Test
 
@@ -314,17 +320,18 @@ The menu appears after reloading the Hub spreadsheet:
 For direct technical testing, add a `Queue` row with:
 
 - `Source`: `Manual`
-- `Lane`: `Project`, `Incident / Bug`, or `Production Release`
 - `Event Key`: a key from Registry `Event_Catalog`
 - `Status`: `Draft`
-- `Priority`
 - `Owner`
+- `Flow ID`
 - `Payload JSON`
 
 Example payload:
 
 ```json
 {
+  "lane": "Project",
+  "priority": "Medium",
   "subject": "Claims Modernization",
   "owner": "TPM",
   "what": "Status changed from Green to Red.",
@@ -365,8 +372,8 @@ debugRunHubSmokeTestLogOnly
 
 Creates a row at Queue row 2 and processes it with `Send Rule = Log Only`. Expected result:
 
-- Queue row 2 changes to `Logged`.
-- A matching History row appears at row 2.
+- The Queue row is removed from the active Queue.
+- A compact History row appears at row 2 with `Final Status = Logged`.
 - Run_Log gets trace rows at row 2.
 - No Slack message is sent.
 
@@ -378,7 +385,7 @@ Creates and approves a log-only draft through the atomic skill runner. Expected 
 
 - The draft is queued through `queue_communication_draft`.
 - The draft is approved through `approve_draft`.
-- A matching History row appears at row 2.
+- A compact History row appears at row 2 with `Final Status = Logged`.
 - Flow_State is updated for the smoke-test `Flow ID`.
 - Graph memory has an entity, W-nodes, and graph events for the flow.
 - Skill_Run_Log records the parent and child skill runs with no `ERROR` rows for the smoke-test run tree.

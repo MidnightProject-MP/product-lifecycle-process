@@ -19,7 +19,7 @@ Graph writes are best-effort. A graph write failure logs to `Run_Log` but does n
 
 ## Verification Rule
 
-Draft content is recorded as pending memory. Once a human approves a message and it is sent or logged, the included W-node values are treated as verified communication memory.
+Draft creation and save actions are recorded as lightweight pending graph events. Once a human approves a message and it is sent or logged, the included W-node values are treated as verified communication memory.
 
 Discarded draft content is not promoted to verified memory.
 

@@ -42,10 +42,10 @@ Add a Hub-managed `Flow_State` sheet.
 | `Flow Type` | Project, Incident / Bug, Production Release, Stray Story. |
 | `Subject` | Human-readable title. |
 | `Owner` | Current accountable communication owner. |
+| `Flow Status` | Active, Completed, Paused, Error. |
 | `Current Event Key` | Most recent event sent/logged for this flow. |
-| `Current Path` | Happy Path, Sad Path, Start, End, or Heartbeat. |
 | `Next Happy Event Key` | Expected next event if the flow continues normally. |
-| `Allowed Sad Path Event Keys` | Comma-separated detour events that can interrupt the happy path. |
+| `Allowed Detour Event Keys` | Comma-separated detour events that can interrupt the happy path. |
 | `Return Event Key` | Expected event that returns the flow from a detour back to the happy path. |
 | `Slack Channel` | Channel where the anchor lives. |
 | `Anchor Message TS` | Slack timestamp of the parent message. |
@@ -53,9 +53,8 @@ Add a Hub-managed `Flow_State` sheet.
 | `Latest Reply TS` | Slack timestamp of the latest child reply. |
 | `Anchor Message URL` | Permalink for the parent anchor. |
 | `Last Queue ID` | Most recent Queue item processed for this flow. |
-| `Last Sent At` | Last successful send/log timestamp. |
-| `Flow Status` | Active, Completed, Paused, Error. |
-| `Payload JSON` | Latest normalized payload snapshot. |
+| `Last Confirmed At` | Last successful send/log timestamp. |
+| `State JSON` | Latest normalized flow-state snapshot. |
 | `Updated At` | Last state update timestamp. |
 
 ## Registry Transition Rules
@@ -75,7 +74,7 @@ Add a Registry-managed `Event_Transitions` table.
 
 ## Draft Contract Changes
 
-Each Queue row still represents one update, but it must carry enough parent-flow context:
+Each Queue row still represents one update, but the visible Queue remains lean. Parent-flow context that is not part of the Queue v2 header lives in `Payload JSON`.
 
 - `Flow ID`
 - `Event Key`

@@ -9,7 +9,7 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 | Component | Purpose |
 | --- | --- |
 | Personal Assistant Registry | Central event catalog, templates, variables, approval rules, message behavior, and Slack channel defaults. |
-| Personal Assistant Hub | Active technical Queue, human Review sheet, approval, outbound Slack sender, history, and run log. |
+| Personal Assistant Hub | Lean active Queue, Review Controller/Review projection, outbound Slack sender, compact history, flow state, and run log. |
 | Automation Dashboard | Polling, normalization, snapshots, trigger logs, dedupe, and Hub draft creation. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |

@@ -207,7 +207,7 @@ function refreshFlowConsoleState_(sheet) {
   setFlowConsoleValue_(sheet, 'Subject', flow.Subject || flowId);
   setFlowConsoleValue_(sheet, 'Current state', getEventDisplayName_(flow['Current Event Key']));
   setFlowConsoleValue_(sheet, 'Expected next step', flow['Next Happy Event Key'] ? getEventDisplayName_(flow['Next Happy Event Key']) : 'No expected next step');
-  setFlowConsoleValue_(sheet, 'Available detours', describeEventKeyList_(flow['Allowed Sad Path Event Keys']));
+  setFlowConsoleValue_(sheet, 'Available detours', describeEventKeyList_(getFlowAllowedDetourEventKeys_(flow)));
   applyFlowConsoleActionValidationForFlow_(sheet, flow);
   if (!values.Owner && flow.Owner) setFlowConsoleValue_(sheet, 'Owner', flow.Owner);
   setFlowConsoleValue_(sheet, 'Console Status', 'Ready.');
@@ -265,7 +265,7 @@ function resolveFlowConsoleEventKey_(flow, action) {
 }
 
 function findAllowedDetourEvent_(flow, tokens) {
-  const allowed = String(flow['Allowed Sad Path Event Keys'] || '')
+  const allowed = String(getFlowAllowedDetourEventKeys_(flow) || '')
     .split(',')
     .map(value => value.trim())
     .filter(value => value);
@@ -281,7 +281,7 @@ function getAvailableFlowConsoleActions_(flow) {
   const actions = [];
   if (flow['Next Happy Event Key']) actions.push(HUB.FLOW_ACTION.CONTINUE);
 
-  const allowed = String(flow['Allowed Sad Path Event Keys'] || '').toLowerCase();
+  const allowed = String(getFlowAllowedDetourEventKeys_(flow) || '').toLowerCase();
   const useFallback = shouldUseReleaseFallbackActions_(flow);
   if (allowed.indexOf('delay') >= 0 || allowed.indexOf('delayed') >= 0 || (useFallback && releaseFallbackEvent_(flow, 'release.delayed'))) {
     actions.push(HUB.FLOW_ACTION.DELAY);
@@ -304,11 +304,11 @@ function getAvailableFlowConsoleActions_(flow) {
 
 function shouldUseReleaseFallbackActions_(flow) {
   return String(flow['Flow Type'] || '') === 'Production Release' &&
-    !String(flow['Allowed Sad Path Event Keys'] || '').trim();
+    !String(getFlowAllowedDetourEventKeys_(flow) || '').trim();
 }
 
 function buildFlowConsolePayload_(flow, values, eventKey) {
-  const payload = parseJsonObject_(flow['Payload JSON']);
+  const payload = getFlowStatePayload_(flow);
   payload.event_key = eventKey;
   payload.flow_id = flow['Flow ID'];
   payload.owner = values.Owner || flow.Owner || payload.owner || '';
@@ -336,6 +336,7 @@ function buildFlowConsoleDedupeKey_(flow, eventKey, payload) {
 function upsertFlowConsoleDraft_(draft) {
   const sheet = ensureSheet_(SpreadsheetApp.getActive(), HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
   const existingRow = findActiveQueueRowByFlowAndEvent_(sheet, draft['Flow ID'], draft['Event Key']);
+  draft['Payload JSON'] = stringifyJson_(normalizePayload_(draft));
 
   if (!existingRow) return insertQueueDraftAtTop_(draft);
 

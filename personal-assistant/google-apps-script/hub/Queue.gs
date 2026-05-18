@@ -11,6 +11,7 @@ function insertQueueDraftAtTop_(draft) {
   payload.event_key = eventKey;
   const lane = draft.Lane || payload.lane || inferLaneFromEventKey_(eventKey);
   if (lane) payload.lane = lane;
+  enrichPayloadFromDraft_(payload, draft);
 
   const normalizedDraft = Object.assign({}, draft, {
     Lane: lane,
@@ -88,13 +89,16 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
 
     const sendRule = String(hydratedItem['Send Rule'] || template['Default Send Rule'] || '').trim();
     if (sendRule.toLowerCase() === 'log only') {
+      const completedAt = nowIso_();
       updateRowFields_(sheet, row, {
         'Status': HUB.STATUS.LOGGED,
-        'Updated At': nowIso_(),
-        'Sent At': nowIso_(),
+        'Updated At': completedAt,
         'Error': ''
       });
-      const loggedItem = getRowObject_(sheet, row);
+      const loggedItem = buildCompletedCommunicationItem_(getRowObject_(sheet, row), {
+        status: HUB.STATUS.LOGGED,
+        completedAt: completedAt
+      });
       runSkill('record_graph_memory', {
         action: 'logged_verified',
         item: loggedItem
@@ -107,7 +111,8 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
       }, { parentRunId: workflowRunId });
       runSkillOrThrow_('record_history', {
         queueId: loggedItem['Queue ID'],
-        row: row
+        row: row,
+        item: loggedItem
       }, { parentRunId: workflowRunId });
       deleteQueueRow_(sheet, row, item['Queue ID'], HUB.STATUS.LOGGED);
       runSkill('schedule_next_flow_draft', {
@@ -164,17 +169,21 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
     const initialThreadRecord = createInitialThreadHistoryReplyIfNeeded_(channel, historyText, result, threadTs, existingFlow, hydratedItem, template, workflowRunId);
     const messageResult = initialThreadRecord || result;
 
+    const sentAt = nowIso_();
+    const completedItem = buildCompletedCommunicationItem_(hydratedItem, {
+      status: HUB.STATUS.SENT,
+      completedAt: sentAt,
+      slackThreadId: threadTs || result.ts,
+      slackChannel: result.channel || channel,
+      slackMessageTs: messageResult.ts || '',
+      slackMessageUrl: messageResult.permalink || ''
+    });
     updateRowFields_(sheet, row, {
       'Status': HUB.STATUS.SENT,
-      'Updated At': nowIso_(),
-      'Sent At': nowIso_(),
-      'Slack Thread ID': threadTs || result.ts,
-      'Slack Channel': result.channel || channel,
-      'Slack Message TS': messageResult.ts || '',
-      'Slack Message URL': messageResult.permalink || '',
+      'Updated At': sentAt,
       'Error': ''
     });
-    const sentItem = getRowObject_(sheet, row);
+    const sentItem = buildCompletedCommunicationItem_(getRowObject_(sheet, row), completedItem);
     runSkill('record_graph_memory', {
       action: 'sent_verified',
       item: sentItem
@@ -193,7 +202,8 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
     }, { parentRunId: workflowRunId });
     runSkillOrThrow_('record_history', {
       queueId: sentItem['Queue ID'],
-      row: row
+      row: row,
+      item: sentItem
     }, { parentRunId: workflowRunId });
     deleteQueueRow_(sheet, row, item['Queue ID'], HUB.STATUS.SENT);
     runSkill('schedule_next_flow_draft', {
@@ -229,6 +239,7 @@ function normalizeQueueRowBeforeSend_(sheet, row, item) {
   payload.event_key = eventKey;
   const lane = item.Lane || payload.lane || inferLaneFromEventKey_(eventKey);
   if (lane) payload.lane = lane;
+  enrichPayloadFromDraft_(payload, item);
 
   const normalized = Object.assign({}, item, {
     Lane: lane,
@@ -312,24 +323,77 @@ function applyTemplateDefaults_(sheet, row, item, template) {
 function insertHistoryFromQueueRowAtTop_(queueSheet, row) {
   const ss = SpreadsheetApp.getActive();
   const historySheet = ensureSheet_(ss, HUB.SHEETS.HISTORY, HUB.HEADERS.HISTORY);
-  const item = getRowObject_(queueSheet, row);
-  insertObjectRowAtTop_(historySheet, item);
+  const item = arguments.length > 2 && arguments[2] ? arguments[2] : getRowObject_(queueSheet, row);
+  insertObjectRowAtTop_(historySheet, buildHistoryRowFromCommunicationItem_(item));
   logHub_('INFO', 'insertHistoryFromQueueRowAtTop_', item['Queue ID'], 'Copied queue row to History.', {
     flowId: item['Flow ID'],
     status: item.Status
   });
 }
 
+function buildCompletedCommunicationItem_(item, completion) {
+  const merged = Object.assign({}, hydrateCommunicationObject_(item), completion || {});
+  const payload = normalizePayload_(merged);
+  const status = completion && completion.status || completion && completion.Status || merged.Status || '';
+  const completedAt = completion && completion.completedAt || completion && completion['Completed At'] || merged['Completed At'] || merged['Sent At'] || nowIso_();
+
+  if (status) merged.Status = status;
+  merged['Completed At'] = completedAt;
+  merged['Sent At'] = completedAt;
+  if (completion && completion.error != null) merged.Error = completion.error;
+  if (completion && completion.slackThreadId) {
+    merged['Slack Thread ID'] = completion.slackThreadId;
+    merged['Slack Thread TS'] = completion.slackThreadId;
+  }
+  if (completion && completion.slackChannel) merged['Slack Channel'] = completion.slackChannel;
+  if (completion && completion.slackMessageTs) merged['Slack Message TS'] = completion.slackMessageTs;
+  if (completion && completion.slackMessageUrl) merged['Slack Message URL'] = completion.slackMessageUrl;
+  if (!merged.Owner && payload.owner) merged.Owner = payload.owner;
+  if (!merged.Lane && payload.lane) merged.Lane = payload.lane;
+  if (!merged.Priority && payload.priority) merged.Priority = payload.priority;
+  return merged;
+}
+
+function buildHistoryRowFromCommunicationItem_(item) {
+  item = hydrateCommunicationObject_(item);
+  const payload = normalizePayload_(item);
+  const subject = payload.subject ||
+    payload.project ||
+    payload.release_name ||
+    payload.issue_title ||
+    payload.release_id ||
+    item['Flow ID'] ||
+    '';
+  const payloadText = item['Payload JSON'] || stringifyJson_(payload);
+  return {
+    'History ID': uuid_(),
+    'Queue ID': item['Queue ID'] || '',
+    'Flow ID': item['Flow ID'] || '',
+    'Event Key': item['Event Key'] || payload.event_key || '',
+    'Final Status': item.Status || '',
+    Subject: subject,
+    Owner: item.Owner || payload.owner || '',
+    'Completed At': item['Completed At'] || item['Sent At'] || item['Updated At'] || nowIso_(),
+    'Slack Channel': item['Slack Channel'] || '',
+    'Slack Thread TS': item['Slack Thread TS'] || item['Slack Thread ID'] || '',
+    'Slack Message TS': item['Slack Message TS'] || '',
+    'Slack Message URL': item['Slack Message URL'] || '',
+    'Payload Hash': graphHashString_(payloadText),
+    Error: item.Error || ''
+  };
+}
+
 function archiveAndDeleteQueueRow_(queueSheet, row, finalStatus, finalError) {
-  const item = getRowObject_(queueSheet, row);
+  const item = buildCompletedCommunicationItem_(getRowObject_(queueSheet, row), {
+    status: finalStatus,
+    completedAt: nowIso_(),
+    error: finalError == null ? '' : finalError
+  });
   const queueId = item['Queue ID'];
   if (finalStatus === HUB.STATUS.DISCARDED) {
     runSkill('record_graph_memory', {
       action: 'discarded',
-      item: Object.assign({}, item, {
-        Status: finalStatus,
-        Error: finalError == null ? item.Error || '' : finalError
-      }),
+      item: item,
       reason: finalError
     });
   }
@@ -338,7 +402,7 @@ function archiveAndDeleteQueueRow_(queueSheet, row, finalStatus, finalError) {
     'Updated At': nowIso_(),
     Error: finalError == null ? '' : finalError
   });
-  insertHistoryFromQueueRowAtTop_(queueSheet, row);
+  insertHistoryFromQueueRowAtTop_(queueSheet, row, item);
   deleteQueueRow_(queueSheet, row, queueId, finalStatus);
 }
 
@@ -353,10 +417,11 @@ function deleteQueueRow_(sheet, row, queueId, status) {
 function getRowObject_(sheet, row) {
   const headers = getHeaders_(sheet);
   const values = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
-  return headers.reduce((obj, header, index) => {
+  const object = headers.reduce((obj, header, index) => {
     obj[header] = values[index];
     return obj;
   }, {});
+  return hydrateCommunicationObject_(object);
 }
 
 function insertObjectRowAtTop_(sheet, object) {
@@ -444,9 +509,9 @@ function findThreadForFlow_(flowId) {
   if (!historySheet) return '';
 
   const rows = getObjects_(historySheet)
-    .filter(row => row['Flow ID'] === flowId && row['Slack Thread ID']);
+    .filter(row => row['Flow ID'] === flowId && (row['Slack Thread TS'] || row['Slack Thread ID']));
 
-  return rows.length ? rows[0]['Slack Thread ID'] : '';
+  return rows.length ? (rows[0]['Slack Thread TS'] || rows[0]['Slack Thread ID']) : '';
 }
 
 function normalizePayload_(draft) {
@@ -476,6 +541,7 @@ function normalizePayload_(draft) {
 
   if (draft['Event Key'] && !payload.event_key) payload.event_key = draft['Event Key'];
   if (draft.Lane && !payload.lane) payload.lane = draft.Lane;
+  enrichPayloadFromDraft_(payload, draft);
   const subject = payload.subject ||
     payload.project ||
     payload.release_name ||
@@ -484,6 +550,19 @@ function normalizePayload_(draft) {
     draft['Flow ID'] ||
     '';
   if (subject && !payload.subject) payload.subject = subject;
+  return payload;
+}
+
+function enrichPayloadFromDraft_(payload, draft) {
+  if (!payload || !draft) return payload || {};
+  if (draft.Lane && !payload.lane) payload.lane = draft.Lane;
+  if (draft.Priority && !payload.priority) payload.priority = draft.Priority;
+  if (draft['Parent Queue ID'] && !payload.parent_queue_id) payload.parent_queue_id = draft['Parent Queue ID'];
+  if (draft['Expected Previous Event Key'] && !payload.expected_previous_event_key) payload.expected_previous_event_key = draft['Expected Previous Event Key'];
+  if (draft['Path Override'] && !payload.path_override) payload.path_override = draft['Path Override'];
+  if (draft['Scheduled For'] && !payload.scheduled_for) payload.scheduled_for = draft['Scheduled For'];
+  if (draft['Approved At'] && !payload.approved_at) payload.approved_at = draft['Approved At'];
+  if (draft['Sent At'] && !payload.sent_at) payload.sent_at = draft['Sent At'];
   return payload;
 }
 

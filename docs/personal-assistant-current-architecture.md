@@ -11,7 +11,7 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 | Layer | Owns | Does Not Own |
 | --- | --- | --- |
 | Personal Assistant Registry | Event catalog, templates, variables, routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
-| Personal Assistant Hub | Draft queue, review/approval state, send execution, history, run log. | Template text, event definitions, channel policy. |
+| Personal Assistant Hub | Draft queue, PM review projection, send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
 | Automation Dashboard | Source normalization, snapshots, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
@@ -19,7 +19,7 @@ The Executive Dashboard should not contain our automation code. Owned scripts sh
 
 ## Draft Contract
 
-Hub drafts should stay compact:
+Hub v2 drafts stay compact. The Queue is an active-work table, not a send-history table:
 
 | Field | Purpose |
 | --- | --- |
@@ -28,7 +28,18 @@ Hub drafts should stay compact:
 | `Dedupe Key` | Prevents duplicate active drafts for the same observed change. |
 | `Payload JSON` | Variables used by the selected template. |
 
-Everything else is review, approval, routing override, Slack metadata, or observability.
+Queue stores only workflow handles, routing override, send rule, payload, and current error state. Draft-specific details such as lane, priority, parent queue, expected previous event, path override, and schedule metadata live inside `Payload JSON`.
+
+## Hub Sheet Roles
+
+| Sheet | Role |
+| --- | --- |
+| `Queue` | Lean active work state for drafts awaiting review, approval, retry, or scheduled handling. |
+| `Review` | Readable PM-facing projection used by the Review Controller and manual review. |
+| `History` | Compact audit of completed, logged, sent, or discarded communication items. |
+| `Flow_State` | One live parent-flow row per project, incident, release, or story communication thread. |
+| `Graph_*` | Hidden long-term memory for entity/W-node continuity and audit events. |
+| `Run_Log` / `Skill_Run_Log` | Observability only; noisy details are summarized. |
 
 ## Observability
 
@@ -38,7 +49,7 @@ Traceability is split by layer:
 - Automation `Trigger_Log`: why a draft was or was not created.
 - Hub `Run_Log`: what the sender did, skipped, or failed.
 - Hub `Skill_Run_Log`: atomic skill-level runs, parent runs, input hashes, output summaries, errors, and durations.
-- Hub `History`: immutable-ish record of approved/logged/sent communication rows.
+- Hub `History`: compact audit record with final status, identifiers, Slack pointers, and payload hash.
 - Hub graph sheets: passive long-term entity, W-node, edge, and graph-event memory.
 - Slack metadata: channel, message timestamp, thread ID, and permalink.
 
@@ -94,7 +105,7 @@ See [Hub Flow State](hub-flow-state.md).
 
 The Hub records communication continuity in hidden graph sheets. `Flow ID` is the v1 graph entity identity. The graph stores entity state, W-node memory, graph edges, and graph events without changing the visible Review, approval, or Slack workflow.
 
-Approved sent or log-only communication is treated as verified memory. Drafts are pending memory. Discarded draft content is not promoted to verified memory.
+Approved sent or log-only communication is treated as verified memory. Drafts create lightweight pending graph events only. Discarded draft content is not promoted to verified memory.
 
 See [Passive Graph Memory](passive-graph-memory.md).
 

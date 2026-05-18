@@ -409,7 +409,7 @@ function handleRecordHistorySkill_(input) {
   if (!queueSheet) throw new Error('Queue sheet is missing.');
   const row = input.row || findQueueRowByQueueId_(queueSheet, input.queueId);
   if (!row) throw new Error('Queue row not found for Queue ID: ' + input.queueId);
-  insertHistoryFromQueueRowAtTop_(queueSheet, row);
+  insertHistoryFromQueueRowAtTop_(queueSheet, row, input.item || null);
   return {
     recorded: true,
     queueId: input.queueId || getRowObject_(queueSheet, row)['Queue ID']

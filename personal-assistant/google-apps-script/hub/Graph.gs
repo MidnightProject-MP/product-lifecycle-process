@@ -18,9 +18,11 @@ function setupGraphSheets_() {
 
 function graphRecordDraftSafe_(item, action) {
   graphBestEffort_(action || 'draft_recorded', item && item['Queue ID'], function() {
+    const payload = normalizePayload_(item || {});
     graphInsertEvent_(item, action || 'draft_recorded', 'PENDING', {
       draftMemory: 'lightweight',
-      payload: normalizePayload_(item)
+      subject: payload.subject || payload.project || payload.release_name || payload.issue_title || '',
+      payloadHash: graphHashString_(item && item['Payload JSON'] || stringifyJson_(payload))
     });
   });
 }
@@ -193,8 +195,7 @@ function graphSyncFlowState_(flowState) {
     'Latest Reply TS': flowState['Latest Reply TS'] || existing['Latest Reply TS'] || '',
     'Anchor Message URL': flowState['Anchor Message URL'] || existing['Anchor Message URL'] || '',
     'Latest Queue ID': flowState['Last Queue ID'] || existing['Latest Queue ID'] || '',
-    'Last Confirmed Update At': flowState['Last Sent At'] || existing['Last Confirmed Update At'] || '',
-    'Payload JSON': flowState['Payload JSON'] || existing['Payload JSON'] || '',
+    'Last Confirmed Update At': flowState['Last Confirmed At'] || flowState['Last Sent At'] || existing['Last Confirmed Update At'] || '',
     'Updated At': nowIso_()
   });
   const edges = [];
@@ -264,10 +265,8 @@ function graphBuildEntityFromItem_(item, payload, confirmed, existing) {
 
   if (confirmed) {
     entity['Last Confirmed Update At'] = item['Sent At'] || item['Approved At'] || nowIso_();
-    entity['Payload JSON'] = item['Payload JSON'] || stringifyJson_(payload);
   } else {
     entity['Last Confirmed Update At'] = existing['Last Confirmed Update At'] || '';
-    entity['Payload JSON'] = existing['Payload JSON'] || '';
   }
 
   return entity;
@@ -315,7 +314,7 @@ function graphUpsertEdge_(edge) {
 
 function graphInsertEvent_(item, action, status, observation) {
   const payload = normalizePayload_(item || {});
-  const observationJson = stringifyJson_(observation || {});
+  const observationJson = graphCompactJson_(observation || {});
   insertObjectRowAtTop_(ensureGraphSheet_(HUB.SHEETS.GRAPH_EVENTS, HUB.HEADERS.GRAPH_EVENTS), {
     'Graph Event ID': uuid_(),
     'Entity ID': item && item['Flow ID'] ? graphBuildEntityId_(item['Flow ID']) : '',
@@ -328,6 +327,11 @@ function graphInsertEvent_(item, action, status, observation) {
     'Observation JSON': observationJson,
     'Created At': nowIso_()
   });
+}
+
+function graphCompactJson_(value) {
+  const text = stringifyJson_(value || {});
+  return text.length > 1000 ? text.slice(0, 997) + '...' : text;
 }
 
 function graphUpsertByKey_(sheetName, headers, keyField, object) {

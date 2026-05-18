@@ -48,7 +48,7 @@ function validateFlowSequence_(item, flow) {
 
   const nextHappyEventKey = String(flow['Next Happy Event Key'] || '').trim();
   const returnEventKey = String(flow['Return Event Key'] || '').trim();
-  const allowedSadPathEventKeys = String(flow['Allowed Sad Path Event Keys'] || '')
+  const allowedSadPathEventKeys = String(getFlowAllowedDetourEventKeys_(flow) || '')
     .split(',')
     .map(value => value.trim())
     .filter(value => value);
@@ -152,10 +152,10 @@ function recordFlowStateAfterSend_(item, template, sendResult, previousFlow) {
     'Flow Type': item.Lane || inferLaneFromEventKey_(item['Event Key']),
     Subject: subject,
     Owner: item.Owner || payload.owner || '',
+    'Flow Status': terminal ? 'Completed' : 'Active',
     'Current Event Key': item['Event Key'],
-    'Current Path': item['Path Override'] || event.Path || '',
     'Next Happy Event Key': transition['Next Happy Event Key'] || '',
-    'Allowed Sad Path Event Keys': transition['Allowed Sad Path Event Keys'] || '',
+    'Allowed Detour Event Keys': transition['Allowed Detour Event Keys'] || transition['Allowed Sad Path Event Keys'] || '',
     'Return Event Key': transition['Return Event Key'] || '',
     'Slack Channel': slackChannel,
     'Anchor Message TS': anchorTs,
@@ -163,9 +163,8 @@ function recordFlowStateAfterSend_(item, template, sendResult, previousFlow) {
     'Latest Reply TS': latestReplyTs,
     'Anchor Message URL': anchorUrl,
     'Last Queue ID': item['Queue ID'],
-    'Last Sent At': item['Sent At'] || nowIso_(),
-    'Flow Status': terminal ? 'Completed' : 'Active',
-    'Payload JSON': stringifyJson_(payload),
+    'Last Confirmed At': item['Sent At'] || item['Completed At'] || nowIso_(),
+    'State JSON': stringifyJson_(payload),
     'Updated At': nowIso_()
   });
 }
@@ -257,7 +256,7 @@ function archiveObsoleteScheduledDrafts_(sentItem, transition) {
     .filter(row =>
       !nextEventKey ||
       row['Event Key'] !== nextEventKey ||
-      row['Expected Previous Event Key'] !== sentItem['Event Key']
+      hydrateCommunicationObject_(row)['Expected Previous Event Key'] !== sentItem['Event Key']
     )
     .map(row => row['Queue ID']);
 
@@ -360,4 +359,12 @@ function buildFlowSubject_(item, payload) {
 function buildAnchorText_(text, item) {
   return String(text || '') +
     '\n\n_Current state: ' + getEventDisplayName_(item['Event Key']) + ' | Last updated: ' + nowIso_() + '_';
+}
+
+function getFlowAllowedDetourEventKeys_(flow) {
+  return flow && (flow['Allowed Detour Event Keys'] || flow['Allowed Sad Path Event Keys']) || '';
+}
+
+function getFlowStatePayload_(flow) {
+  return parseJsonObject_(flow && (flow['State JSON'] || flow['Payload JSON']));
 }

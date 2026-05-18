@@ -23,6 +23,25 @@ function setupHubSheets() {
   syncReviewSheetFromQueue_();
 }
 
+function resetHubForV2Dev() {
+  const ss = SpreadsheetApp.getActive();
+  Object.keys(HUB.HEADERS).forEach(key => {
+    const sheetName = HUB.SHEETS[key];
+    if (!sheetName) return;
+    resetSheetToHeaders_(ss, sheetName, HUB.HEADERS[key]);
+  });
+  resetSheetToHeaders_(ss, HUB.SHEETS.RUN_LOG_RAW, HUB.HEADERS.RUN_LOG);
+  setupHubSheets();
+  logHub_('INFO', 'resetHubForV2Dev', '', 'Hub reset to v2 dev schema.', {});
+  return 'Hub reset to v2 dev schema.';
+}
+
+function resetSheetToHeaders_(ss, sheetName, headers) {
+  const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
+  sheet.clear();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+}
+
 function seedHubPocData() {
   throw new Error('seedHubPocData is deprecated. Use the central Registry spreadsheet and run setupRegistrySheets().');
 }
@@ -491,23 +510,20 @@ function syncReviewSheetFromQueueSafe_() {
 }
 
 function buildReviewRowFromQueueRow_(queueRow) {
+  queueRow = hydrateCommunicationObject_(queueRow);
   const payload = normalizePayload_(queueRow);
   return {
     Decision: '',
     'Queue ID': queueRow['Queue ID'],
-    'Created At': queueRow['Created At'],
-    Source: queueRow.Source,
-    Lane: queueRow.Lane,
-    'Event Key': queueRow['Event Key'],
-    Priority: queueRow.Priority,
-    Owner: queueRow.Owner || payload.owner,
-    Status: queueRow.Status,
     Subject: payload.subject || payload.project || payload.release_name || payload.issue_title || queueRow['Flow ID'],
+    Event: getEventDisplayNameSafe_(queueRow['Event Key']),
+    Status: queueRow.Status,
+    Owner: queueRow.Owner || payload.owner,
     What: payload.what || '',
     'So What': payload.so_what || '',
     "What's Next": payload.whats_next || '',
     Error: queueRow.Error || '',
-    'Slack Message URL': queueRow['Slack Message URL'] || ''
+    Slack: queueRow['Slack Message URL'] || ''
   };
 }
 
@@ -559,10 +575,11 @@ function getObjects_(sheet) {
 
   const headers = values[0];
   return values.slice(1).filter(row => row.some(value => value !== '')).map(row => {
-    return headers.reduce((obj, header, index) => {
+    const object = headers.reduce((obj, header, index) => {
       obj[header] = row[index];
       return obj;
     }, {});
+    return hydrateCommunicationObject_(object);
   });
 }
 
@@ -574,7 +591,7 @@ function logHub_(level, fn, queueId, message, details) {
     fn,
     queueId || '',
     message,
-    details ? JSON.stringify(details) : ''
+    stringifyHubLogDetails_(details)
   ];
 
   if (isHubLogBuffering_()) {
@@ -615,6 +632,12 @@ function logHub_(level, fn, queueId, message, details) {
       }));
     }
   }
+}
+
+function stringifyHubLogDetails_(details) {
+  if (!details) return '';
+  const text = JSON.stringify(details);
+  return text.length > 1000 ? text.slice(0, 997) + '...' : text;
 }
 
 function withHubBufferedLogging_(callback) {
@@ -764,7 +787,9 @@ function normalizeHubCellValue_(header, value) {
 
 function shouldPreserveHubCellAsText_(header) {
   return [
+    'History ID',
     'Slack Thread ID',
+    'Slack Thread TS',
     'Slack Message TS',
     'Anchor Message TS',
     'Thread TS',
@@ -780,4 +805,28 @@ function shouldPreserveHubCellAsText_(header) {
     'Target Node ID',
     'Payload Hash'
   ].indexOf(header) >= 0;
+}
+
+function hydrateCommunicationObject_(object) {
+  if (!object || typeof object !== 'object') return object;
+
+  const payload = parseJsonObject_(object['Payload JSON']);
+  if (!object.Lane && payload.lane) object.Lane = payload.lane;
+  if (!object.Priority && payload.priority) object.Priority = payload.priority;
+  if (!object['Parent Queue ID'] && payload.parent_queue_id) object['Parent Queue ID'] = payload.parent_queue_id;
+  if (!object['Expected Previous Event Key'] && payload.expected_previous_event_key) object['Expected Previous Event Key'] = payload.expected_previous_event_key;
+  if (!object['Path Override'] && payload.path_override) object['Path Override'] = payload.path_override;
+  if (!object['Scheduled For'] && payload.scheduled_for) object['Scheduled For'] = payload.scheduled_for;
+  if (!object['Slack Thread ID'] && object['Slack Thread TS']) object['Slack Thread ID'] = object['Slack Thread TS'];
+  if (!object.Status && object['Final Status']) object.Status = object['Final Status'];
+  if (!object['Sent At'] && object['Completed At']) object['Sent At'] = object['Completed At'];
+  return object;
+}
+
+function getEventDisplayNameSafe_(eventKey) {
+  try {
+    return getEventDisplayName_(eventKey);
+  } catch (error) {
+    return eventKey || '';
+  }
 }

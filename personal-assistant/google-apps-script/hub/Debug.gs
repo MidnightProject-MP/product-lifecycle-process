@@ -185,6 +185,54 @@ function debugValidateHubRegistryConnection() {
   return JSON.stringify(result);
 }
 
+function debugValidateHubSchemaV2() {
+  const ss = SpreadsheetApp.getActive();
+  const results = {};
+  const legacyHeaders = {
+    Queue: ['Lane', 'Priority', 'Slack Thread ID', 'Reviewer', 'Approver', 'Approved At', 'Sent At', 'Slack Channel', 'Slack Message TS', 'Slack Message URL', 'Parent Queue ID', 'Expected Previous Event Key', 'Path Override'],
+    Review: ['Created At', 'Source', 'Lane', 'Event Key', 'Priority', 'Slack Message URL'],
+    History: ['Dedupe Key', 'Created At', 'Updated At', 'Source', 'Lane', 'Status', 'Priority', 'Channel Override', 'Send Rule', 'Payload JSON', 'Reviewer', 'Approver', 'Approved At', 'Sent At', 'Parent Queue ID', 'Expected Previous Event Key', 'Path Override', 'Scheduled For'],
+    Flow_State: ['Current Path', 'Allowed Sad Path Event Keys', 'Last Sent At', 'Payload JSON']
+  };
+  const hiddenSheets = [
+    HUB.SHEETS.SKILL_RUN_LOG,
+    HUB.SHEETS.GRAPH_ENTITIES,
+    HUB.SHEETS.GRAPH_W_NODES,
+    HUB.SHEETS.GRAPH_EDGES,
+    HUB.SHEETS.GRAPH_EVENTS
+  ];
+  let ok = true;
+
+  Object.keys(HUB.HEADERS).forEach(key => {
+    const sheetName = HUB.SHEETS[key];
+    if (!sheetName) return;
+    const sheet = ss.getSheetByName(sheetName);
+    const expected = HUB.HEADERS[key];
+    const actual = sheet ? getHeaders_(sheet) : [];
+    const missing = expected.filter(header => actual.indexOf(header) < 0);
+    const legacy = (legacyHeaders[sheetName] || []).filter(header => actual.indexOf(header) >= 0);
+    const expectedHidden = hiddenSheets.indexOf(sheetName) >= 0;
+    const hidden = sheet ? sheet.isSheetHidden() : false;
+    const visibilityOk = !sheet || hidden === expectedHidden;
+    if (!sheet || missing.length || legacy.length || !visibilityOk) ok = false;
+    results[sheetName] = {
+      exists: Boolean(sheet),
+      missing: missing,
+      legacy: legacy,
+      hidden: hidden,
+      expectedHidden: expectedHidden
+    };
+  });
+
+  const result = {
+    ok: ok,
+    sheets: results
+  };
+  logHub_(ok ? 'INFO' : 'ERROR', 'debugValidateHubSchemaV2', '', 'Hub v2 schema validation completed.', result);
+  if (!ok) throw new Error('Hub v2 schema validation failed: ' + JSON.stringify(result));
+  return JSON.stringify(result, null, 2);
+}
+
 function buildHubSmokeDraft_(sendRule) {
   const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
   const draft = {

@@ -265,7 +265,7 @@ function buildReviewControllerFlowContext_(flow) {
     subject: flow.Subject || flow['Flow ID'] || '',
     currentState: getReviewControllerEventDisplayName_(flow['Current Event Key']),
     expectedNext: flow['Next Happy Event Key'] ? getReviewControllerEventDisplayName_(flow['Next Happy Event Key']) : 'No expected next step',
-    availableDetours: describeReviewControllerEventKeyList_(flow['Allowed Sad Path Event Keys']),
+    availableDetours: describeReviewControllerEventKeyList_(getFlowAllowedDetourEventKeys_(flow)),
     anchorUrl: flow['Anchor Message URL'] || '',
     status: flow['Flow Status'] || ''
   };
@@ -308,7 +308,7 @@ function buildReviewControllerSelectedDefaults_(item) {
 }
 
 function buildReviewControllerActionDefaults_(item, flow, eventKey, action) {
-  const flowPayload = parseJsonObject_(flow && flow['Payload JSON']);
+  const flowPayload = getFlowStatePayload_(flow);
   const itemPayload = normalizePayload_(item);
   const subject = flow.Subject ||
     getReviewControllerSubject_(item, Object.assign({}, flowPayload, itemPayload)) ||
