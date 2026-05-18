@@ -10,7 +10,7 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | --- | --- |
 | Cadence-Based | Weekly digest, post-release outcome review. |
 | Event-Based | New initiative opened, phase change, readiness gate reached, go / no-go approaching, release scheduled, release started, release completed, rollout started or changed. |
-| Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted, release delayed, release rolled back, postmortem needed. |
+| Exception-Based | Unexpected status change, new critical issue found, critical bug reported, blocker identified, risk accepted or exception granted, release delayed, rollback being evaluated, rollback decision made, release rolled back, postmortem required. |
 | Decision-Based | Decision needed, scope change proposed, tradeoff required. |
 | Intake-Based | Stray story submitted, stray story disposition changed. |
 | Feedback-Based | Customer feedback received, support or operations feedback received, metrics threshold crossed. |
@@ -34,8 +34,10 @@ For the communication matrix, `Trigger` is the practical version of "why are we 
 | Release started | A production release has begun and stakeholders need execution visibility. |
 | Release completed | Stakeholders need confirmation of what shipped, where, known issues, and monitoring plan. |
 | Release delayed | A planned release or gate will not happen as expected and stakeholders need impact, new ETA, and next action. |
+| Rollback being evaluated | A production concern may require rollback and stakeholders need current impact, decision owner, and decision ETA before confidence changes further. |
+| Rollback decision made | The release owner has confirmed whether to continue, delay, or roll back and stakeholders need the execution path. |
 | Release rolled back | A release was reversed or partially reversed and stakeholders need current state, impact, and next decision path. |
-| Postmortem needed | A material issue, rollback, critical bug, or failed gate requires root-cause analysis and systemic follow-up. |
+| Postmortem required | A material issue, rollback, critical bug, or failed gate requires root-cause analysis and systemic follow-up. |
 | Rollout started or changed | The exposure, audience, enablement, or adoption path changed or began. |
 | Feedback received | Feedback may affect requirements, priority, quality, adoption, or future roadmap. |
 | Weekly digest | Leaders and stakeholders need a concise cross-project summary without reading every update. |

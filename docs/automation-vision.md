@@ -1,94 +1,106 @@
 # Automation Vision
 
-This repository defines the operating model for an automated product lifecycle communication process.
+Personal Assistant defines the operating model for turning technical chaos into strategic clarity.
+
+The current implementation creates event-keyed drafts from dashboard, Slack, and manual inputs. The next architecture makes Slack the executive source of truth through editable Anchor messages, with threads as the detailed audit trail.
 
 ## Core Idea
 
-The project dashboard is the real-time source of truth for projects. Incidents / bug reports, stray stories, and production releases may have their own source systems, but the automation pattern is the same: capture old state, compare new state, evaluate triggers, log communication candidates, and send approved messages.
-
-The TPM is responsible for keeping the dashboard current. After every dashboard update, an automated flow evaluates what changed and determines whether a communication should be logged, reviewed, or eventually sent to Slack using the appropriate template.
-
-## Target Flow
+The system should capture raw operational updates, translate them into business-impact communication, route them for the right level of review, and publish them where stakeholders already work.
 
 ```text
-TPM updates dashboard
+Source update
         |
         v
-Automation captures old state and new state
+Automation compares old state to new state
         |
         v
-Trigger rules evaluate the change
+Personal Assistant Registry resolves event, template, routing, and approval policy
         |
         v
-Communication candidate is logged when needed
+Personal Assistant Hub queues draft and records observability
         |
         v
-Owner reviews or approves, depending on trigger severity
+Owner reviews or approves in private triage
         |
         v
-Slack message is generated from the correct template
+Slack thread receives detailed update
         |
         v
-Message is sent and communication history is recorded
+Slack Anchor is updated as the live executive view
 ```
 
-## Automation Responsibilities
+## Target Responsibilities
 
 The automated flow should:
 
-- Detect meaningful dashboard, incident, story, or release changes.
+- Detect meaningful project, incident, story, and release changes.
 - Compare old state to new state.
-- Apply trigger rules.
-- Identify the communication type.
-- Identify the likely audience.
-- Select the correct communication template.
-- Pre-fill `What`, `So What`, and `What's Next`.
-- Log the communication candidate.
+- Apply event and trigger rules from the Registry.
+- Create drafts with clear `What`, `So What`, and `What's Next`.
+- Use an LLM layer, later, to translate raw technical notes into business-impact language.
 - Require review or approval when risk, severity, or audience warrants it.
-- Bundle related release items where appropriate to avoid overcommunication.
-- Send approved communications to Slack.
+- Post approved detailed updates into Slack threads.
+- Update the public Slack Anchor message with the latest confirmed status.
+- Track Slack timestamps in Thread Map.
+- Nudge owners when status is stale.
+- Escalate missing updates without inventing or implying unconfirmed status.
 - Record what was sent, when, where, and by whom.
 
 ## Human Responsibilities
 
 | Role | Responsibility |
 | --- | --- |
-| TPM | Keeps dashboard current and accurate. |
-| Lead PM | Owns stakeholder communication quality and ensures the message reflects business/product reality. |
+| TPM | Keeps dashboard and automation mapping current. |
+| Lead PM | Owns stakeholder communication quality and confirms product/business reality. |
 | Phase Owner | Provides accurate input for their phase and owns the relevant risk or next action. |
-| Release Owner | Confirms release readiness, release status, and rollout/release communications. |
+| Release Owner | Confirms release readiness, release status, rollout communication, and rollback posture. |
 | Executive / Accountable Leader | Approves high-risk decisions, exceptions, or escalations when needed. |
 
 ## Communication Candidate
 
-A communication candidate is a logged item created by automation when a dashboard update appears to require communication.
+A communication candidate is a logged item created by automation when a source update appears to require communication.
 
 It should include:
 
-- Project.
-- Field changed.
-- Old value.
-- New value.
-- Trigger.
-- Severity.
-- Suggested audience.
+- Entity ID and Flow ID.
+- Event key.
+- Old state and new state summary.
+- Severity and audience.
 - Suggested template.
-- Draft message.
+- Draft thread reply.
+- Draft Anchor summary.
 - Owner.
 - Review or approval requirement.
-- Due by.
+- Due by / stale threshold.
+- Slack target.
 - Sent status.
+
+## Slack Operating Model
+
+Public Slack is split into two layers:
+
+- Anchor parent message: current executive state.
+- Thread replies: detailed history and audit trail.
+
+Private triage is used for:
+
+- Owner nudges.
+- Raw PM replies.
+- AI-assisted draft generation.
+- Approval actions before publication.
 
 ## Automation Maturity
 
 | Level | Description |
 | --- | --- |
-| Level 1 | Dashboard is updated manually; communication rules are documented. |
-| Level 2 | Dashboard changes automatically create communication candidates. |
-| Level 3 | Communication candidates pre-fill messages using templates. |
-| Level 4 | Low-risk communications send automatically to Slack. |
-| Level 5 | High-risk communications route for approval, then send and log automatically. |
+| Level 1 | Communication rules are documented and dashboard updates are manual. |
+| Level 2 | Source changes create logged communication candidates. |
+| Level 3 | Candidates pre-fill messages using Registry templates. |
+| Level 4 | Approved messages post to Slack threads and History. |
+| Level 5 | Anchor messages update as live executive dashboards. |
+| Level 6 | AI nudges owners, drafts updates, and escalates stale communication gaps. |
 
 ## Guiding Principle
 
-Automation should not replace ownership. It should make ownership visible, make communication harder to miss, and reduce the manual effort needed to keep stakeholders informed.
+Automation should not replace ownership. It should make ownership visible, make stale communication hard to miss, and reduce the manual effort needed to keep stakeholders informed.

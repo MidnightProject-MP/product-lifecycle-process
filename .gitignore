@@ -1,2 +1,3 @@
 gitdb/
-
+node_modules/
+.clasprc.json

@@ -1,38 +1,33 @@
-# Product Lifecycle Ownership and Communication
+# Personal Assistant
 
-This repository defines how product work moves from business need to shipped outcome, and how ownership and communication are expected to operate along the way.
+Personal Assistant is a product workspace for turning operational noise into clear, executive-ready communication.
 
-It also defines the future automated process for turning project dashboard updates into stakeholder communication.
+The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, sends, traces, and remembers project, incident, release, and intake updates.
 
-Target flow:
+The broader AI-first personal app suite is documented as future architecture only. This repo does not yet implement a React app, Google Drive BYOS storage, graph/RAG tooling, BYOK settings, proactive workers, or an LLM gateway.
+
+## Current Capability
 
 ```text
-TPM updates dashboard
+Source update or Slack command
         |
         v
-Automation compares old state to new state
+Automation normalizes and compares state
         |
         v
-Trigger rules log potential communications
+Personal Assistant Registry resolves template, routing, and approval policy
         |
         v
-Templates generate Slack-ready messages
+Personal Assistant Hub queues draft and records observability
         |
         v
-Approved messages are sent and archived
+Reviewer approves
+        |
+        v
+Slack anchor and thread are updated
 ```
 
-The process is managed like a codebase:
-
-- Changes are proposed, reviewed, and versioned.
-- Ownership is explicit.
-- Templates are reusable source files, not one-off documents.
-- Process decisions are recorded.
-- The system improves through small, deliberate changes.
-
-## Goals
-
-The process is designed to make strong PM behavior the default:
+The current automation is designed to make strong PM behavior the default:
 
 1. Communicate proactively so stakeholders always know where things stand.
 2. Pull requirements from the business instead of waiting to be handed a spec.
@@ -42,32 +37,31 @@ The process is designed to make strong PM behavior the default:
 
 ## Repository Map
 
+- `personal-assistant/`: Current Personal Assistant implementation using Google Sheets, Apps Script, Slack, Registry, Hub, Flow State, and approval.
+- `personal-assistant/setup.md`: Step-by-step setup and configuration guide.
+- `personal-assistant/google-apps-script/`: clasp-managed Apps Script projects.
+- `personal-assistant/schemas/`: Spreadsheet schemas and starter rows.
+- `docs/personal-assistant-current-architecture.md`: Current implementation boundaries and operating model.
+- `docs/personal-assistant-future-architecture.md`: Future suite roadmap and non-implemented architecture.
+- `docs/personal-assistant-skills.md`: Internal atomic skill catalog for callable Personal Assistant actions.
+- `docs/passive-graph-memory.md`: Passive W-Graph memory layer under the current communication workflow.
 - `docs/principles.md`: Core PM operating principles.
 - `docs/lifecycle.md`: Lifecycle stages and stage gates.
 - `docs/ownership-model.md`: Ownership expectations and role map.
-- `docs/ownership-matrix.md`: Phase accountability and supporting delivery ownership matrix.
 - `docs/communication-model.md`: Communication cadence, status standards, and escalation paths.
 - `docs/communication-event-catalog.md`: Event catalog defining unique communication events by lane.
 - `docs/communication-matrix.md`: Automation-ready matrix mapping each communication event to one trigger and one template path.
-- `docs/communication-matrix-rules.md`: Evaluation order, lane precedence, bundling, and approval rules.
-- `docs/communication-triggers.md`: Trigger model for when communication is needed.
-- `docs/project-communication.md`: Simplified project communication rules for weekly digest and unexpected status changes.
 - `docs/automation-vision.md`: Target automation process from dashboard update to Slack communication.
-- `docs/executive-dashboard.md`: Executive dashboard field definitions.
-- `docs/communication-control-log.md`: Log structure for generated communication candidates.
-- `docs/work-item-types.md`: Project, incident / bug report, and stray story communication lanes.
-- `docs/incident-communication.md`: Severity-based incident and bug communication rules.
-- `docs/release-communication.md`: Production release communication, bundling, go / no-go, execution, rollback, and postmortem rules.
-- `docs/stray-story-prioritization.md`: Weekly prioritization process for stray stories.
+- `docs/slack-anchor-nudge-architecture.md`: Target Slack Anchor, private triage, and stale-update nudge model.
 - `templates/`: Reusable process artifacts.
-- `poc/`: Google Sheets + Apps Script + Slack proof of concept.
-- `decisions/`: Process decision records.
+- `scripts/validate-gas-folders.mjs`: Local and CI validation for clasp-managed Apps Script folders.
+- `decisions/`: Product and process decision records.
 - `changes/`: Proposed process changes.
 
-## How to Change This Process
+## How to Change This Product
 
 1. Create a proposal in `changes/`.
 2. Explain the problem, proposed change, expected impact, and risks.
 3. Review with affected stakeholders.
-4. If accepted, update the relevant docs or templates.
+4. If accepted, update the relevant docs, templates, schemas, or Apps Script files.
 5. Record major decisions in `decisions/`.

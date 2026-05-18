@@ -1,0 +1,13 @@
+{
+  "name": "personal-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate:gas": "node scripts/validate-gas-folders.mjs",
+    "validate:gas:strict": "node scripts/validate-gas-folders.mjs --strict-script-ids"
+  },
+  "devDependencies": {
+    "@google/clasp": "3.3.0"
+  }
+}
