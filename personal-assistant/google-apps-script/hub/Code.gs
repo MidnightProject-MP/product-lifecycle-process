@@ -1,3 +1,7 @@
+var HUB_LOG_BUFFER_DEPTH = 0;
+var HUB_RUN_LOG_BUFFER = [];
+var HUB_SKILL_RUN_LOG_BUFFER = [];
+
 function setupHubSheets() {
   const ss = SpreadsheetApp.getActive();
   const queue = ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
@@ -47,7 +51,9 @@ function onHubEdit(e) {
   }
 
   try {
-    handleHubEdit_(e);
+    withHubBufferedLogging_(function() {
+      handleHubEdit_(e);
+    });
   } finally {
     lock.releaseLock();
   }
@@ -558,6 +564,11 @@ function logHub_(level, fn, queueId, message, details) {
     details ? JSON.stringify(details) : ''
   ];
 
+  if (isHubLogBuffering_()) {
+    bufferHubLogValues_(values);
+    return;
+  }
+
   try {
     const ss = SpreadsheetApp.getActive();
     writeHubLogValues_(ss, HUB.SHEETS.RUN_LOG, values);
@@ -593,9 +604,62 @@ function logHub_(level, fn, queueId, message, details) {
   }
 }
 
+function withHubBufferedLogging_(callback) {
+  HUB_LOG_BUFFER_DEPTH++;
+  try {
+    return callback();
+  } finally {
+    HUB_LOG_BUFFER_DEPTH--;
+    if (HUB_LOG_BUFFER_DEPTH === 0) flushHubLogBuffers_();
+  }
+}
+
+function isHubLogBuffering_() {
+  return HUB_LOG_BUFFER_DEPTH > 0;
+}
+
+function bufferHubLogValues_(values) {
+  HUB_RUN_LOG_BUFFER.push(values);
+}
+
+function bufferSkillRunLogObject_(object) {
+  HUB_SKILL_RUN_LOG_BUFFER.push(object);
+}
+
+function flushHubLogBuffers_() {
+  const runLogRows = HUB_RUN_LOG_BUFFER.slice();
+  const skillLogObjects = HUB_SKILL_RUN_LOG_BUFFER.slice();
+  HUB_RUN_LOG_BUFFER = [];
+  HUB_SKILL_RUN_LOG_BUFFER = [];
+
+  if (!runLogRows.length && !skillLogObjects.length) return;
+
+  try {
+    const ss = SpreadsheetApp.getActive();
+    if (runLogRows.length) writeHubLogValuesRows_(ss, HUB.SHEETS.RUN_LOG, runLogRows);
+    if (skillLogObjects.length) writeSkillRunLogObjects_(skillLogObjects);
+  } catch (error) {
+    console.log(JSON.stringify({
+      level: 'WARN',
+      functionName: 'flushHubLogBuffers_',
+      message: 'Failed to flush buffered Hub logs.',
+      details: {
+        runLogRowCount: runLogRows.length,
+        skillLogRowCount: skillLogObjects.length,
+        error: error.message || String(error)
+      }
+    }));
+  }
+}
+
 function writeHubLogValues_(ss, sheetName, values) {
   const sheet = ensureLogSheet_(ss, sheetName);
   insertValuesAtTop_(sheet, values);
+}
+
+function writeHubLogValuesRows_(ss, sheetName, valuesRows) {
+  const sheet = ensureLogSheet_(ss, sheetName);
+  insertValuesRowsAtTop_(sheet, valuesRows.slice().reverse());
 }
 
 function ensureLogSheet_(ss, sheetName) {
@@ -607,16 +671,28 @@ function ensureLogSheet_(ss, sheetName) {
 }
 
 function insertValuesAtTop_(sheet, values) {
+  insertValuesRowsAtTop_(sheet, [values]);
+}
+
+function insertValuesRowsAtTop_(sheet, valuesRows) {
+  const rows = valuesRows || [];
+  if (!rows.length) return;
+  const columnCount = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const values = rows.map(row => {
+    const normalized = row.slice();
+    while (normalized.length < columnCount) normalized.push('');
+    return normalized;
+  });
   let inserted = false;
   try {
-    sheet.insertRowsBefore(2, 1);
+    sheet.insertRowsBefore(2, values.length);
     inserted = true;
-    configureHubPlainTextRow_(sheet, 2);
-    sheet.getRange(2, 1, 1, values.length).setValues([values]);
+    configureHubPlainTextRows_(sheet, 2, values.length);
+    sheet.getRange(2, 1, values.length, columnCount).setValues(values);
   } catch (error) {
     if (inserted) {
       try {
-        sheet.deleteRow(2);
+        sheet.deleteRows(2, values.length);
       } catch (deleteError) {
         console.log('Failed to roll back inserted row on ' + sheet.getName() + ': ' + deleteError);
       }

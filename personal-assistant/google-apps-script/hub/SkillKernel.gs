@@ -204,19 +204,25 @@ function skillContract_(skillId, purpose, handler) {
 }
 
 function logSkillRunSafe_(envelope, input, parentRunId, durationMs) {
+  const rowObject = {
+    'Run ID': envelope.runId,
+    Timestamp: new Date(),
+    'Skill ID': envelope.skillId,
+    'Parent Run ID': parentRunId || '',
+    Status: envelope.ok ? 'OK' : 'ERROR',
+    'Input Hash': skillHash_(JSON.stringify(input || {})),
+    'Output Summary': summarizeSkillOutput_(envelope.output),
+    Error: envelope.error ? envelope.error.message : '',
+    'Duration Ms': durationMs
+  };
+
+  if (isHubLogBuffering_()) {
+    bufferSkillRunLogObject_(rowObject);
+    return;
+  }
+
   try {
-    const sheet = ensureSheet_(SpreadsheetApp.getActive(), HUB.SHEETS.SKILL_RUN_LOG, HUB.HEADERS.SKILL_RUN_LOG);
-    insertObjectRowAtTop_(sheet, {
-      'Run ID': envelope.runId,
-      Timestamp: new Date(),
-      'Skill ID': envelope.skillId,
-      'Parent Run ID': parentRunId || '',
-      Status: envelope.ok ? 'OK' : 'ERROR',
-      'Input Hash': skillHash_(JSON.stringify(input || {})),
-      'Output Summary': summarizeSkillOutput_(envelope.output),
-      Error: envelope.error ? envelope.error.message : '',
-      'Duration Ms': durationMs
-    });
+    writeSkillRunLogObjects_([rowObject]);
   } catch (error) {
     console.log(JSON.stringify({
       level: 'WARN',
@@ -229,6 +235,16 @@ function logSkillRunSafe_(envelope, input, parentRunId, durationMs) {
       }
     }));
   }
+}
+
+function writeSkillRunLogObjects_(objects) {
+  const rows = objects || [];
+  if (!rows.length) return;
+  const sheet = ensureSheet_(SpreadsheetApp.getActive(), HUB.SHEETS.SKILL_RUN_LOG, HUB.HEADERS.SKILL_RUN_LOG);
+  const headers = getHeaders_(sheet);
+  insertValuesRowsAtTop_(sheet, rows.slice().reverse().map(rowObject =>
+    headers.map(header => normalizeHubCellValue_(header, rowObject[header]))
+  ));
 }
 
 function summarizeSkillOutput_(output) {

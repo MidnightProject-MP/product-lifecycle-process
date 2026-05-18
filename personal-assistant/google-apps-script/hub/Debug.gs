@@ -19,6 +19,10 @@ function debugRunHubSmokeTestLogOnly() {
 }
 
 function debugRunKernelSmokeTestLogOnly() {
+  return withHubBufferedLogging_(debugRunKernelSmokeTestLogOnly_);
+}
+
+function debugRunKernelSmokeTestLogOnly_() {
   debugCheckHubConfiguration();
   debugKernelSmokeCheckpoint_('', 'Configuration check passed.', {});
 
@@ -78,6 +82,7 @@ function debugRunKernelSmokeTestLogOnly() {
   }
   debugKernelSmokeCheckpoint_(queueId, 'Graph verification passed.', graphSummary);
 
+  flushHubLogBuffers_();
   const skillSummary = buildKernelSmokeSkillSummary_(queueRun.runId, approveRun.runId);
   if (skillSummary.errorCount > 0) {
     throw new Error('Kernel smoke test found Skill_Run_Log errors: ' + JSON.stringify(skillSummary));
