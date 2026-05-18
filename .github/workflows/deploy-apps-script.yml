@@ -36,13 +36,16 @@ jobs:
       - name: Configure clasp auth
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          CLASP_TOKEN: ${{ secrets.CLASP_TOKEN }}
         run: |
-          if [ -z "$CLASPRC_JSON" ]; then
-            echo "::error::Missing CLASPRC_JSON repository secret."
+          auth_json="${CLASPRC_JSON:-${CLASP_TOKEN:-}}"
+          if [ -z "$auth_json" ]; then
+            echo "::error::Missing clasp auth secret. Set CLASPRC_JSON or CLASP_TOKEN to the full ~/.clasprc.json contents."
             exit 1
           fi
-          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          printf '%s' "$auth_json" > "$HOME/.clasprc.json"
           chmod 600 "$HOME/.clasprc.json"
+          node -e "const fs = require('fs'); const path = process.env.HOME + '/.clasprc.json'; try { JSON.parse(fs.readFileSync(path, 'utf8')); } catch (error) { console.error('::error::clasp auth secret is present but is not valid JSON. Store the full ~/.clasprc.json contents in CLASPRC_JSON or CLASP_TOKEN.'); process.exit(1); }"
 
       - name: Push Apps Script projects
         shell: bash
