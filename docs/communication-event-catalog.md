@@ -61,7 +61,7 @@ For stray stories, do not create separate events for every possible destination.
 
 | Path | Event | Trigger | Template | Notes |
 | --- | --- | --- | --- | --- |
-| Start | Release scheduled | Release receives a planned production schedule. | release-scheduled | Communicates release window, grouped contents, and readiness path. |
+| Start | Release scheduled | Release receives a planned production schedule. | release.scheduled | Communicates release window, grouped contents, and readiness path. |
 | Happy Path | Go / no-go approaching | Release decision window opens. | release-go-no-go | Communicates readiness evidence, open risks, recommendation, and decision owner. |
 | Happy Path | Release started | Production release begins. | release-started | Communicates execution has started and where status will be tracked. |
 | Happy Path | Release completed | Production release completes successfully. | release-completed | Communicates what shipped, known issues, monitoring, and support notes. |

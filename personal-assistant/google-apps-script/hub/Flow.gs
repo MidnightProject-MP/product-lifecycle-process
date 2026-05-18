@@ -120,6 +120,7 @@ function buildThreadHistoryText_(item, template, label) {
 }
 
 function getEventDisplayName_(eventKey) {
+  eventKey = resolveCanonicalEventKey_(eventKey, '');
   const event = findRegistryRow_('Event_Catalog', 'Event Key', eventKey) || {};
   return event['Communication Event'] || eventKey || 'Update';
 }
@@ -334,6 +335,7 @@ function findFlowStateRowByFlowId_(sheet, flowId) {
 }
 
 function findTransitionForEvent_(eventKey) {
+  eventKey = resolveCanonicalEventKey_(eventKey, '');
   if (!eventKey) return {};
   try {
     return findRegistryRow_('Event_Transitions', 'Event Key', eventKey) || {};

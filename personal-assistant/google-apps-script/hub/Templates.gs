@@ -1,6 +1,6 @@
 function findTemplate_(item) {
   const payload = getPayload_(item);
-  const eventKey = item['Event Key'] || payload.event_key || payload.eventKey || '';
+  const eventKey = resolveCanonicalEventKey_(item['Event Key'] || payload.event_key || payload.eventKey || '', item['Communication Event'] || payload.communication_event || '');
   const event = findRegistryRow_('Event_Catalog', 'Event Key', eventKey);
   if (!event) {
     logHub_('ERROR', 'findTemplate_', item['Queue ID'], 'No event catalog row found.', { eventKey: eventKey });
@@ -34,6 +34,35 @@ function findTemplate_(item) {
     'Thread Reply Policy': event['Thread Reply Policy'] || template['Thread Reply Policy'] || '',
     'Reply Broadcast': event['Reply Broadcast'] || template['Reply Broadcast'] || ''
   });
+}
+
+function resolveCanonicalEventKey_(eventKey, eventName) {
+  const rawEventKey = String(eventKey || '').trim();
+  const legacyEventKey = inferEventKeyFromLegacy_(rawEventKey || eventName);
+  const candidate = legacyEventKey || rawEventKey;
+  if (!candidate) return '';
+
+  try {
+    const directEvent = findRegistryRow_('Event_Catalog', 'Event Key', candidate);
+    if (directEvent) return directEvent['Event Key'];
+
+    const templateEvent = findRegistryRow_('Event_Catalog', 'Template Key', candidate);
+    if (templateEvent) {
+      logHub_('INFO', 'resolveCanonicalEventKey_', '', 'Normalized template key to Registry event key.', {
+        provided: candidate,
+        eventKey: templateEvent['Event Key']
+      });
+      return templateEvent['Event Key'];
+    }
+
+    const namedEvent = findRegistryRow_('Event_Catalog', 'Communication Event', rawEventKey || eventName);
+    if (namedEvent) return namedEvent['Event Key'];
+  } catch (error) {
+    // Registry may be unavailable during early setup/debug. Keep the original
+    // candidate so the caller can surface the real configuration error.
+  }
+
+  return candidate;
 }
 
 var HUB_REGISTRY_ROWS_CACHE_ = {};

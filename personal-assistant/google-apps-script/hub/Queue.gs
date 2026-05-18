@@ -2,7 +2,7 @@ function insertQueueDraftAtTop_(draft) {
   const ss = SpreadsheetApp.getActive();
   const sheet = ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
   const payload = normalizePayload_(draft);
-  const eventKey = draft['Event Key'] || payload.event_key || payload.eventKey || inferEventKeyFromLegacy_(draft['Communication Event']);
+  const eventKey = resolveCanonicalEventKey_(draft['Event Key'] || payload.event_key || payload.eventKey || '', draft['Communication Event']);
 
   if (!eventKey) {
     throw new Error('Missing Event Key. Queue drafts must map to one registry event.');
@@ -231,7 +231,7 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
 
 function normalizeQueueRowBeforeSend_(sheet, row, item) {
   const payload = normalizePayload_(item);
-  const eventKey = item['Event Key'] || payload.event_key || payload.eventKey || inferEventKeyFromLegacy_(item['Communication Event']);
+  const eventKey = resolveCanonicalEventKey_(item['Event Key'] || payload.event_key || payload.eventKey || '', item['Communication Event']);
   if (!eventKey) {
     throw new Error('Missing Event Key. Queue rows must map to one registry event before sending.');
   }
