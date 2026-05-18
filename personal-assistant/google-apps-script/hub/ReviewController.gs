@@ -1,13 +1,52 @@
 function openReviewController() {
-  const html = buildReviewControllerHtml_()
-    .setWidth(640)
-    .setHeight(680);
-  SpreadsheetApp.getUi().showModelessDialog(html, 'Communication Console');
+  showReviewControllerWorkspace_('wide', {});
 }
 
 function openReviewControllerSidebar() {
-  const html = buildReviewControllerHtml_()
-    .setWidth(450);
+  showReviewControllerWorkspace_('sidebar', {});
+}
+
+function expandReviewControllerWorkspace(form) {
+  showReviewControllerWorkspace_('wide', form || {});
+  return {
+    ok: true,
+    mode: 'wide'
+  };
+}
+
+function minimizeReviewControllerWorkspace(form) {
+  showReviewControllerWorkspace_('sidebar', form || {});
+  return {
+    ok: true,
+    mode: 'sidebar'
+  };
+}
+
+function getReviewControllerLaunchState() {
+  const cached = CacheService.getUserCache().get('review_controller_launch_state');
+  if (!cached) return buildReviewControllerLaunchState_('sidebar', {});
+
+  try {
+    const parsed = JSON.parse(cached);
+    return buildReviewControllerLaunchState_(parsed.mode, parsed.form || {}, parsed.hasForm);
+  } catch (error) {
+    return buildReviewControllerLaunchState_('sidebar', {});
+  }
+}
+
+function showReviewControllerWorkspace_(mode, form) {
+  const normalizedMode = mode === 'wide' ? 'wide' : 'sidebar';
+  setReviewControllerLaunchState_(normalizedMode, form || {});
+  const html = buildReviewControllerHtml_();
+
+  if (normalizedMode === 'wide') {
+    SpreadsheetApp.getUi().showModelessDialog(
+      html.setWidth(860).setHeight(740),
+      'Communication Console'
+    );
+    return;
+  }
+
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
@@ -15,6 +54,39 @@ function buildReviewControllerHtml_() {
   return HtmlService.createHtmlOutputFromFile('ReviewControllerSidebar')
     .setTitle('Communication Console')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function setReviewControllerLaunchState_(mode, form) {
+  CacheService.getUserCache().put(
+    'review_controller_launch_state',
+    JSON.stringify(buildReviewControllerLaunchState_(mode, form, form && Object.keys(form).length > 0)),
+    300
+  );
+}
+
+function buildReviewControllerLaunchState_(mode, form, hasForm) {
+  form = form || {};
+  const launchForm = {
+    selection: stringFromForm_(form.selection),
+    queueId: stringFromForm_(form.queueId),
+    flowId: stringFromForm_(form.flowId),
+    flowAction: stringFromForm_(form.flowAction),
+    eventKey: stringFromForm_(form.eventKey),
+    subject: stringFromForm_(form.subject),
+    what: stringFromForm_(form.what),
+    soWhat: stringFromForm_(form.soWhat),
+    whatsNext: stringFromForm_(form.whatsNext),
+    owner: stringFromForm_(form.owner),
+    priority: stringFromForm_(form.priority)
+  };
+
+  return {
+    ok: true,
+    mode: mode === 'wide' ? 'wide' : 'sidebar',
+    hasForm: Boolean(hasForm),
+    selection: launchForm.selection,
+    form: launchForm
+  };
 }
 
 function getReviewControllerContext(selection) {

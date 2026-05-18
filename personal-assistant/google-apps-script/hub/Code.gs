@@ -50,7 +50,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Personal Assistant')
     .addItem('Open Communication Console', 'openReviewControllerSidebar')
-    .addItem('Open Communication Console Modal', 'openReviewController')
+    .addItem('Open Communication Console Wide', 'openReviewController')
     .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
     .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
     .addItem('Discard selected row(s)', 'discardSelectedQueueRows')

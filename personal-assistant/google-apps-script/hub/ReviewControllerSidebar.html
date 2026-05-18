@@ -16,6 +16,10 @@
       background: #fff;
     }
 
+    body.wide {
+      padding: 18px 20px;
+    }
+
     label {
       display: block;
       margin: 12px 0 4px;
@@ -55,6 +59,17 @@
       opacity: .62;
     }
 
+    .mode-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 6px;
+    }
+
+    .mode-toggle {
+      font-size: 12px;
+      padding: 7px 9px;
+    }
+
     .primary {
       background: #1a73e8;
       color: #fff;
@@ -75,6 +90,10 @@
       flex-wrap: wrap;
       gap: 8px;
       margin-top: 14px;
+    }
+
+    body.wide textarea {
+      min-height: 96px;
     }
 
     .meta {
@@ -143,6 +162,9 @@
   </style>
 </head>
 <body>
+  <div class="mode-bar">
+    <button class="plain mode-toggle" id="modeToggle" onclick="toggleWorkspaceMode()" hidden>Expand Workspace</button>
+  </div>
   <div id="status" class="status">Loading communication console...</div>
   <div id="app" hidden>
     <label for="communicationSelect">Communication</label>
@@ -184,6 +206,7 @@
   <script>
     let currentContext = null;
     let actionDefaults = {};
+    let consoleMode = 'sidebar';
     let previewTimer = null;
     let previewRequestId = 0;
 
@@ -194,21 +217,45 @@
     }
 
     function setBusy(isBusy) {
-      ['communicationSelect', 'flowAction', 'subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext', 'queueBtn', 'approveBtn'].forEach(id => {
-        document.getElementById(id).disabled = isBusy;
+      ['communicationSelect', 'flowAction', 'subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext', 'queueBtn', 'approveBtn', 'modeToggle'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = isBusy;
       });
     }
 
-    function load(selection) {
+    function applyConsoleMode(mode) {
+      consoleMode = mode === 'wide' ? 'wide' : 'sidebar';
+      document.body.classList.toggle('wide', consoleMode === 'wide');
+      const toggle = document.getElementById('modeToggle');
+      toggle.textContent = consoleMode === 'wide' ? 'Minimize to Sidebar' : 'Expand Workspace';
+      toggle.hidden = false;
+    }
+
+    function loadInitial() {
+      google.script.run
+        .withSuccessHandler(state => {
+          applyConsoleMode(state && state.mode);
+          const formOverride = state && state.hasForm ? state.form : null;
+          load(formOverride && formOverride.selection || state && state.selection || '', formOverride);
+        })
+        .withFailureHandler(error => {
+          applyConsoleMode('sidebar');
+          showFailure(error);
+          load();
+        })
+        .getReviewControllerLaunchState();
+    }
+
+    function load(selection, formOverride) {
       setBusy(true);
       setStatus('Loading communication console...');
       google.script.run
-        .withSuccessHandler(render)
+        .withSuccessHandler(context => render(context, formOverride || null))
         .withFailureHandler(showFailure)
         .getReviewControllerContext(selection || '');
     }
 
-    function render(context) {
+    function render(context, formOverride) {
       setBusy(false);
       currentContext = context;
       const app = document.getElementById('app');
@@ -265,8 +312,27 @@
         field.oninput = refreshPreviewForChosenAction;
         field.onchange = refreshPreviewForChosenAction;
       });
-      if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) applyActionDefaults();
+      if (formOverride) {
+        applyFormOverride(formOverride);
+      } else if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) {
+        applyActionDefaults();
+      }
       refreshPreviewForChosenAction();
+    }
+
+    function applyFormOverride(form) {
+      if (!form) return;
+
+      const actionSelect = document.getElementById('flowAction');
+      if (form.flowAction && Array.from(actionSelect.options).some(option => option.value === form.flowAction)) {
+        actionSelect.value = form.flowAction;
+      }
+
+      document.getElementById('subjectInput').value = form.subject || '';
+      document.getElementById('ownerInput').value = form.owner || '';
+      document.getElementById('what').value = form.what || '';
+      document.getElementById('soWhat').value = form.soWhat || '';
+      document.getElementById('whatsNext').value = form.whatsNext || '';
     }
 
     function applyActionDefaults() {
@@ -351,6 +417,23 @@
       runAction('Approving and sending...', 'approveReviewControllerSelection', collectForm(), afterTerminalAction);
     }
 
+    function toggleWorkspaceMode() {
+      const targetMode = consoleMode === 'wide' ? 'sidebar' : 'wide';
+      const form = currentContext && currentContext.ok ? collectForm() : {};
+      setBusy(true);
+      setStatus(targetMode === 'wide' ? 'Opening wide workspace...' : 'Returning to sidebar...');
+
+      const runner = google.script.run
+        .withSuccessHandler(() => google.script.host.close())
+        .withFailureHandler(showFailure);
+
+      if (targetMode === 'wide') {
+        runner.expandReviewControllerWorkspace(form);
+      } else {
+        runner.minimizeReviewControllerWorkspace(form);
+      }
+    }
+
     function runAction(message, fnName, form, handler) {
       setBusy(true);
       setStatus(message);
@@ -382,7 +465,7 @@
       setStatus(error && error.message ? error.message : String(error), 'error');
     }
 
-    load();
+    loadInitial();
   </script>
 </body>
 </html>
