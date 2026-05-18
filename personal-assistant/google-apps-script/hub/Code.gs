@@ -1,6 +1,8 @@
 var HUB_LOG_BUFFER_DEPTH = 0;
 var HUB_RUN_LOG_BUFFER = [];
 var HUB_SKILL_RUN_LOG_BUFFER = [];
+var HUB_REVIEW_SYNC_DEFER_DEPTH = 0;
+var HUB_REVIEW_SYNC_PENDING = false;
 
 function setupHubSheets() {
   const ss = SpreadsheetApp.getActive();
@@ -52,7 +54,9 @@ function onHubEdit(e) {
 
   try {
     withHubBufferedLogging_(function() {
-      handleHubEdit_(e);
+      withHubDeferredReviewSync_(function() {
+        handleHubEdit_(e);
+      });
     });
   } finally {
     lock.releaseLock();
@@ -466,13 +470,17 @@ function syncReviewSheetFromQueue_() {
     .map(buildReviewRowFromQueueRow_);
 
   writeObjectsToSheet_(reviewSheet, HUB.HEADERS.REVIEW, reviewRows);
-  configureHubReviewSheet_(reviewSheet);
   logHub_('INFO', 'syncReviewSheetFromQueue_', '', 'Review sheet synced from Queue.', {
     rows: reviewRows.length
   });
 }
 
 function syncReviewSheetFromQueueSafe_() {
+  if (isHubReviewSyncDeferred_()) {
+    HUB_REVIEW_SYNC_PENDING = true;
+    return;
+  }
+
   try {
     syncReviewSheetFromQueue_();
   } catch (error) {
@@ -504,10 +512,15 @@ function buildReviewRowFromQueueRow_(queueRow) {
 }
 
 function writeObjectsToSheet_(sheet, headers, rows) {
-  sheet.clearContents();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  const existingRows = Math.max(sheet.getLastRow() - 1, 0);
+  const rowsToClear = Math.max(existingRows, rows.length);
+  if (rowsToClear > 0) {
+    sheet.getRange(2, 1, rowsToClear, headers.length).clearContent();
+  }
+
   if (rows.length) {
-    configureHubPlainTextColumns_(sheet);
+    configureHubPlainTextRows_(sheet, 2, rows.length);
     sheet.getRange(2, 1, rows.length, headers.length).setValues(rows.map(row => headers.map(header => normalizeHubCellValue_(header, row[header]))));
   }
 }
@@ -616,6 +629,26 @@ function withHubBufferedLogging_(callback) {
 
 function isHubLogBuffering_() {
   return HUB_LOG_BUFFER_DEPTH > 0;
+}
+
+function withHubDeferredReviewSync_(callback) {
+  HUB_REVIEW_SYNC_DEFER_DEPTH++;
+  try {
+    return callback();
+  } finally {
+    HUB_REVIEW_SYNC_DEFER_DEPTH--;
+    if (HUB_REVIEW_SYNC_DEFER_DEPTH === 0) flushHubReviewSyncIfNeeded_();
+  }
+}
+
+function isHubReviewSyncDeferred_() {
+  return HUB_REVIEW_SYNC_DEFER_DEPTH > 0;
+}
+
+function flushHubReviewSyncIfNeeded_() {
+  if (!HUB_REVIEW_SYNC_PENDING) return;
+  HUB_REVIEW_SYNC_PENDING = false;
+  syncReviewSheetFromQueueSafe_();
 }
 
 function bufferHubLogValues_(values) {

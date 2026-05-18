@@ -19,7 +19,9 @@ function debugRunHubSmokeTestLogOnly() {
 }
 
 function debugRunKernelSmokeTestLogOnly() {
-  return withHubBufferedLogging_(debugRunKernelSmokeTestLogOnly_);
+  return withHubBufferedLogging_(function() {
+    return withHubDeferredReviewSync_(debugRunKernelSmokeTestLogOnly_);
+  });
 }
 
 function debugRunKernelSmokeTestLogOnly_() {

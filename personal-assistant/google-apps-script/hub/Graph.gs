@@ -18,7 +18,10 @@ function setupGraphSheets_() {
 
 function graphRecordDraftSafe_(item, action) {
   graphBestEffort_(action || 'draft_recorded', item && item['Queue ID'], function() {
-    graphRecordQueueItem_(item, action || 'draft_recorded', false);
+    graphInsertEvent_(item, action || 'draft_recorded', 'PENDING', {
+      draftMemory: 'lightweight',
+      payload: normalizePayload_(item)
+    });
   });
 }
 
@@ -39,6 +42,8 @@ function graphRecordDiscardSafe_(item, reason) {
 
 function graphSyncFlowStateSafe_(flowState) {
   graphBestEffort_('flow_state_synced', flowState && flowState['Last Queue ID'], function() {
+    if (!flowState || !flowState['Flow ID']) return;
+    if (!flowState['Slack Channel'] && !flowState['Anchor Message TS'] && !flowState['Thread TS']) return;
     graphSyncFlowState_(flowState);
   });
 }
