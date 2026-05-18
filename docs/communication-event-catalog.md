@@ -61,13 +61,15 @@ For stray stories, do not create separate events for every possible destination.
 
 | Path | Event | Trigger | Template | Notes |
 | --- | --- | --- | --- | --- |
-| Start | Release scheduled | Release receives a planned production schedule. | release-update | Communicates release window, grouped contents, and readiness path. |
-| Happy Path | Go / no-go approaching | Release decision window opens. | go-no-go | Communicates readiness evidence, open risks, recommendation, and decision owner. |
-| Happy Path | Release started | Production release begins. | release-execution | Communicates execution has started and where status will be tracked. |
-| Happy Path | Release completed | Production release completes successfully. | release-execution | Communicates what shipped, known issues, monitoring, and support notes. |
-| Sad Path | Release delayed | Release schedule changes, misses planned timing, or is delayed during execution. | escalation | Communicates reason, impact, new ETA, and decision owner. |
-| Sad Path | Release rolled back | Release is fully or partially rolled back. | escalation | Communicates current production state, impact, and next decision path. |
-| Sad Path | Postmortem needed | Rollback, critical bug, failed gate, or material issue requires root-cause review. | escalation | Communicates postmortem owner, scope, timing, and expected outputs. |
+| Start | Release scheduled | Release receives a planned production schedule. | release-scheduled | Communicates release window, grouped contents, and readiness path. |
+| Happy Path | Go / no-go approaching | Release decision window opens. | release-go-no-go | Communicates readiness evidence, open risks, recommendation, and decision owner. |
+| Happy Path | Release started | Production release begins. | release-started | Communicates execution has started and where status will be tracked. |
+| Happy Path | Release completed | Production release completes successfully. | release-completed | Communicates what shipped, known issues, monitoring, and support notes. |
+| Sad Path | Release delayed | Release schedule, decision, or execution timing changes materially. | release-delayed | Communicates reason, impact, revised plan, and decision owner. |
+| Sad Path | Rollback being evaluated | A production concern may require rollback; decision is not final yet. | release-rollback-evaluating | Gives stakeholders a heads-up and includes decision ETA. |
+| Sad Path | Rollback decision made | Release owner confirms whether to continue, pause, delay, or roll back. | release-rollback-decision | Communicates the decision before execution continues. |
+| Sad Path | Release rolled back | Release is fully or partially rolled back. | release-rolled-back | Communicates current production state, impact, and recovery path. |
+| Sad Path | Postmortem required | Rollback, critical bug, failed release decision, or material issue requires root-cause review. | release-postmortem-needed | Communicates postmortem owner, scope, timing, and expected outputs. |
 
 ## End Event Rule
 

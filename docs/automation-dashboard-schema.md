@@ -1,8 +1,10 @@
 # Automation Dashboard Schema
 
-The Automation Dashboard is the middle layer between the stakeholder-facing Executive Dashboard and the Stakeholder Communication Hub.
+The Automation Dashboard is the middle layer between the stakeholder-facing Executive Dashboard and the Personal Assistant Hub.
 
 It should be optimized for scripts and trigger logic, not presentation.
+
+The automation script is intentionally owned outside the Executive Dashboard. It opens the leadership-facing spreadsheet by ID, which keeps code ownership and script visibility separate from the presentation sheet owner.
 
 ```text
 Leadership Executive Dashboard
@@ -11,7 +13,7 @@ Leadership Executive Dashboard
 Automation Dashboard
         |
         v
-Stakeholder Communication Hub
+Personal Assistant Hub
         |
         v
 Slack
@@ -40,6 +42,9 @@ Based on the current Executive Dashboard layout:
 
 These row ranges are configurable in the Automation Dashboard `Config` tab:
 
+- `LEADERSHIP_SPREADSHEET_ID`
+- `HUB_SPREADSHEET_ID`
+- `CREATE_HUB_DRAFTS`
 - `PROJECTS_START_ROW`
 - `PROJECTS_END_ROW`
 - `GATES_START_ROW`
@@ -63,8 +68,7 @@ This function:
 4. Writes normalized rows into the Automation Dashboard.
 5. Records snapshots.
 6. Logs trigger candidates.
-
-For the POC, this stops before creating Hub drafts. That keeps the adapter layer testable before it starts writing into the communication queue.
+7. Creates Hub queue drafts when `CREATE_HUB_DRAFTS` is `TRUE`.
 
 ## Projects_Normalized
 
@@ -76,7 +80,7 @@ Key fields:
 - `Current State Hash`: hash of current normalized row.
 - `Previous State Hash`: prior hash from last processed state.
 - `Trigger Candidate`: detected trigger before Hub draft creation.
-- `Communication Event`: event catalog value, such as `Unexpected status change`.
+- `Event Key`: Registry event key, such as `project.unexpected_status_change`.
 - `Dedupe Key`: prevents duplicate Hub drafts.
 - `Hub Queue ID`: queue row created in the Hub.
 - `Processing Status`: pending, processed, skipped, or error.
@@ -92,7 +96,7 @@ Key fields:
 - `Is Gate Missed`
 - `Gate Status`
 - `Previous Gate Status`
-- `Communication Event`
+- `Event Key`
 
 ## Releases_Normalized
 
@@ -103,11 +107,11 @@ This normalizes the presentation-friendly Release Activity section into one row 
 Key fields:
 
 - `Release ID`
-- `Release Event`
+- `Release Event Key`
 - `Normalized Release Status`
 - `Go / No-Go Required`
 - `Slack Thread ID`
-- `Communication Event`
+- `Event Key`
 
 ## Snapshots
 
@@ -117,7 +121,7 @@ The script should:
 
 1. Build a normalized row.
 2. Create `State JSON`.
-3. Hash `State JSON`.
+3. Hash `State JSON` after excluding volatile operational fields such as processing status and timestamps.
 4. Compare to the previous snapshot.
 5. If changed, evaluate trigger rules.
 

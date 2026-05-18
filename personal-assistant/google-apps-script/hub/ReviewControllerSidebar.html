@@ -1,0 +1,303 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #202124;
+    }
+
+    body {
+      margin: 0;
+      padding: 14px;
+      background: #fff;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 4px;
+      color: #3c4043;
+      font-weight: 700;
+    }
+
+    select,
+    textarea {
+      box-sizing: border-box;
+      width: 100%;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      padding: 8px;
+      font: inherit;
+      color: #202124;
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      padding: 9px 10px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: .62;
+    }
+
+    .primary {
+      background: #1a73e8;
+      color: #fff;
+    }
+
+    .secondary {
+      background: #e8f0fe;
+      color: #174ea6;
+    }
+
+    .plain {
+      background: #f1f3f4;
+      color: #202124;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .meta {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fafafa;
+    }
+
+    .meta div {
+      margin: 0 0 6px;
+    }
+
+    .meta div:last-child {
+      margin-bottom: 0;
+    }
+
+    .key {
+      color: #5f6368;
+      font-weight: 700;
+    }
+
+    .status {
+      margin: 10px 0;
+      min-height: 18px;
+      color: #5f6368;
+    }
+
+    .error {
+      color: #a50e0e;
+      font-weight: 700;
+    }
+
+    .success {
+      color: #137333;
+      font-weight: 700;
+    }
+
+    a {
+      color: #1a73e8;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="status" class="status">Loading selected draft...</div>
+  <div id="app" hidden>
+    <div class="meta">
+      <div><span class="key">Subject:</span> <span id="subject"></span></div>
+      <div><span class="key">Action:</span> <span id="previewAction"></span></div>
+      <div><span class="key">What:</span> <span id="previewWhat"></span></div>
+      <div><span class="key">So what:</span> <span id="previewSoWhat"></span></div>
+      <div><span class="key">What's next:</span> <span id="previewWhatsNext"></span></div>
+      <div id="anchorWrap" hidden><span class="key">Slack anchor:</span> <a id="anchor" href="#" target="_blank">Open</a></div>
+    </div>
+
+    <label for="flowAction">Action</label>
+    <select id="flowAction"></select>
+
+    <label for="what">What changed?</label>
+    <textarea id="what"></textarea>
+
+    <label for="soWhat">Why it matters</label>
+    <textarea id="soWhat"></textarea>
+
+    <label for="whatsNext">What happens next?</label>
+    <textarea id="whatsNext"></textarea>
+
+    <div class="actions">
+      <button class="secondary" id="queueBtn" onclick="queueDraft()">Queue up Draft</button>
+      <button class="primary" id="approveBtn" onclick="approveDraft()">Approve & Send</button>
+      <button class="plain" onclick="load()">Refresh</button>
+    </div>
+  </div>
+
+  <script>
+    let currentContext = null;
+    let actionDefaults = {};
+
+    function setStatus(message, mode) {
+      const el = document.getElementById('status');
+      el.textContent = message || '';
+      el.className = 'status ' + (mode || '');
+    }
+
+    function setBusy(isBusy) {
+      ['queueBtn', 'approveBtn'].forEach(id => {
+        document.getElementById(id).disabled = isBusy;
+      });
+    }
+
+    function load() {
+      setBusy(true);
+      setStatus('Loading selected draft...');
+      google.script.run
+        .withSuccessHandler(render)
+        .withFailureHandler(showFailure)
+        .getReviewControllerContext();
+    }
+
+    function render(context) {
+      setBusy(false);
+      currentContext = context;
+      const app = document.getElementById('app');
+      if (!context || !context.ok) {
+        app.hidden = true;
+        setStatus(context && context.message ? context.message : 'Select a Review row first.', 'error');
+        return;
+      }
+
+      app.hidden = false;
+      setStatus(context.message || 'Ready.', 'success');
+      document.getElementById('subject').textContent = context.queue.subject || '';
+      document.getElementById('what').value = context.queue.what || '';
+      document.getElementById('soWhat').value = context.queue.soWhat || '';
+      document.getElementById('whatsNext').value = context.queue.whatsNext || '';
+
+      const anchorWrap = document.getElementById('anchorWrap');
+      const anchor = document.getElementById('anchor');
+      if (context.flow.anchorUrl) {
+        anchor.href = context.flow.anchorUrl;
+        anchorWrap.hidden = false;
+      } else {
+        anchorWrap.hidden = true;
+      }
+
+      const actionSelect = document.getElementById('flowAction');
+      actionSelect.textContent = '';
+      actionDefaults = {};
+      context.actions.forEach(action => {
+        const option = document.createElement('option');
+        option.value = action.value;
+        option.textContent = action.label;
+        option.dataset.eventKey = action.eventKey || '';
+        actionSelect.appendChild(option);
+        actionDefaults[action.value] = action.defaults || {};
+      });
+      actionSelect.onchange = applyActionDefaults;
+      ['what', 'soWhat', 'whatsNext'].forEach(id => {
+        const field = document.getElementById(id);
+        field.oninput = refreshPreviewForChosenAction;
+        field.onchange = refreshPreviewForChosenAction;
+      });
+      refreshPreviewForChosenAction();
+    }
+
+    function applyActionDefaults() {
+      const action = document.getElementById('flowAction').value;
+      const defaults = actionDefaults[action];
+      if (!defaults) return;
+
+      document.getElementById('what').value = defaults.what || '';
+      document.getElementById('soWhat').value = defaults.soWhat || '';
+      document.getElementById('whatsNext').value = defaults.whatsNext || '';
+      refreshPreviewForChosenAction();
+      setStatus(action === 'selected' ? 'Selected draft restored.' : 'Default text loaded for chosen action.', 'success');
+    }
+
+    function refreshPreviewForChosenAction() {
+      if (!currentContext || !currentContext.ok) return;
+
+      const actionSelect = document.getElementById('flowAction');
+      const selected = actionSelect.options[actionSelect.selectedIndex];
+      document.getElementById('previewAction').textContent = selected ? selected.textContent : '';
+      document.getElementById('previewWhat').textContent = document.getElementById('what').value || '';
+      document.getElementById('previewSoWhat').textContent = document.getElementById('soWhat').value || '';
+      document.getElementById('previewWhatsNext').textContent = document.getElementById('whatsNext').value || '';
+    }
+
+    function collectForm() {
+      return {
+        queueId: currentContext && currentContext.queue ? currentContext.queue.queueId : '',
+        flowAction: document.getElementById('flowAction').value,
+        what: document.getElementById('what').value,
+        soWhat: document.getElementById('soWhat').value,
+        whatsNext: document.getElementById('whatsNext').value,
+        owner: currentContext && currentContext.queue ? currentContext.queue.owner : '',
+        priority: currentContext && currentContext.queue ? currentContext.queue.priority : ''
+      };
+    }
+
+    function queueDraft() {
+      const form = collectForm();
+      if (form.flowAction === 'selected') {
+        runAction('Queueing draft...', 'saveReviewControllerDraft', form, render);
+        return;
+      }
+      runAction('Queueing draft...', 'createReviewControllerFlowActionDraft', form, render);
+    }
+
+    function approveDraft() {
+      runAction('Approving and sending...', 'approveReviewControllerSelection', collectForm(), afterTerminalAction);
+    }
+
+    function runAction(message, fnName, form, handler) {
+      setBusy(true);
+      setStatus(message);
+      const runner = google.script.run
+        .withSuccessHandler(handler)
+        .withFailureHandler(showFailure);
+
+      if (fnName === 'saveReviewControllerDraft') {
+        runner.saveReviewControllerDraft(form);
+      } else if (fnName === 'approveReviewControllerDraft') {
+        runner.approveReviewControllerDraft(form);
+      } else if (fnName === 'approveReviewControllerSelection') {
+        runner.approveReviewControllerSelection(form);
+      } else if (fnName === 'createReviewControllerFlowActionDraft') {
+        runner.createReviewControllerFlowActionDraft(form);
+      }
+    }
+
+    function afterTerminalAction(result) {
+      setBusy(false);
+      setStatus(result && result.message ? result.message : 'Done.', 'success');
+      window.setTimeout(load, 700);
+    }
+
+    function showFailure(error) {
+      setBusy(false);
+      setStatus(error && error.message ? error.message : String(error), 'error');
+    }
+
+    load();
+  </script>
+</body>
+</html>

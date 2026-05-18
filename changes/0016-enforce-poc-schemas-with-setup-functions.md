@@ -8,9 +8,13 @@ The POC schemas existed as CSV files, but the spreadsheets should be able to cre
 
 Add schema enforcement through Apps Script:
 
-- Hub `setupHubSheets()` now creates or repairs `Queue`, `History`, `Templates`, and `Config`.
-- Dashboard `setupDashboardSheet()` now creates or repairs `Projects` and `Releases`.
+- Hub `setupHubSheets()` creates or repairs the Hub-owned sheets.
+- Dashboard `setupDashboardSheet()` was initially used to create or repair `Projects` and `Releases`.
 - New Automation Dashboard `setupAutomationSheets()` creates or repairs `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, `Snapshots`, `Trigger_Log`, and `Config`.
+
+Note: Change Proposal 0019 supersedes the original Hub `Templates` / `Config` setup by moving templates, routing, variables, and approval rules into the central Communication Registry.
+
+Note: Change Proposal 0022 supersedes the direct Dashboard setup model. The Executive Dashboard is now treated as a source-only spreadsheet, and the optional dashboard adapter is a standalone script that validates source headers instead of creating or repairing tabs in the Executive Dashboard.
 
 ## Expected Impact
 
@@ -26,4 +30,3 @@ Add schema enforcement through Apps Script:
 ## Adoption Notes
 
 Run the setup function after copying each Apps Script project, and rerun after schema changes.
-

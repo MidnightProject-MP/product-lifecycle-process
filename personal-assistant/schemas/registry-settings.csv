@@ -1,0 +1,9 @@
+Key,Value,Scope,Description,Is Secret
+ACTIVE_ENVIRONMENT,Personal Assistant,Global,Environment label used in logs and reviews,FALSE
+ENABLE_AUTO_SEND,FALSE,Hub,Reserved control for future auto-send rules,FALSE
+DEFAULT_REVIEW_MODE,Review then send,Hub,Default review posture when an event does not specify a stricter rule,FALSE
+DEFAULT_PROJECT_CHANNEL,,Slack,Default Slack channel ID for project communications,FALSE
+DEFAULT_INCIDENT_CHANNEL,,Slack,Default Slack channel ID for incident and critical bug communications,FALSE
+DEFAULT_RELEASE_CHANNEL,,Slack,Default Slack channel ID for production release communications,FALSE
+DEFAULT_STRAY_STORY_CHANNEL,,Slack,Default Slack channel ID for stray story intake and prioritization communications,FALSE
+DEFAULT_LEADERSHIP_CHANNEL,,Slack,Default Slack channel ID for leadership escalations and postmortems,FALSE

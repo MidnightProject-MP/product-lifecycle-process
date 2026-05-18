@@ -1,0 +1,9 @@
+Event Key,Approver Role,Notes,Active
+project.gate_exception,Accountable phase owner,Required for missed failed delayed gates,TRUE
+incident.critical.identified,Phase owner / accountable leader,Required before leadership broadcast unless emergency protocol applies,TRUE
+incident.critical.fix_failed,Phase owner / accountable leader,Required because confidence and recovery path changed,TRUE
+release.go_no_go,Decision owner,Required before production go/no-go communication,TRUE
+release.delayed,Accountable release decision owner,Required because timeline or support expectations changed,TRUE
+release.rollback_evaluating,Accountable release decision owner,Required because rollback is being considered and leadership needs a decision ETA,TRUE
+release.rollback_decision,Accountable release decision owner,Required because rollback decision changes production confidence and stakeholder expectations,TRUE
+release.rolled_back,Accountable leader,Required for rollback communication,TRUE

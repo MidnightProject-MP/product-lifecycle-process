@@ -1,0 +1,9 @@
+Variable Key,Label,Required,Source,Description,Example,Active
+subject,Subject,TRUE,Payload,"Project, release, incident, story, or digest title used in every communication.",May production release,TRUE
+what,What,TRUE,Payload,Concise factual update content.,Release started.,TRUE
+so_what,So What,TRUE,Payload,"Stakeholder meaning, business impact, or expectation change.",Stakeholders should expect production change activity.,TRUE
+whats_next,What's Next,TRUE,Payload,"Next action, owner, timing, or decision.",Release owner will confirm completion.,TRUE
+owner,Owner,TRUE,Payload,Communication owner accountable for follow-up.,Release Owner,TRUE
+gate,Gate,FALSE,Payload,Gate or decision point when relevant.,Go / no-go,TRUE
+destination,Destination,FALSE,Payload,Final workflow destination when relevant.,Backlog,TRUE
+reason,Reason,FALSE,Payload,Disposition or decision rationale when relevant.,Accepted for prioritization,TRUE

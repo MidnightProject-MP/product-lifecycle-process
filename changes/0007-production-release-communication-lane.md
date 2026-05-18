@@ -12,14 +12,14 @@ Add:
 - Release communication principles focused on bundling and grouping.
 - Planned and unexpected communication model for phases and gates.
 - Go / no-go communication payload.
-- Release execution communication for started, completed, delayed, rolled back, and postmortem-needed states.
+- Release execution communication for started, completed, delayed, rollback-being-evaluated, rollback-decision, rolled-back, and postmortem-required states.
 - Release communication log and Slack templates.
 
 ## Expected Impact
 
 - Release communication becomes clear without spamming stakeholders.
 - Go / no-go decisions are visible before release or gate execution.
-- Rollbacks, delays, and postmortem needs have clear communication triggers.
+- Delays, rollback evaluation, rollback decisions, rollbacks, and postmortem needs have clear communication triggers.
 
 ## Risks
 
@@ -30,4 +30,3 @@ Add:
 ## Adoption Notes
 
 Start by logging release communication candidates manually. Automate bundling only after release grouping rules are tested against real releases.
-

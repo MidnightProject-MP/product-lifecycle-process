@@ -98,6 +98,8 @@ Production release communication is driven by:
 - Release started.
 - Release completed.
 - Release delayed.
+- Rollback being evaluated.
+- Rollback decision made.
 - Release rolled back.
 - Release completed with known issues.
-- Postmortem needed.
+- Postmortem required.

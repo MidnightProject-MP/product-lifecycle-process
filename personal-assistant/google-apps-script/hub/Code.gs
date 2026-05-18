@@ -1,0 +1,661 @@
+function setupHubSheets() {
+  const ss = SpreadsheetApp.getActive();
+  const queue = ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
+  const review = ensureSheet_(ss, HUB.SHEETS.REVIEW, HUB.HEADERS.REVIEW);
+  const flowConsole = ensureSheet_(ss, HUB.SHEETS.FLOW_CONSOLE, HUB.HEADERS.FLOW_CONSOLE);
+  const flowState = ensureSheet_(ss, HUB.SHEETS.FLOW_STATE, HUB.HEADERS.FLOW_STATE);
+  const history = ensureSheet_(ss, HUB.SHEETS.HISTORY, HUB.HEADERS.HISTORY);
+  ensureSheet_(ss, HUB.SHEETS.RUN_LOG, HUB.HEADERS.RUN_LOG);
+  setupSkillSheets_();
+  setupGraphSheets_();
+  configureHubQueueSheet_(queue);
+  configureHubReviewSheet_(review);
+  configureFlowConsoleSheet_(flowConsole);
+  configureHubPlainTextColumns_(queue);
+  configureHubPlainTextColumns_(history);
+  configureHubPlainTextColumns_(flowState);
+  syncReviewSheetFromQueue_();
+}
+
+function seedHubPocData() {
+  throw new Error('seedHubPocData is deprecated. Use the central Registry spreadsheet and run setupRegistrySheets().');
+}
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Personal Assistant')
+    .addItem('Open Review Controller', 'openReviewController')
+    .addItem('Open Review Controller Sidebar', 'openReviewControllerSidebar')
+    .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
+    .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
+    .addItem('Discard selected row(s)', 'discardSelectedQueueRows')
+    .addSeparator()
+    .addItem('Refresh Flow Console', 'refreshFlowConsole')
+    .addItem('Create draft from Flow Console', 'createDraftFromFlowConsole')
+    .addSeparator()
+    .addItem('Process approved rows', 'debugProcessApprovedQueueRows')
+    .addItem('Check Hub configuration', 'debugCheckHubConfiguration')
+    .addItem('Refresh Registry cache', 'clearHubRegistryCache')
+    .addToUi();
+}
+
+function onHubEdit(e) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    logHub_('WARN', 'onHubEdit', '', 'Skipped because Hub processing lock was unavailable.', {});
+    return;
+  }
+
+  try {
+    handleHubEdit_(e);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function handleHubEdit_(e) {
+  if (!e) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped because function was run manually without an event.', {});
+    return;
+  }
+
+  if (!e.range) {
+    const processed = processApprovedQueueRows_();
+    if (processed > 0) {
+      logHub_('INFO', 'onHubEdit', '', 'Processed approved rows after trigger arrived without an edit range.', {
+        processed: processed,
+        changeType: e.changeType || '',
+        triggerUid: e.triggerUid || ''
+      });
+    }
+    return;
+  }
+
+  const sheet = e.range.getSheet();
+  if (sheet.getName() === HUB.SHEETS.REVIEW) {
+    handleReviewEdit_(e, sheet);
+    return;
+  }
+
+  if (sheet.getName() === HUB.SHEETS.FLOW_CONSOLE) {
+    handleFlowConsoleEdit_(e, sheet);
+    return;
+  }
+
+  if (sheet.getName() !== HUB.SHEETS.QUEUE) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped edit outside Queue, Review, or Flow Console.', { sheet: sheet.getName() });
+    return;
+  }
+
+  const headers = getHeaders_(sheet);
+  const statusColumn = headers.indexOf('Status') + 1;
+  if (statusColumn < 1) throw new Error('Queue sheet is missing Status header.');
+
+  const editedRange = describeHubEditRange_(e.range, headers);
+  if (!editedRange.includesStatusColumn) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped edit outside Status column.', editedRange);
+    return;
+  }
+
+  if (e.range.getRow() === 1) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped header row edit.', editedRange);
+    return;
+  }
+
+  const firstRow = Math.max(e.range.getRow(), 2);
+  const lastRow = e.range.getLastRow();
+  const queueIds = getQueueIdsFromRows_(sheet, firstRow, lastRow);
+  queueIds.forEach(queueId => processQueueRowByQueueIdIfApproved_(sheet, queueId, 'onHubEdit', editedRange));
+}
+
+function processQueueRowByQueueIdIfApproved_(sheet, queueId, fn, details) {
+  const row = findQueueRowByQueueId_(sheet, queueId);
+  if (!row) {
+    logHub_('INFO', fn, queueId, 'Skipped because Queue row no longer exists.', details || {});
+    return;
+  }
+
+  const item = getRowObject_(sheet, row);
+  const currentStatus = String(item.Status || '').trim();
+  const stableQueueId = item['Queue ID'] || queueId || '';
+  const logDetails = Object.assign({ row: row, status: currentStatus }, details || {});
+  logHub_('INFO', fn, stableQueueId, 'Status column edit detected.', logDetails);
+
+  if (currentStatus !== HUB.STATUS.APPROVED) {
+    logHub_('INFO', fn, stableQueueId, 'Skipped because status is not Approved.', { row: row, status: currentStatus });
+    return;
+  }
+
+  runSkillOrThrow_('approve_draft', {
+    queueId: stableQueueId,
+    row: row
+  });
+}
+
+function approveSelectedQueueRows() {
+  updateSelectedQueueRowsStatus_(HUB.STATUS.APPROVED, true);
+}
+
+function discardSelectedQueueRows() {
+  updateSelectedQueueRowsStatus_(HUB.STATUS.DISCARDED, false);
+}
+
+function updateSelectedQueueRowsStatus_(status, shouldProcess) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    logHub_('WARN', 'updateSelectedQueueRowsStatus_', '', 'Skipped because Hub processing lock was unavailable.', {
+      status: status
+    });
+    return;
+  }
+
+  try {
+    const sheet = SpreadsheetApp.getActiveSheet();
+    if (!sheet || [HUB.SHEETS.QUEUE, HUB.SHEETS.REVIEW].indexOf(sheet.getName()) < 0) {
+      SpreadsheetApp.getUi().alert('Select one or more rows in the Queue or Review sheet first.');
+      return;
+    }
+
+    const range = sheet.getActiveRange();
+    if (!range) {
+      SpreadsheetApp.getUi().alert('Select one or more Queue rows first.');
+      return;
+    }
+
+    if (sheet.getName() === HUB.SHEETS.REVIEW) {
+      updateSelectedReviewRowsDecision_(sheet, range, status === HUB.STATUS.APPROVED ? HUB.REVIEW_DECISION.APPROVE : HUB.REVIEW_DECISION.DISCARD);
+      return;
+    }
+
+    const headers = getHeaders_(sheet);
+    const statusColumn = headers.indexOf('Status') + 1;
+    if (statusColumn < 1) throw new Error('Queue sheet is missing Status header.');
+
+    const firstRow = Math.max(range.getRow(), 2);
+    const lastRow = range.getLastRow();
+    const queueIds = getQueueIdsFromRows_(sheet, firstRow, lastRow);
+    let changed = 0;
+
+    queueIds.forEach(queueId => {
+      const row = findQueueRowByQueueId_(sheet, queueId);
+      if (!row) return;
+
+      if (status === HUB.STATUS.APPROVED) {
+        runSkillOrThrow_('approve_draft', {
+          queueId: queueId,
+          row: row
+        });
+      } else if (status === HUB.STATUS.DISCARDED) {
+        runSkillOrThrow_('discard_draft', {
+          queueId: queueId,
+          row: row,
+          reason: 'Discarded from Personal Assistant menu.'
+        });
+      } else {
+        updateRowFields_(sheet, row, {
+          Status: status,
+          'Updated At': nowIso_(),
+          Error: ''
+        });
+      }
+
+      changed++;
+      logHub_('INFO', 'updateSelectedQueueRowsStatus_', queueId, 'Menu updated Queue row status.', {
+        row: row,
+        status: status,
+        shouldProcess: shouldProcess
+      });
+    });
+
+    if (!shouldProcess) syncReviewSheetFromQueueSafe_();
+    SpreadsheetApp.getUi().alert('Updated ' + changed + ' Queue row(s) to ' + status + '.');
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateSelectedReviewRowsDecision_(sheet, range, decision) {
+  const headers = getHeaders_(sheet);
+  const decisionColumn = headers.indexOf('Decision') + 1;
+  if (decisionColumn < 1) throw new Error('Review sheet is missing Decision header.');
+
+  const firstRow = Math.max(range.getRow(), 2);
+  const lastRow = range.getLastRow();
+  const queueIdColumn = headers.indexOf('Queue ID') + 1;
+  if (queueIdColumn < 1) throw new Error('Review sheet is missing Queue ID header.');
+
+  const rowCount = lastRow - firstRow + 1;
+  const selected = sheet.getRange(firstRow, queueIdColumn, rowCount, 1).getValues()
+    .map((rowValues, index) => ({
+      reviewRow: firstRow + index,
+      queueId: rowValues[0]
+    }));
+  let changed = 0;
+  let skipped = 0;
+
+  selected.forEach(item => {
+    if (!item.queueId) {
+      skipped++;
+      return;
+    }
+
+    processReviewDecisionByQueueId_(item.queueId, decision, {
+      reviewRow: item.reviewRow,
+      source: 'menu'
+    });
+    changed++;
+  });
+
+  SpreadsheetApp.getUi().alert('Processed ' + changed + ' Review row(s).' + (skipped ? ' Skipped ' + skipped + ' blank row(s).' : ''));
+}
+
+function getQueueIdsFromRows_(sheet, firstRow, lastRow) {
+  const headers = getHeaders_(sheet);
+  const queueIdColumn = headers.indexOf('Queue ID') + 1;
+  if (queueIdColumn < 1) throw new Error('Queue sheet is missing Queue ID header.');
+  if (lastRow < firstRow) return [];
+
+  return sheet.getRange(firstRow, queueIdColumn, lastRow - firstRow + 1, 1).getValues()
+    .map(rowValues => rowValues[0])
+    .filter(queueId => queueId);
+}
+
+function configureHubQueueSheet_(sheet) {
+  sheet.setFrozenRows(1);
+  const headers = getHeaders_(sheet);
+  const statusColumn = headers.indexOf('Status') + 1;
+  if (statusColumn < 1) return;
+
+  const statuses = Object.keys(HUB.STATUS).map(key => HUB.STATUS[key]);
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(statuses, true)
+    .setAllowInvalid(false)
+    .build();
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  applyHubColumnValidation_(sheet, statusColumn, rows, rule, 'Status');
+}
+
+function configureHubReviewSheet_(sheet) {
+  sheet.setFrozenRows(1);
+  const headers = getHeaders_(sheet);
+  const decisionColumn = headers.indexOf('Decision') + 1;
+  if (decisionColumn < 1) return;
+
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['', HUB.REVIEW_DECISION.APPROVE, HUB.REVIEW_DECISION.DISCARD], true)
+    .setAllowInvalid(false)
+    .build();
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  applyHubColumnValidation_(sheet, decisionColumn, rows, rule, 'Decision');
+}
+
+function applyHubColumnValidation_(sheet, column, rows, rule, label) {
+  try {
+    sheet.getRange(2, column, rows, 1).setDataValidation(rule);
+  } catch (error) {
+    logHub_('WARN', 'applyHubColumnValidation_', '', 'Skipped dropdown validation because the sheet rejected it.', {
+      sheet: sheet.getName(),
+      column: column,
+      label: label,
+      error: error.message || String(error)
+    });
+  }
+}
+
+function describeHubEditRange_(range, headers) {
+  const firstColumn = range.getColumn();
+  const lastColumn = range.getLastColumn();
+  const statusColumn = headers.indexOf('Status') + 1;
+  const editedHeaders = [];
+  for (let col = firstColumn; col <= lastColumn; col++) {
+    editedHeaders.push(headers[col - 1] || '');
+  }
+
+  return {
+    a1Notation: range.getA1Notation(),
+    row: range.getRow(),
+    lastRow: range.getLastRow(),
+    column: firstColumn,
+    lastColumn: lastColumn,
+    numRows: range.getNumRows(),
+    numColumns: range.getNumColumns(),
+    editedHeaders: editedHeaders,
+    statusColumn: statusColumn,
+    includesStatusColumn: statusColumn >= firstColumn && statusColumn <= lastColumn
+  };
+}
+
+function handleReviewEdit_(e, sheet) {
+  const headers = getHeaders_(sheet);
+  const decisionColumn = headers.indexOf('Decision') + 1;
+  if (decisionColumn < 1) throw new Error('Review sheet is missing Decision header.');
+
+  const editedRange = describeHubEditRange_(e.range, headers);
+  editedRange.decisionColumn = decisionColumn;
+  editedRange.includesDecisionColumn = decisionColumn >= editedRange.column && decisionColumn <= editedRange.lastColumn;
+
+  if (!editedRange.includesDecisionColumn) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped Review edit outside Decision column.', editedRange);
+    return;
+  }
+
+  if (e.range.getRow() === 1) {
+    logHub_('INFO', 'onHubEdit', '', 'Skipped Review header row edit.', editedRange);
+    return;
+  }
+
+  const firstRow = Math.max(e.range.getRow(), 2);
+  const lastRow = e.range.getLastRow();
+  getReviewDecisionSnapshots_(sheet, firstRow, lastRow).forEach(item => {
+    processReviewDecisionSnapshot_(sheet, item);
+  });
+}
+
+function processReviewDecisionRow_(reviewSheet, row) {
+  const item = getRowObject_(reviewSheet, row);
+  processReviewDecisionSnapshot_(reviewSheet, {
+    reviewRow: row,
+    queueId: item['Queue ID'],
+    decision: String(item.Decision || '').trim()
+  });
+}
+
+function processReviewDecisionSnapshot_(reviewSheet, item) {
+  const decision = String(item.decision || '').trim();
+  const queueId = item.queueId;
+  if (!queueId && !decision) {
+    return;
+  }
+
+  if (!queueId) {
+    updateRowFields_(reviewSheet, item.reviewRow, { Decision: '' });
+    logHub_('INFO', 'processReviewDecisionRow_', '', 'Skipped blank Review row with decision value.', {
+      row: item.reviewRow,
+      decision: decision
+    });
+    return;
+  }
+
+  if (!decision) {
+    logHub_('INFO', 'processReviewDecisionRow_', queueId, 'Skipped Review row with blank decision.', { row: item.reviewRow });
+    return;
+  }
+
+  processReviewDecisionByQueueId_(queueId, decision, {
+    reviewRow: item.reviewRow,
+    source: 'review-edit'
+  });
+}
+
+function getReviewDecisionSnapshots_(sheet, firstRow, lastRow) {
+  const headers = getHeaders_(sheet);
+  const queueIdIndex = headers.indexOf('Queue ID');
+  const decisionIndex = headers.indexOf('Decision');
+  if (queueIdIndex < 0) throw new Error('Review sheet is missing Queue ID header.');
+  if (decisionIndex < 0) throw new Error('Review sheet is missing Decision header.');
+  if (lastRow < firstRow) return [];
+
+  return sheet.getRange(firstRow, 1, lastRow - firstRow + 1, headers.length).getValues()
+    .map((rowValues, index) => ({
+      reviewRow: firstRow + index,
+      queueId: rowValues[queueIdIndex],
+      decision: String(rowValues[decisionIndex] || '').trim()
+    }));
+}
+
+function processReviewDecisionByQueueId_(queueId, decision, details) {
+  const queueSheet = SpreadsheetApp.getActive().getSheetByName(HUB.SHEETS.QUEUE);
+  if (!queueSheet) throw new Error('Queue sheet is missing.');
+  const queueRow = findQueueRowByQueueId_(queueSheet, queueId);
+  if (!queueRow) throw new Error('Queue row not found for Queue ID: ' + queueId);
+
+  if (decision === HUB.REVIEW_DECISION.APPROVE) {
+    logHub_('INFO', 'processReviewDecisionByQueueId_', queueId, 'Review approved Queue row.', Object.assign({}, details || {}, {
+      queueRow: queueRow
+    }));
+    runSkillOrThrow_('approve_draft', {
+      queueId: queueId,
+      row: queueRow
+    });
+    return;
+  }
+
+  if (decision === HUB.REVIEW_DECISION.DISCARD) {
+    logHub_('INFO', 'processReviewDecisionByQueueId_', queueId, 'Review discarded Queue row.', Object.assign({}, details || {}, {
+      queueRow: queueRow
+    }));
+    runSkillOrThrow_('discard_draft', {
+      queueId: queueId,
+      row: queueRow,
+      reason: 'Discarded from Review sheet.'
+    });
+    return;
+  }
+
+  logHub_('WARN', 'processReviewDecisionByQueueId_', queueId, 'Skipped Review row with unsupported decision.', Object.assign({}, details || {}, {
+    decision: decision
+  }));
+}
+
+function syncReviewSheetFromQueue() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    logHub_('WARN', 'syncReviewSheetFromQueue', '', 'Skipped because Hub processing lock was unavailable.', {});
+    return;
+  }
+
+  try {
+    syncReviewSheetFromQueue_();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function syncReviewSheetFromQueue_() {
+  const ss = SpreadsheetApp.getActive();
+  const queueSheet = ensureSheet_(ss, HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
+  const reviewSheet = ensureSheet_(ss, HUB.SHEETS.REVIEW, HUB.HEADERS.REVIEW);
+  const reviewRows = getObjects_(queueSheet)
+    .filter(row => [HUB.STATUS.DRAFT, HUB.STATUS.ERROR, HUB.STATUS.SCHEDULED].indexOf(String(row.Status || '').trim()) >= 0)
+    .map(buildReviewRowFromQueueRow_);
+
+  writeObjectsToSheet_(reviewSheet, HUB.HEADERS.REVIEW, reviewRows);
+  configureHubReviewSheet_(reviewSheet);
+  logHub_('INFO', 'syncReviewSheetFromQueue_', '', 'Review sheet synced from Queue.', {
+    rows: reviewRows.length
+  });
+}
+
+function syncReviewSheetFromQueueSafe_() {
+  try {
+    syncReviewSheetFromQueue_();
+  } catch (error) {
+    logHub_('WARN', 'syncReviewSheetFromQueueSafe_', '', 'Failed to sync Review sheet.', {
+      error: error.message || String(error)
+    });
+  }
+}
+
+function buildReviewRowFromQueueRow_(queueRow) {
+  const payload = normalizePayload_(queueRow);
+  return {
+    Decision: '',
+    'Queue ID': queueRow['Queue ID'],
+    'Created At': queueRow['Created At'],
+    Source: queueRow.Source,
+    Lane: queueRow.Lane,
+    'Event Key': queueRow['Event Key'],
+    Priority: queueRow.Priority,
+    Owner: queueRow.Owner || payload.owner,
+    Status: queueRow.Status,
+    Subject: payload.subject || payload.project || payload.release_name || payload.issue_title || queueRow['Flow ID'],
+    What: payload.what || '',
+    'So What': payload.so_what || '',
+    "What's Next": payload.whats_next || '',
+    Error: queueRow.Error || '',
+    'Slack Message URL': queueRow['Slack Message URL'] || ''
+  };
+}
+
+function writeObjectsToSheet_(sheet, headers, rows) {
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length) {
+    configureHubPlainTextColumns_(sheet);
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows.map(row => headers.map(header => normalizeHubCellValue_(header, row[header]))));
+  }
+}
+
+function ensureSheet_(ss, name, headers) {
+  const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    return sheet;
+  }
+
+  enforceHeaders_(sheet, headers);
+  return sheet;
+}
+
+function enforceHeaders_(sheet, headers) {
+  const currentLastColumn = Math.max(sheet.getLastColumn(), 1);
+  const current = sheet.getRange(1, 1, 1, currentLastColumn).getValues()[0];
+  const existing = current.filter(value => value !== '');
+  const merged = headers.slice();
+
+  existing.forEach(header => {
+    if (merged.indexOf(header) < 0) merged.push(header);
+  });
+
+  sheet.getRange(1, 1, 1, merged.length).setValues([merged]);
+}
+
+function getHeaders_(sheet) {
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+}
+
+function getObjects_(sheet) {
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0];
+  return values.slice(1).filter(row => row.some(value => value !== '')).map(row => {
+    return headers.reduce((obj, header, index) => {
+      obj[header] = row[index];
+      return obj;
+    }, {});
+  });
+}
+
+function logHub_(level, fn, queueId, message, details) {
+  const values = [
+    uuid_(),
+    new Date(),
+    level,
+    fn,
+    queueId || '',
+    message,
+    details ? JSON.stringify(details) : ''
+  ];
+
+  try {
+    const ss = SpreadsheetApp.getActive();
+    writeHubLogValues_(ss, HUB.SHEETS.RUN_LOG, values);
+  } catch (error) {
+    try {
+      const ss = SpreadsheetApp.getActive();
+      writeHubLogValues_(ss, HUB.SHEETS.RUN_LOG_RAW, values);
+      console.log(JSON.stringify({
+        level: 'WARN',
+        loggingFunctionName: 'logHub_',
+        originalFunctionName: fn,
+        queueId: queueId || '',
+        message: 'Primary Run_Log write failed while recording a log event; wrote to Run_Log_Raw.',
+        details: {
+          originalLevel: level,
+          originalMessage: message,
+          runLogWriteError: error.message || String(error)
+        }
+      }));
+    } catch (fallbackError) {
+      console.log(JSON.stringify({
+        level: level,
+        loggingFunctionName: 'logHub_',
+        originalFunctionName: fn,
+        queueId: queueId || '',
+        message: 'Both Run_Log and Run_Log_Raw writes failed while recording a log event.',
+        details: details || {},
+        originalMessage: message,
+        runLogWriteError: error.message || String(error),
+        rawRunLogWriteError: fallbackError.message || String(fallbackError)
+      }));
+    }
+  }
+}
+
+function writeHubLogValues_(ss, sheetName, values) {
+  const sheet = ensureLogSheet_(ss, sheetName);
+  insertValuesAtTop_(sheet, values);
+}
+
+function ensureLogSheet_(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, HUB.HEADERS.RUN_LOG.length).setValues([HUB.HEADERS.RUN_LOG]);
+  }
+  return sheet;
+}
+
+function insertValuesAtTop_(sheet, values) {
+  let inserted = false;
+  try {
+    sheet.insertRowsBefore(2, 1);
+    inserted = true;
+    configureHubPlainTextColumns_(sheet);
+    sheet.getRange(2, 1, 1, values.length).setValues([values]);
+  } catch (error) {
+    if (inserted) {
+      try {
+        sheet.deleteRow(2);
+      } catch (deleteError) {
+        console.log('Failed to roll back inserted row on ' + sheet.getName() + ': ' + deleteError);
+      }
+    }
+    throw error;
+  }
+}
+
+function configureHubPlainTextColumns_(sheet) {
+  const headers = getHeaders_(sheet);
+  const rows = Math.max(sheet.getMaxRows() - 1, 1);
+  headers.forEach((header, index) => {
+    if (!shouldPreserveHubCellAsText_(header)) return;
+    sheet.getRange(2, index + 1, rows, 1).setNumberFormat('@');
+  });
+}
+
+function normalizeHubCellValue_(header, value) {
+  if (value == null) return '';
+  if (!shouldPreserveHubCellAsText_(header)) return value;
+  return String(value);
+}
+
+function shouldPreserveHubCellAsText_(header) {
+  return [
+    'Slack Thread ID',
+    'Slack Message TS',
+    'Anchor Message TS',
+    'Thread TS',
+    'Latest Reply TS',
+    'Run ID',
+    'Parent Run ID',
+    'Input Hash',
+    'Flow ID',
+    'Entity ID',
+    'W Node ID',
+    'Edge ID',
+    'Source Node ID',
+    'Target Node ID',
+    'Payload Hash'
+  ].indexOf(header) >= 0;
+}
