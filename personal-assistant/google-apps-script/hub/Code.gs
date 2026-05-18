@@ -611,7 +611,7 @@ function insertValuesAtTop_(sheet, values) {
   try {
     sheet.insertRowsBefore(2, 1);
     inserted = true;
-    configureHubPlainTextColumns_(sheet);
+    configureHubPlainTextRow_(sheet, 2);
     sheet.getRange(2, 1, 1, values.length).setValues([values]);
   } catch (error) {
     if (inserted) {
@@ -623,6 +623,14 @@ function insertValuesAtTop_(sheet, values) {
     }
     throw error;
   }
+}
+
+function configureHubPlainTextRow_(sheet, row) {
+  const headers = getHeaders_(sheet);
+  headers.forEach((header, index) => {
+    if (!shouldPreserveHubCellAsText_(header)) return;
+    sheet.getRange(row, index + 1).setNumberFormat('@');
+  });
 }
 
 function configureHubPlainTextColumns_(sheet) {

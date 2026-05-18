@@ -311,9 +311,7 @@ function graphUpsertByKey_(sheetName, headers, keyField, object) {
 }
 
 function ensureGraphSheet_(sheetName, headers) {
-  const sheet = ensureSheet_(SpreadsheetApp.getActive(), sheetName, headers);
-  configureHubPlainTextColumns_(sheet);
-  return sheet;
+  return ensureSheet_(SpreadsheetApp.getActive(), sheetName, headers);
 }
 
 function graphFindObjectByKey_(sheetName, keyField, keyValue) {
