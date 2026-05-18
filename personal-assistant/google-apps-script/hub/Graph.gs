@@ -109,8 +109,9 @@ function graphRecordQueueItem_(item, action, verified) {
   const entityNodeId = graphBuildEntityId_(item['Flow ID']);
   const payload = normalizePayload_(item);
   const wValues = graphExtractWValues_(item, payload);
-  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID');
-  const existingWNodes = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_W_NODES, 'W Node ID');
+  const wNodeIds = GRAPH_W_DIMENSIONS.map(dimension => graphBuildWNodeId_(item['Flow ID'], dimension));
+  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID', [entityNodeId]);
+  const existingWNodes = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_W_NODES, 'W Node ID', wNodeIds);
   const entity = graphBuildEntityFromItem_(item, payload, verified, existingEntities.objects[entityNodeId] || {});
   const wNodes = [];
   const edges = [];
@@ -170,7 +171,7 @@ function graphSyncFlowState_(flowState) {
   if (!flowState || !flowState['Flow ID']) return;
 
   const entityId = graphBuildEntityId_(flowState['Flow ID']);
-  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID');
+  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID', [entityId]);
   const existing = existingEntities.objects[entityId] || {};
   const entity = Object.assign({}, existing, {
     'Entity ID': entityId,
@@ -344,7 +345,7 @@ function graphUpsertObjectsByKey_(sheetName, headers, keyField, objects, existin
     };
   }
 
-  const existing = existingData || graphReadSheetObjectsByKey_(sheet, sheetHeaders, keyField);
+  const existing = existingData || graphReadSheetObjectsByKey_(sheet, sheetHeaders, keyField, candidates.map(object => object[keyField]));
   const updates = [];
   const inserts = [];
   const rows = {};
@@ -397,7 +398,7 @@ function graphGetObjectsByKey_(sheetName, keyField) {
   return graphReadObjectsAndRowsByKey_(sheetName, keyField).objects;
 }
 
-function graphReadObjectsAndRowsByKey_(sheetName, keyField) {
+function graphReadObjectsAndRowsByKey_(sheetName, keyField, keyValues) {
   const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
   if (!sheet || sheet.getLastRow() < 2) {
     return {
@@ -405,10 +406,10 @@ function graphReadObjectsAndRowsByKey_(sheetName, keyField) {
       rows: {}
     };
   }
-  return graphReadSheetObjectsByKey_(sheet, getHeaders_(sheet), keyField);
+  return graphReadSheetObjectsByKey_(sheet, getHeaders_(sheet), keyField, keyValues);
 }
 
-function graphReadSheetObjectsByKey_(sheet, headers, keyField) {
+function graphReadSheetObjectsByKey_(sheet, headers, keyField, keyValues) {
   const keyIndex = headers.indexOf(keyField);
   if (keyIndex < 0) throw new Error(sheet.getName() + ' sheet is missing ' + keyField + ' header.');
   const result = {
@@ -417,11 +418,40 @@ function graphReadSheetObjectsByKey_(sheet, headers, keyField) {
   };
   if (!sheet || sheet.getLastRow() < 2) return result;
 
+  const requestedKeys = (keyValues || []).map(value => String(value || '')).filter(value => value);
+  if (requestedKeys.length) {
+    const requested = requestedKeys.reduce((map, key) => {
+      map[key] = true;
+      return map;
+    }, {});
+    const values = sheet.getRange(2, keyIndex + 1, sheet.getLastRow() - 1, 1).getValues();
+    const matchedRows = [];
+    values.forEach((rowValues, index) => {
+      const key = String(rowValues[0] || '');
+      if (requested[key] && !result.rows[key]) {
+        result.rows[key] = index + 2;
+        matchedRows.push({
+          key: key,
+          row: index + 2
+        });
+      }
+    });
+    matchedRows.forEach(match => {
+      const rowValues = sheet.getRange(match.row, 1, 1, headers.length).getValues()[0];
+      result.objects[match.key] = headers.reduce((obj, header, headerIndex) => {
+        obj[header] = rowValues[headerIndex];
+        return obj;
+      }, {});
+    });
+    return result;
+  }
+
   const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
   values.forEach((rowValues, index) => {
     if (!rowValues.some(value => value !== '')) return;
     const key = String(rowValues[keyIndex] || '');
     if (!key) return;
+    if (result.rows[key]) return;
     result.rows[key] = index + 2;
     result.objects[key] = headers.reduce((obj, header, headerIndex) => {
       obj[header] = rowValues[headerIndex];
@@ -433,9 +463,7 @@ function graphReadSheetObjectsByKey_(sheet, headers, keyField) {
 
 function graphFindObjectByKey_(sheetName, keyField, keyValue) {
   if (!keyValue) return null;
-  const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
-  if (!sheet || sheet.getLastRow() < 2) return null;
-  return getObjects_(sheet).find(row => String(row[keyField]) === String(keyValue)) || null;
+  return graphReadObjectsAndRowsByKey_(sheetName, keyField, [keyValue]).objects[String(keyValue)] || null;
 }
 
 function graphFindRowByKey_(sheet, keyField, keyValue) {
@@ -444,9 +472,9 @@ function graphFindRowByKey_(sheet, keyField, keyValue) {
   const keyIndex = headers.indexOf(keyField);
   if (keyIndex < 0) throw new Error(sheet.getName() + ' sheet is missing ' + keyField + ' header.');
 
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const values = sheet.getRange(2, keyIndex + 1, sheet.getLastRow() - 1, 1).getValues();
   for (let i = 0; i < values.length; i++) {
-    if (String(values[i][keyIndex]) === String(keyValue)) return i + 2;
+    if (String(values[i][0]) === String(keyValue)) return i + 2;
   }
   return 0;
 }
