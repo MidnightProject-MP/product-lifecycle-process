@@ -344,12 +344,14 @@ function buildReviewControllerCommunicationOptions_() {
   }];
 
   const queueSheet = ss.getSheetByName(HUB.SHEETS.QUEUE);
+  const activeFlowIds = {};
   if (queueSheet) {
     getObjects_(queueSheet)
-      .filter(row => [HUB.STATUS.DRAFT, HUB.STATUS.SCHEDULED, HUB.STATUS.ERROR].indexOf(String(row.Status || '').trim()) >= 0)
+      .filter(isActiveReviewControllerDraft_)
       .forEach(row => {
         const payload = normalizePayload_(row);
         const subject = getReviewControllerSubject_(row, payload);
+        if (row['Flow ID']) activeFlowIds[String(row['Flow ID'])] = true;
         options.push({
           value: 'queue:' + row['Queue ID'],
           label: 'Draft: ' + subject + ' - ' + getReviewControllerEventDisplayName_(row['Event Key'])
@@ -360,17 +362,35 @@ function buildReviewControllerCommunicationOptions_() {
   const flowSheet = ss.getSheetByName(HUB.SHEETS.FLOW_STATE);
   if (flowSheet) {
     getObjects_(flowSheet)
-      .filter(row => row['Flow ID'])
+      .filter(row => shouldShowReviewControllerFlowOption_(row, activeFlowIds))
       .forEach(row => {
         const subject = row.Subject || row['Flow ID'];
         options.push({
           value: 'flow:' + row['Flow ID'],
-          label: 'Existing: ' + subject + ' - ' + getReviewControllerEventDisplayName_(row['Current Event Key'])
+          label: 'Continue: ' + subject + ' - ' + getReviewControllerEventDisplayName_(row['Current Event Key'])
         });
       });
   }
 
   return options;
+}
+
+function isActiveReviewControllerDraft_(row) {
+  return [HUB.STATUS.DRAFT, HUB.STATUS.SCHEDULED, HUB.STATUS.ERROR].indexOf(String(row.Status || '').trim()) >= 0;
+}
+
+function shouldShowReviewControllerFlowOption_(flow, activeFlowIds) {
+  const flowId = String(flow && flow['Flow ID'] || '');
+  if (!flowId) return false;
+  if (activeFlowIds && activeFlowIds[flowId]) return false;
+
+  const status = String(flow['Flow Status'] || '').trim().toLowerCase();
+  if (status === 'completed' || status === 'discarded') return false;
+
+  const subject = String(flow.Subject || '');
+  if (flowId.indexOf('debug-') === 0 || subject.toLowerCase().indexOf('smoke test') >= 0) return false;
+
+  return true;
 }
 
 function resolveReviewControllerSelectedValue_(selection, options) {
