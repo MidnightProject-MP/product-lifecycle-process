@@ -625,6 +625,8 @@ function buildReviewControllerPreviewItem_(form) {
   payload.what = stringFromForm_(form.what) || payload.what || '';
   payload.so_what = stringFromForm_(form.soWhat) || payload.so_what || '';
   payload.whats_next = stringFromForm_(form.whatsNext) || payload.whats_next || '';
+  payload.why = payload.so_what;
+  payload.next = payload.whats_next;
   payload.lane = payload.lane || item.Lane || inferLaneFromEventKey_(payload.event_key);
 
   return Object.assign({}, item, {
@@ -633,6 +635,15 @@ function buildReviewControllerPreviewItem_(form) {
     'Event Key': payload.event_key,
     Lane: payload.lane,
     Owner: payload.owner,
+    Subject: payload.subject,
+    What: payload.what,
+    'So What': payload.so_what,
+    "What's Next": payload.whats_next,
+    what: payload.what,
+    so_what: payload.so_what,
+    whats_next: payload.whats_next,
+    why: payload.so_what,
+    next: payload.whats_next,
     'Payload JSON': stringifyJson_(payload)
   });
 }

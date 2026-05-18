@@ -178,7 +178,6 @@
     <div class="actions">
       <button class="secondary" id="queueBtn" onclick="queueDraft()">Queue up Draft</button>
       <button class="primary" id="approveBtn" onclick="approveDraft()">Approve & Send</button>
-      <button class="plain" onclick="load()">Refresh</button>
     </div>
   </div>
 
@@ -186,6 +185,7 @@
     let currentContext = null;
     let actionDefaults = {};
     let previewTimer = null;
+    let previewRequestId = 0;
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -293,10 +293,14 @@
 
     function loadMessagePreview() {
       if (!currentContext || !currentContext.ok) return;
+      const requestId = ++previewRequestId;
       document.getElementById('messagePreview').textContent = 'Rendering preview...';
       google.script.run
-        .withSuccessHandler(renderMessagePreview)
+        .withSuccessHandler(result => {
+          if (requestId === previewRequestId) renderMessagePreview(result);
+        })
         .withFailureHandler(error => {
+          if (requestId !== previewRequestId) return;
           document.getElementById('previewMeta').textContent = '';
           document.getElementById('messagePreview').textContent = error && error.message ? error.message : String(error);
         })

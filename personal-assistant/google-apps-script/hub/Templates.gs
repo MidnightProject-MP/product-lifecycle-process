@@ -72,11 +72,23 @@ var HUB_REGISTRY_CACHEABLE_SHEETS_ = ['Settings', 'Event_Catalog', 'Templates', 
 var HUB_REGISTRY_CACHE_TTL_SECONDS_ = 300;
 
 function renderTemplate_(text, item) {
-  const payload = Object.assign({}, getPayload_(item), item);
+  const payload = buildTemplatePayload_(item);
   return String(text || '').replace(/\\n/g, '\n').replace(/\{\{([^}]+)\}\}/g, (_, token) => {
     const key = token.trim();
     return payload[key] == null ? '' : String(payload[key]);
   });
+}
+
+function buildTemplatePayload_(item) {
+  const payload = Object.assign({}, item, getPayload_(item));
+  if (payload.what && !payload.What) payload.What = payload.what;
+  if (payload.so_what && !payload.why) payload.why = payload.so_what;
+  if (payload.so_what && !payload['So What']) payload['So What'] = payload.so_what;
+  if (payload.whats_next && !payload.next) payload.next = payload.whats_next;
+  if (payload.whats_next && !payload['What\'s Next']) payload['What\'s Next'] = payload.whats_next;
+  if (payload.subject && !payload.Subject) payload.Subject = payload.subject;
+  if (payload.owner && !payload.Owner) payload.Owner = payload.owner;
+  return payload;
 }
 
 function getPayload_(item) {
