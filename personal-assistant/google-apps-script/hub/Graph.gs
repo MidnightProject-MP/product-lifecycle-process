@@ -106,14 +106,20 @@ function exportGraphMemoryToDrive() {
 function graphRecordQueueItem_(item, action, verified) {
   if (!item || !item['Flow ID']) return;
 
-  const entity = graphUpsertEntityFromItem_(item, verified);
-  const entityNodeId = entity['Entity ID'];
+  const entityNodeId = graphBuildEntityId_(item['Flow ID']);
   const payload = normalizePayload_(item);
   const wValues = graphExtractWValues_(item, payload);
+  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID');
+  const existingWNodes = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_W_NODES, 'W Node ID');
+  const entity = graphBuildEntityFromItem_(item, payload, verified, existingEntities.objects[entityNodeId] || {});
+  const wNodes = [];
+  const edges = [];
 
   GRAPH_W_DIMENSIONS.forEach(dimension => {
-    const wNode = graphUpsertWNode_(item, entityNodeId, dimension, wValues[dimension] || '', verified);
-    graphUpsertEdge_({
+    const wNodeId = graphBuildWNodeId_(item['Flow ID'], dimension);
+    const wNode = graphBuildWNodeFromItem_(item, entityNodeId, dimension, wValues[dimension] || '', verified, existingWNodes.objects[wNodeId] || {});
+    wNodes.push(wNode);
+    edges.push({
       'Edge ID': graphBuildEdgeId_(entityNodeId, wNode['W Node ID'], 'HAS_W_NODE'),
       'Source Node ID': entityNodeId,
       'Target Node ID': wNode['W Node ID'],
@@ -126,7 +132,7 @@ function graphRecordQueueItem_(item, action, verified) {
   });
 
   if (item['Queue ID']) {
-    graphUpsertEdge_({
+    edges.push({
       'Edge ID': graphBuildEdgeId_(entityNodeId, graphBuildQueueNodeId_(item['Queue ID']), 'HAS_QUEUE_ITEM'),
       'Source Node ID': entityNodeId,
       'Target Node ID': graphBuildQueueNodeId_(item['Queue ID']),
@@ -139,7 +145,7 @@ function graphRecordQueueItem_(item, action, verified) {
   }
 
   if (item['Event Key']) {
-    graphUpsertEdge_({
+    edges.push({
       'Edge ID': graphBuildEdgeId_(entityNodeId, graphBuildEventNodeId_(item['Event Key']), 'HAS_EVENT'),
       'Source Node ID': entityNodeId,
       'Target Node ID': graphBuildEventNodeId_(item['Event Key']),
@@ -151,6 +157,9 @@ function graphRecordQueueItem_(item, action, verified) {
     });
   }
 
+  graphUpsertObjectsByKey_(HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES, 'Entity ID', [entity], existingEntities);
+  graphUpsertObjectsByKey_(HUB.SHEETS.GRAPH_W_NODES, HUB.HEADERS.GRAPH_W_NODES, 'W Node ID', wNodes, existingWNodes);
+  graphUpsertObjectsByKey_(HUB.SHEETS.GRAPH_EDGES, HUB.HEADERS.GRAPH_EDGES, 'Edge ID', edges);
   graphInsertEvent_(item, action, verified ? 'VERIFIED' : 'PENDING', {
     wValues: wValues,
     payload: payload
@@ -161,7 +170,8 @@ function graphSyncFlowState_(flowState) {
   if (!flowState || !flowState['Flow ID']) return;
 
   const entityId = graphBuildEntityId_(flowState['Flow ID']);
-  const existing = graphFindObjectByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID', entityId) || {};
+  const existingEntities = graphReadObjectsAndRowsByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID');
+  const existing = existingEntities.objects[entityId] || {};
   const entity = Object.assign({}, existing, {
     'Entity ID': entityId,
     'Flow ID': flowState['Flow ID'],
@@ -181,10 +191,10 @@ function graphSyncFlowState_(flowState) {
     'Payload JSON': flowState['Payload JSON'] || existing['Payload JSON'] || '',
     'Updated At': nowIso_()
   });
-  graphUpsertByKey_(HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES, 'Entity ID', entity);
+  const edges = [];
 
   if (flowState['Slack Channel'] && flowState['Anchor Message TS']) {
-    graphUpsertEdge_({
+    edges.push({
       'Edge ID': graphBuildEdgeId_(entityId, graphBuildSlackNodeId_(flowState['Slack Channel'], flowState['Anchor Message TS']), 'HAS_SLACK_ANCHOR'),
       'Source Node ID': entityId,
       'Target Node ID': graphBuildSlackNodeId_(flowState['Slack Channel'], flowState['Anchor Message TS']),
@@ -197,7 +207,7 @@ function graphSyncFlowState_(flowState) {
   }
 
   if (flowState['Slack Channel'] && flowState['Thread TS']) {
-    graphUpsertEdge_({
+    edges.push({
       'Edge ID': graphBuildEdgeId_(entityId, graphBuildSlackThreadNodeId_(flowState['Slack Channel'], flowState['Thread TS']), 'HAS_SLACK_THREAD'),
       'Source Node ID': entityId,
       'Target Node ID': graphBuildSlackThreadNodeId_(flowState['Slack Channel'], flowState['Thread TS']),
@@ -208,15 +218,25 @@ function graphSyncFlowState_(flowState) {
       'Source Event Key': flowState['Current Event Key'] || ''
     });
   }
+
+  graphUpsertObjectsByKey_(HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES, 'Entity ID', [entity], existingEntities);
+  graphUpsertObjectsByKey_(HUB.SHEETS.GRAPH_EDGES, HUB.HEADERS.GRAPH_EDGES, 'Edge ID', edges);
 }
 
 function graphUpsertEntityFromItem_(item, confirmed) {
   const entityId = graphBuildEntityId_(item['Flow ID']);
   const existing = graphFindObjectByKey_(HUB.SHEETS.GRAPH_ENTITIES, 'Entity ID', entityId) || {};
   const payload = normalizePayload_(item);
+  const entity = graphBuildEntityFromItem_(item, payload, confirmed, existing);
+  graphUpsertByKey_(HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES, 'Entity ID', entity);
+  return entity;
+}
+
+function graphBuildEntityFromItem_(item, payload, confirmed, existing) {
+  existing = existing || {};
   const subject = graphBuildSubject_(item, payload);
   const entity = Object.assign({}, existing, {
-    'Entity ID': entityId,
+    'Entity ID': graphBuildEntityId_(item['Flow ID']),
     'Flow ID': item['Flow ID'],
     'Entity Type': item.Lane || existing['Entity Type'] || inferLaneFromEventKey_(item['Event Key']),
     Subject: subject || existing.Subject || item['Flow ID'],
@@ -244,13 +264,20 @@ function graphUpsertEntityFromItem_(item, confirmed) {
     entity['Payload JSON'] = existing['Payload JSON'] || '';
   }
 
-  graphUpsertByKey_(HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES, 'Entity ID', entity);
   return entity;
 }
 
 function graphUpsertWNode_(item, entityId, dimension, value, verified) {
   const wNodeId = graphBuildWNodeId_(item['Flow ID'], dimension);
   const existing = graphFindObjectByKey_(HUB.SHEETS.GRAPH_W_NODES, 'W Node ID', wNodeId) || {};
+  const wNode = graphBuildWNodeFromItem_(item, entityId, dimension, value, verified, existing);
+  graphUpsertByKey_(HUB.SHEETS.GRAPH_W_NODES, HUB.HEADERS.GRAPH_W_NODES, 'W Node ID', wNode);
+  return wNode;
+}
+
+function graphBuildWNodeFromItem_(item, entityId, dimension, value, verified, existing) {
+  existing = existing || {};
+  const wNodeId = graphBuildWNodeId_(item['Flow ID'], dimension);
   const existingVerified = String(existing.Status || '') === 'VERIFIED';
   const shouldUpdateActual = verified || !existingVerified;
   const status = verified && value ? 'VERIFIED' : (existing.Status || 'PENDING');
@@ -269,7 +296,6 @@ function graphUpsertWNode_(item, entityId, dimension, value, verified) {
     'Verified At': verified && value ? nowIso_() : existing['Verified At'] || '',
     'Updated At': nowIso_()
   });
-  graphUpsertByKey_(HUB.SHEETS.GRAPH_W_NODES, HUB.HEADERS.GRAPH_W_NODES, 'W Node ID', wNode);
   return wNode;
 }
 
@@ -299,19 +325,110 @@ function graphInsertEvent_(item, action, status, observation) {
 }
 
 function graphUpsertByKey_(sheetName, headers, keyField, object) {
+  const result = graphUpsertObjectsByKey_(sheetName, headers, keyField, [object]);
+  return result.rows[String(object[keyField])] || 2;
+}
+
+function graphUpsertObjectsByKey_(sheetName, headers, keyField, objects, existingData) {
   const sheet = ensureGraphSheet_(sheetName, headers);
-  const row = graphFindRowByKey_(sheet, keyField, object[keyField]);
-  if (row) {
-    updateRowFields_(sheet, row, object);
-    return row;
+  const sheetHeaders = getHeaders_(sheet);
+  const keyIndex = sheetHeaders.indexOf(keyField);
+  if (keyIndex < 0) throw new Error(sheetName + ' sheet is missing ' + keyField + ' header.');
+
+  const candidates = (objects || []).filter(object => object && object[keyField]);
+  if (!candidates.length) {
+    return {
+      inserted: 0,
+      updated: 0,
+      rows: {}
+    };
   }
 
-  insertObjectRowAtTop_(sheet, object);
-  return 2;
+  const existing = existingData || graphReadSheetObjectsByKey_(sheet, sheetHeaders, keyField);
+  const updates = [];
+  const inserts = [];
+  const rows = {};
+
+  candidates.forEach(object => {
+    const key = String(object[keyField]);
+    const current = existing.objects[key] || {};
+    const merged = Object.assign({}, current, object);
+    if (sheetHeaders.indexOf('Created At') >= 0 && !merged['Created At']) merged['Created At'] = nowIso_();
+    if (sheetHeaders.indexOf('Updated At') >= 0 && !merged['Updated At']) merged['Updated At'] = nowIso_();
+
+    if (existing.rows[key]) {
+      rows[key] = existing.rows[key];
+      updates.push({
+        row: existing.rows[key],
+        object: merged
+      });
+    } else {
+      inserts.push(merged);
+    }
+  });
+
+  updates.forEach(entry => {
+    sheet.getRange(entry.row, 1, 1, sheetHeaders.length)
+      .setValues([sheetHeaders.map(header => normalizeHubCellValue_(header, entry.object[header]))]);
+  });
+
+  if (inserts.length) {
+    sheet.insertRowsBefore(2, inserts.length);
+    configureHubPlainTextRows_(sheet, 2, inserts.length);
+    sheet.getRange(2, 1, inserts.length, sheetHeaders.length)
+      .setValues(inserts.map(object => sheetHeaders.map(header => normalizeHubCellValue_(header, object[header]))));
+    inserts.forEach((object, index) => {
+      rows[String(object[keyField])] = 2 + index;
+    });
+  }
+
+  return {
+    inserted: inserts.length,
+    updated: updates.length,
+    rows: rows
+  };
 }
 
 function ensureGraphSheet_(sheetName, headers) {
   return ensureSheet_(SpreadsheetApp.getActive(), sheetName, headers);
+}
+
+function graphGetObjectsByKey_(sheetName, keyField) {
+  return graphReadObjectsAndRowsByKey_(sheetName, keyField).objects;
+}
+
+function graphReadObjectsAndRowsByKey_(sheetName, keyField) {
+  const sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 2) {
+    return {
+      objects: {},
+      rows: {}
+    };
+  }
+  return graphReadSheetObjectsByKey_(sheet, getHeaders_(sheet), keyField);
+}
+
+function graphReadSheetObjectsByKey_(sheet, headers, keyField) {
+  const keyIndex = headers.indexOf(keyField);
+  if (keyIndex < 0) throw new Error(sheet.getName() + ' sheet is missing ' + keyField + ' header.');
+  const result = {
+    objects: {},
+    rows: {}
+  };
+  if (!sheet || sheet.getLastRow() < 2) return result;
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  values.forEach((rowValues, index) => {
+    if (!rowValues.some(value => value !== '')) return;
+    const key = String(rowValues[keyIndex] || '');
+    if (!key) return;
+    result.rows[key] = index + 2;
+    result.objects[key] = headers.reduce((obj, header, headerIndex) => {
+      obj[header] = rowValues[headerIndex];
+      return obj;
+    }, {});
+  });
+  return result;
 }
 
 function graphFindObjectByKey_(sheetName, keyField, keyValue) {

@@ -626,10 +626,15 @@ function insertValuesAtTop_(sheet, values) {
 }
 
 function configureHubPlainTextRow_(sheet, row) {
+  configureHubPlainTextRows_(sheet, row, 1);
+}
+
+function configureHubPlainTextRows_(sheet, startRow, rowCount) {
+  if (!rowCount || rowCount < 1) return;
   const headers = getHeaders_(sheet);
   headers.forEach((header, index) => {
     if (!shouldPreserveHubCellAsText_(header)) return;
-    sheet.getRange(row, index + 1).setNumberFormat('@');
+    sheet.getRange(startRow, index + 1, rowCount, 1).setNumberFormat('@');
   });
 }
 
