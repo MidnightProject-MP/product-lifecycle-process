@@ -260,11 +260,12 @@ Before GitHub Actions can deploy, replace each placeholder `scriptId` with the m
 | `automation` | `REPLACE_WITH_AUTOMATION_SCRIPT_ID` |
 | `dashboard` | `REPLACE_WITH_DASHBOARD_SCRIPT_ID` |
 
-The GitHub workflow expects a repository secret:
+The GitHub workflow expects one clasp auth repository secret:
 
 | Secret | Purpose |
 | --- | --- |
-| `CLASPRC_JSON` | clasp auth JSON written to `~/.clasprc.json` during deployment. |
+| `CLASPRC_JSON` | Preferred name. Full clasp auth JSON written to `~/.clasprc.json` during deployment. |
+| `CLASP_TOKEN` | Accepted fallback name for the same full clasp auth JSON. |
 
 The deployment workflow runs `clasp push --force` only. It does not create Apps Script versions or redeploy web apps.
 
