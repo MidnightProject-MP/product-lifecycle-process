@@ -305,10 +305,12 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 ### Manual Hub Test
 
-For manual review, use the `Review` sheet first. Set `Decision` to `Approve` or `Discard`, or use the `Personal Assistant` menu.
+For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, queue a draft, approve/send, and show the rendered Slack message preview.
 
 The menu appears after reloading the Hub spreadsheet:
 
+- `Open Communication Console`
+- `Open Communication Console Modal`
 - `Refresh Flow Console`
 - `Create draft from Flow Console`
 - `Approve selected row(s)`

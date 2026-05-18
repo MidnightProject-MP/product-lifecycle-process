@@ -82,6 +82,7 @@
       border-radius: 8px;
       padding: 10px;
       background: #fafafa;
+      margin-top: 12px;
     }
 
     .meta div {
@@ -95,6 +96,28 @@
     .key {
       color: #5f6368;
       font-weight: 700;
+    }
+
+    .preview-title {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: #3c4043;
+      font-weight: 700;
+    }
+
+    .preview-text {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
+    }
+
+    .preview-muted {
+      color: #5f6368;
+      font-size: 12px;
+      font-weight: 400;
+      margin-bottom: 8px;
     }
 
     .status {
@@ -125,15 +148,6 @@
     <label for="communicationSelect">Communication</label>
     <select id="communicationSelect"></select>
 
-    <div class="meta">
-      <div><span class="key">Subject:</span> <span id="previewSubject"></span></div>
-      <div><span class="key">Action:</span> <span id="previewAction"></span></div>
-      <div><span class="key">What:</span> <span id="previewWhat"></span></div>
-      <div><span class="key">So what:</span> <span id="previewSoWhat"></span></div>
-      <div><span class="key">What's next:</span> <span id="previewWhatsNext"></span></div>
-      <div id="anchorWrap" hidden><span class="key">Slack anchor:</span> <a id="anchor" href="#" target="_blank">Open</a></div>
-    </div>
-
     <label for="flowAction">Action</label>
     <select id="flowAction"></select>
 
@@ -152,6 +166,15 @@
     <label for="whatsNext">What happens next?</label>
     <textarea id="whatsNext"></textarea>
 
+    <div class="meta">
+      <div class="preview-title">
+        <span>Message preview</span>
+        <a id="anchor" href="#" target="_blank" hidden>Open Slack anchor</a>
+      </div>
+      <div id="previewMeta" class="preview-muted"></div>
+      <div id="messagePreview" class="preview-text">Preview will appear here.</div>
+    </div>
+
     <div class="actions">
       <button class="secondary" id="queueBtn" onclick="queueDraft()">Queue up Draft</button>
       <button class="primary" id="approveBtn" onclick="approveDraft()">Approve & Send</button>
@@ -162,6 +185,7 @@
   <script>
     let currentContext = null;
     let actionDefaults = {};
+    let previewTimer = null;
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -216,13 +240,12 @@
       document.getElementById('soWhat').value = context.queue.soWhat || '';
       document.getElementById('whatsNext').value = context.queue.whatsNext || '';
 
-      const anchorWrap = document.getElementById('anchorWrap');
       const anchor = document.getElementById('anchor');
       if (context.flow.anchorUrl) {
         anchor.href = context.flow.anchorUrl;
-        anchorWrap.hidden = false;
+        anchor.hidden = false;
       } else {
-        anchorWrap.hidden = true;
+        anchor.hidden = true;
       }
 
       const actionSelect = document.getElementById('flowAction');
@@ -260,14 +283,37 @@
 
     function refreshPreviewForChosenAction() {
       if (!currentContext || !currentContext.ok) return;
+      scheduleMessagePreview();
+    }
 
-      const actionSelect = document.getElementById('flowAction');
-      const selected = actionSelect.options[actionSelect.selectedIndex];
-      document.getElementById('previewSubject').textContent = document.getElementById('subjectInput').value || '';
-      document.getElementById('previewAction').textContent = selected ? selected.textContent : '';
-      document.getElementById('previewWhat').textContent = document.getElementById('what').value || '';
-      document.getElementById('previewSoWhat').textContent = document.getElementById('soWhat').value || '';
-      document.getElementById('previewWhatsNext').textContent = document.getElementById('whatsNext').value || '';
+    function scheduleMessagePreview() {
+      window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(loadMessagePreview, 250);
+    }
+
+    function loadMessagePreview() {
+      if (!currentContext || !currentContext.ok) return;
+      document.getElementById('messagePreview').textContent = 'Rendering preview...';
+      google.script.run
+        .withSuccessHandler(renderMessagePreview)
+        .withFailureHandler(error => {
+          document.getElementById('previewMeta').textContent = '';
+          document.getElementById('messagePreview').textContent = error && error.message ? error.message : String(error);
+        })
+        .previewReviewControllerMessage(collectForm());
+    }
+
+    function renderMessagePreview(result) {
+      const meta = document.getElementById('previewMeta');
+      const body = document.getElementById('messagePreview');
+      if (!result || !result.ok) {
+        meta.textContent = '';
+        body.textContent = result && result.message ? result.message : 'Preview unavailable.';
+        return;
+      }
+
+      meta.textContent = [result.previewMode, result.eventName, result.templateKey].filter(Boolean).join(' | ');
+      body.textContent = result.previewText || result.anchorText || result.replyText || 'Preview unavailable.';
     }
 
     function collectForm() {

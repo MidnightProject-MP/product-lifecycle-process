@@ -7,7 +7,7 @@ function openReviewController() {
 
 function openReviewControllerSidebar() {
   const html = buildReviewControllerHtml_()
-    .setWidth(420);
+    .setWidth(450);
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
@@ -118,6 +118,32 @@ function createReviewControllerFlowActionDraft(form) {
   });
 
   return getReviewControllerContextForQueueId_(result.queueId);
+}
+
+function previewReviewControllerMessage(form) {
+  try {
+    const item = buildReviewControllerPreviewItem_(form || {});
+    const template = findTemplate_(item);
+    const existingFlow = item['Flow ID'] ? findFlowStateByFlowId_(item['Flow ID']) : null;
+    const anchorText = renderTemplate_(getTemplateAnchorText_(template), item);
+    const replyText = renderTemplate_(getTemplateReplyText_(template), item);
+    const historyText = replyText || buildThreadHistoryText_(item, template, 'Preview');
+    const previewText = existingFlow && shouldReplyInThread_(template, item) ? historyText : anchorText;
+    return {
+      ok: true,
+      previewText: previewText,
+      previewMode: existingFlow && shouldReplyInThread_(template, item) ? 'Thread reply' : 'Anchor',
+      anchorText: anchorText,
+      replyText: historyText,
+      templateKey: template['Template Key'],
+      eventName: getReviewControllerEventDisplayName_(item['Event Key'])
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error.message || String(error)
+    };
+  }
 }
 
 function createReviewControllerFlowActionDraftForFlow_(form, flow, selectedItem) {
@@ -576,6 +602,39 @@ function buildReviewControllerItemFromFlow_(flow) {
       owner: flow.Owner || payload.owner || ''
     }))
   };
+}
+
+function buildReviewControllerPreviewItem_(form) {
+  const parsed = parseReviewControllerSelection_(form.selection);
+  let item = {};
+
+  if (parsed.mode === 'queue' && form.queueId) {
+    const queueSheet = ensureSheet_(SpreadsheetApp.getActive(), HUB.SHEETS.QUEUE, HUB.HEADERS.QUEUE);
+    const row = findQueueRowByQueueId_(queueSheet, form.queueId);
+    if (row) item = getRowObject_(queueSheet, row);
+  } else if (parsed.mode === 'flow' && (parsed.id || form.flowId)) {
+    const flow = findFlowStateByFlowId_(parsed.id || form.flowId);
+    if (flow) item = buildReviewControllerItemFromFlow_(flow);
+  }
+
+  const eventKey = resolveCanonicalEventKey_(form.eventKey || item['Event Key'] || '', '');
+  const payload = normalizePayload_(item);
+  payload.event_key = eventKey || payload.event_key || item['Event Key'] || '';
+  payload.subject = stringFromForm_(form.subject) || payload.subject || '';
+  payload.owner = stringFromForm_(form.owner) || payload.owner || item.Owner || '';
+  payload.what = stringFromForm_(form.what) || payload.what || '';
+  payload.so_what = stringFromForm_(form.soWhat) || payload.so_what || '';
+  payload.whats_next = stringFromForm_(form.whatsNext) || payload.whats_next || '';
+  payload.lane = payload.lane || item.Lane || inferLaneFromEventKey_(payload.event_key);
+
+  return Object.assign({}, item, {
+    'Queue ID': item['Queue ID'] || '',
+    'Flow ID': item['Flow ID'] || form.flowId || '',
+    'Event Key': payload.event_key,
+    Lane: payload.lane,
+    Owner: payload.owner,
+    'Payload JSON': stringifyJson_(payload)
+  });
 }
 
 function buildReviewControllerSelectedDefaults_(item) {
