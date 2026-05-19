@@ -237,6 +237,14 @@ syncLeadershipDashboardToAutomation
 
 The first successful run materializes `Automation_Export` as values-only and records baseline observations. For ongoing polling, create a time-driven trigger for `syncLeadershipDashboardToAutomation`.
 
+During setup, if you need to clear bad shadow-poll rows from earlier formula or ID tests, run:
+
+```text
+resetAutomationShadowEvidenceForDev
+```
+
+This clears `Automation_Export`, `Dashboard_Snapshots`, `Dashboard_Changes`, `Dashboard_Observations`, and `Trigger_Log`, and leaves `CREATE_HUB_DRAFTS` set to `FALSE`.
+
 ## 6. Optional Standalone Dashboard Monitor
 
 The repo still includes `dashboard/Code.gs` and `dashboard/Config.gs` as a simple direct on-edit adapter for testing. Keep this as a standalone Apps Script project that you own; do not create it from inside the Executive Dashboard.

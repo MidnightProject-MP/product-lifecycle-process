@@ -80,6 +80,23 @@ function debugValidateAutomationExport() {
   return JSON.stringify(validation, null, 2);
 }
 
+function resetAutomationShadowEvidenceForDev() {
+  setupAutomationSheets();
+  const ss = SpreadsheetApp.getActive();
+  resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.EXPORT), AUTOMATION.HEADERS.EXPORT);
+  resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS), AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS);
+  resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES), AUTOMATION.HEADERS.DASHBOARD_CHANGES);
+  resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS), AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS);
+  resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG), AUTOMATION.HEADERS.TRIGGER_LOG);
+  updateAutomationConfigValue_(ss, 'POLL_COUNT', '0');
+  updateAutomationConfigValue_(ss, 'LAST_GC_AT', '');
+  updateAutomationConfigValue_(ss, 'CREATE_HUB_DRAFTS', 'FALSE');
+  return {
+    ok: true,
+    message: 'Automation shadow evidence reset. CREATE_HUB_DRAFTS is FALSE.'
+  };
+}
+
 function ensureAutomationRawSheet_(ss, name) {
   const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
   if (sheet.getLastRow() === 0) {
@@ -90,6 +107,7 @@ function ensureAutomationRawSheet_(ss, name) {
 
 function ensureAutomationSheet_(ss, name, headers) {
   const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
+  formatAutomationSheetAsText_(sheet, headers.length);
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     return sheet;
@@ -110,6 +128,17 @@ function enforceAutomationHeaders_(sheet, headers) {
   });
 
   sheet.getRange(1, 1, 1, merged.length).setValues([merged]);
+}
+
+function resetAutomationSheet_(sheet, headers) {
+  sheet.clearContents();
+  formatAutomationSheetAsText_(sheet, headers.length);
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+}
+
+function formatAutomationSheetAsText_(sheet, columnCount) {
+  if (!sheet || !columnCount) return;
+  sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 1), columnCount).setNumberFormat('@');
 }
 
 function seedAutomationConfig_(sheet) {
@@ -869,7 +898,7 @@ function insertByHeadersAtTop_(sheet, headers, row) {
 
 function insertAutomationValuesAtTop_(sheet, values) {
   sheet.insertRowAfter(1);
-  sheet.getRange(2, 1, 1, values.length).setValues([values]);
+  sheet.getRange(2, 1, 1, values.length).setNumberFormat('@').setValues([values]);
 }
 
 function getAutomationConfig_() {

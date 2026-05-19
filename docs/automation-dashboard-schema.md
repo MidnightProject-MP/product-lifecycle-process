@@ -47,7 +47,7 @@ Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
 Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
 ```
 
-`Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats the materialized export as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
+`Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats automation-owned output sheets as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
 Identity rules:
 
@@ -107,3 +107,15 @@ The script tracks `POLL_COUNT` and `LAST_GC_AT` in `Config`.
 Every `GC_EVERY_N_POLLS` polls or weekly, it deletes active `Dashboard_Snapshots` and `Dashboard_Changes` rows older than `RETENTION_DAYS`.
 
 Default retention is 60 days.
+
+## Dev Reset
+
+Use `resetAutomationShadowEvidenceForDev` to clear the v2 shadow polling outputs during setup:
+
+- `Automation_Export`
+- `Dashboard_Snapshots`
+- `Dashboard_Changes`
+- `Dashboard_Observations`
+- `Trigger_Log`
+
+The reset does not touch raw formula tabs or `Automation_Export_Source`. It also sets `CREATE_HUB_DRAFTS` back to `FALSE`.
