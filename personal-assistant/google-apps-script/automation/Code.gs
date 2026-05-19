@@ -133,6 +133,9 @@ function materializeAutomationExportIfValid_(automation, config) {
 
   const exportSheet = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT);
   exportSheet.clearContents();
+  exportSheet
+    .getRange(1, 1, Math.max(validation.rows.length + 1, 1), AUTOMATION.HEADERS.EXPORT.length)
+    .setNumberFormat('@');
   exportSheet.getRange(1, 1, 1, AUTOMATION.HEADERS.EXPORT.length).setValues([AUTOMATION.HEADERS.EXPORT]);
 
   if (validation.rows.length) {
@@ -896,7 +899,7 @@ function getAutomationObjects_(sheet) {
 
 function getAutomationObjectsByHeaders_(sheet, headers) {
   if (!sheet || sheet.getLastRow() < 2) return [];
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getDisplayValues();
   return values.map(row => headers.reduce((obj, header, index) => {
     obj[header] = row[index];
     return obj;

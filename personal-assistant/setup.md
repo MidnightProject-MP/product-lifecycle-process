@@ -229,6 +229,8 @@ In the Automation Dashboard `Config` tab, set:
 
 Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Executive_Releases`, then map them into `Automation_Export_Source` using the exact export headers. Run:
 
+Keep identity formulas text-safe. Date-like IDs such as `jan-26` should be emitted as text; the script also reads display values and writes `Automation_Export` as plain text to avoid spreadsheet serial-number conversion.
+
 ```text
 syncLeadershipDashboardToAutomation
 ```

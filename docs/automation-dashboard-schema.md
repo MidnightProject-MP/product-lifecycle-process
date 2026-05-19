@@ -47,7 +47,7 @@ Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
 Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
 ```
 
-`Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes.
+`Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats the materialized export as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
 Identity rules:
 
