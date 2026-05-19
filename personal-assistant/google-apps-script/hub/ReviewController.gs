@@ -34,6 +34,17 @@ function getReviewControllerLaunchState() {
   }
 }
 
+function getReviewControllerInitialContext() {
+  const launchState = getReviewControllerLaunchState();
+  const form = launchState && launchState.form || {};
+  const selection = form.selection || launchState.selection || '';
+  return {
+    ok: true,
+    launchState: launchState,
+    context: getReviewControllerContextForSelection_(selection)
+  };
+}
+
 function showReviewControllerWorkspace_(mode, form) {
   const normalizedMode = mode === 'wide' ? 'wide' : 'sidebar';
   setReviewControllerLaunchState_(normalizedMode, form || {});
@@ -645,18 +656,53 @@ function buildReviewControllerActions_(item, flow, options) {
 }
 
 function buildReviewControllerStartEventActions_() {
-  return getRegistryObjects_('Event_Catalog')
+  const cachedRows = getReviewControllerCachedRegistryRows_('Event_Catalog');
+  const eventRows = cachedRows.length ? cachedRows : getFallbackReviewControllerStartEventRows_();
+  return eventRows
     .filter(row => String(row.Active || 'TRUE').toUpperCase() !== 'FALSE')
     .filter(row => String(row.Path || '').toLowerCase() === 'start')
     .map(row => {
       const eventKey = row['Event Key'];
       return {
         value: 'new_start:' + eventKey,
-        label: row.Lane + ': ' + getReviewControllerEventDisplayName_(eventKey),
+        label: row.Lane + ': ' + (row['Communication Event'] || getReviewControllerEventDisplayName_(eventKey)),
         eventKey: eventKey,
         defaults: buildReviewControllerNewStartDefaults_(eventKey)
       };
     });
+}
+
+function getFallbackReviewControllerStartEventRows_() {
+  return [
+    {
+      'Event Key': 'project.kickoff',
+      Lane: 'Project',
+      Path: 'Start',
+      'Communication Event': 'Project kickoff',
+      Active: 'TRUE'
+    },
+    {
+      'Event Key': 'incident.critical.identified',
+      Lane: 'Incident / Bug',
+      Path: 'Start',
+      'Communication Event': 'Critical bug identified',
+      Active: 'TRUE'
+    },
+    {
+      'Event Key': 'stray.submitted',
+      Lane: 'Stray Story',
+      Path: 'Start',
+      'Communication Event': 'Stray story submitted',
+      Active: 'TRUE'
+    },
+    {
+      'Event Key': 'release.scheduled',
+      Lane: 'Production Release',
+      Path: 'Start',
+      'Communication Event': 'Release scheduled',
+      Active: 'TRUE'
+    }
+  ];
 }
 
 function buildReviewControllerItemFromFlow_(flow) {
@@ -868,41 +914,44 @@ function getReviewControllerSubject_(item, payload) {
     '';
 }
 
+var HUB_REVIEW_CONTROLLER_CACHED_EVENT_ROWS_ = null;
+var HUB_REVIEW_CONTROLLER_FALLBACK_EVENT_LABELS_ = {
+  'project.kickoff': 'Project kickoff',
+  'project.weekly_digest': 'Weekly project digest item',
+  'project.gate_approaching': 'Gate approaching',
+  'project.gate_passed': 'Gate passed',
+  'project.completed': 'Project completed',
+  'project.unexpected_status_change': 'Unexpected status change',
+  'project.timeline_updated': 'Timeline updated',
+  'project.gate_exception': 'Gate missed / failed / delayed',
+  'incident.critical.identified': 'Critical bug identified',
+  'incident.critical.investigating': 'Investigating',
+  'incident.critical.fix_in_progress': 'Fix in progress',
+  'incident.critical.fix_in_qa': 'Fix in QA',
+  'incident.critical.ready_for_release': 'Fix ready for release',
+  'incident.critical.regressed': 'Critical bug state regressed',
+  'incident.critical.delayed': 'Critical bug delayed',
+  'incident.critical.fix_failed': 'Fix failed',
+  'stray.submitted': 'Stray story submitted',
+  'stray.weekly_summary': 'Weekly prioritization summary',
+  'stray.disposition_changed': 'Disposition changed',
+  'stray.exited_intake': 'Stray story exited intake',
+  'release.scheduled': 'Release scheduled',
+  'release.go_no_go': 'Go / no-go approaching',
+  'release.started': 'Release started',
+  'release.completed': 'Release completed',
+  'release.delayed': 'Release delayed',
+  'release.rollback_evaluating': 'Rollback being evaluated',
+  'release.rollback_decision': 'Rollback decision made',
+  'release.rolled_back': 'Release rolled back',
+  'release.postmortem_needed': 'Postmortem required'
+};
+
 function getReviewControllerEventDisplayName_(eventKey) {
   const event = findCachedReviewControllerRegistryRow_('Event_Catalog', 'Event Key', eventKey);
   if (event && event['Communication Event']) return event['Communication Event'];
 
-  const labels = {
-    'project.kickoff': 'Project kickoff',
-    'project.weekly_digest': 'Weekly project digest item',
-    'project.gate_approaching': 'Gate approaching',
-    'project.gate_passed': 'Gate passed',
-    'project.completed': 'Project completed',
-    'project.unexpected_status_change': 'Unexpected status change',
-    'project.timeline_updated': 'Timeline updated',
-    'project.gate_exception': 'Gate missed / failed / delayed',
-    'incident.critical.identified': 'Critical bug identified',
-    'incident.critical.investigating': 'Investigating',
-    'incident.critical.fix_in_progress': 'Fix in progress',
-    'incident.critical.fix_in_qa': 'Fix in QA',
-    'incident.critical.ready_for_release': 'Fix ready for release',
-    'incident.critical.regressed': 'Critical bug state regressed',
-    'incident.critical.delayed': 'Critical bug delayed',
-    'incident.critical.fix_failed': 'Fix failed',
-    'stray.submitted': 'Stray story submitted',
-    'stray.weekly_summary': 'Weekly prioritization summary',
-    'stray.disposition_changed': 'Disposition changed',
-    'stray.exited_intake': 'Stray story exited intake',
-    'release.scheduled': 'Release scheduled',
-    'release.go_no_go': 'Go / no-go approaching',
-    'release.started': 'Release started',
-    'release.completed': 'Release completed',
-    'release.delayed': 'Release delayed',
-    'release.rollback_evaluating': 'Rollback being evaluated',
-    'release.rollback_decision': 'Rollback decision made',
-    'release.rolled_back': 'Release rolled back',
-    'release.postmortem_needed': 'Postmortem required'
-  };
+  const labels = HUB_REVIEW_CONTROLLER_FALLBACK_EVENT_LABELS_;
   if (labels[eventKey]) return labels[eventKey];
 
   const parts = String(eventKey || '').split('.');
@@ -914,6 +963,18 @@ function getReviewControllerEventDisplayName_(eventKey) {
     .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+function findCachedReviewControllerRegistryRow_(sheetName, keyField, keyValue) {
+  const rows = getReviewControllerCachedRegistryRows_(sheetName);
+  return rows.find(row => String(row[keyField]) === String(keyValue)) || null;
+}
+
+function getReviewControllerCachedRegistryRows_(sheetName) {
+  if (sheetName !== 'Event_Catalog') return getCachedRegistryObjects_(sheetName) || [];
+  if (HUB_REVIEW_CONTROLLER_CACHED_EVENT_ROWS_) return HUB_REVIEW_CONTROLLER_CACHED_EVENT_ROWS_;
+  HUB_REVIEW_CONTROLLER_CACHED_EVENT_ROWS_ = getCachedRegistryObjects_('Event_Catalog') || [];
+  return HUB_REVIEW_CONTROLLER_CACHED_EVENT_ROWS_;
+}
+
 function describeReviewControllerEventKeyList_(eventKeys) {
   const keys = String(eventKeys || '')
     .split(',')
@@ -921,11 +982,6 @@ function describeReviewControllerEventKeyList_(eventKeys) {
     .filter(value => value);
   if (!keys.length) return 'No detours configured';
   return keys.map(getReviewControllerEventDisplayName_).join(', ');
-}
-
-function findCachedReviewControllerRegistryRow_(sheetName, keyField, keyValue) {
-  const rows = getCachedRegistryObjects_(sheetName) || [];
-  return rows.find(row => String(row[keyField]) === String(keyValue)) || null;
 }
 
 function stringFromForm_(value) {

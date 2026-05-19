@@ -233,17 +233,17 @@
 
     function loadInitial() {
       google.script.run
-        .withSuccessHandler(state => {
-          applyConsoleMode(state && state.mode);
-          const formOverride = state && state.hasForm ? state.form : null;
-          load(formOverride && formOverride.selection || state && state.selection || '', formOverride);
+        .withSuccessHandler(result => {
+          const state = result && result.launchState || {};
+          applyConsoleMode(state.mode);
+          render(result && result.context, state.hasForm ? state.form : null);
         })
         .withFailureHandler(error => {
           applyConsoleMode('sidebar');
           showFailure(error);
           load();
         })
-        .getReviewControllerLaunchState();
+        .getReviewControllerInitialContext();
     }
 
     function load(selection, formOverride) {
