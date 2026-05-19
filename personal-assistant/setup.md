@@ -199,6 +199,13 @@ setupAutomationSheets
 
 This creates or repairs:
 
+- `Raw_Executive_Projects`
+- `Raw_Executive_Releases`
+- `Automation_Export_Source`
+- `Automation_Export`
+- `Dashboard_Snapshots`
+- `Dashboard_Changes`
+- `Dashboard_Observations`
 - `Projects_Normalized`
 - `Gates_Normalized`
 - `Releases_Normalized`
@@ -210,26 +217,29 @@ In the Automation Dashboard `Config` tab, set:
 
 | Key | Value |
 | --- | --- |
-| `LEADERSHIP_SPREADSHEET_ID` | Spreadsheet ID of the leadership-facing executive dashboard. |
+| `LEADERSHIP_SPREADSHEET_ID` | Optional legacy value. The v2 path reads the local `Automation_Export_Source` tab. |
 | `HUB_SPREADSHEET_ID` | Spreadsheet ID of the Personal Assistant Hub. |
-| `CREATE_HUB_DRAFTS` | `TRUE` to create Hub drafts from trigger candidates. |
-| `PROJECTS_SOURCE_SHEET` | Sheet/tab name containing the project table. |
-| `GATES_SOURCE_SHEET` | Sheet/tab name containing the phase gate table. |
-| `RELEASES_SOURCE_SHEET` | Sheet/tab name containing the release activity table. |
+| `CREATE_HUB_DRAFTS` | Keep `FALSE` for shadow polling; set `TRUE` for live Hub draft creation. |
+| `MIN_ACTIVE_EXPORT_ROWS` | Minimum active rows required before overwriting `Automation_Export`. |
+| `EXPORT_ERROR_SCAN_ROWS` | Number of staging data rows scanned for formula error tokens. |
+| `RETENTION_DAYS` | Number of days to keep active snapshot/change rows. |
+| `GC_EVERY_N_POLLS` | Poll interval for garbage collection. |
+| `POLL_COUNT` | Maintained by the script. |
+| `LAST_GC_AT` | Maintained by the script. |
 
-Configure the source row ranges in the same tab, then run:
+Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Executive_Releases`, then map them into `Automation_Export_Source` using the exact export headers. Run:
 
 ```text
 syncLeadershipDashboardToAutomation
 ```
 
-For ongoing polling, create a time-driven trigger for `syncLeadershipDashboardToAutomation`.
+The first successful run materializes `Automation_Export` as values-only and records baseline observations. For ongoing polling, create a time-driven trigger for `syncLeadershipDashboardToAutomation`.
 
 ## 6. Optional Standalone Dashboard Monitor
 
 The repo still includes `dashboard/Code.gs` and `dashboard/Config.gs` as a simple direct on-edit adapter for testing. Keep this as a standalone Apps Script project that you own; do not create it from inside the Executive Dashboard.
 
-The more robust path is the Automation Dashboard polling flow above because it gives you normalized rows, snapshots, trigger logs, dedupe keys, processing status, and better traceability.
+The more robust path is the Automation Dashboard polling flow above because it gives you a values-only export contract, a circuit breaker, snapshots, field-level changes, observations, trigger logs, dedupe keys, processing status, and better traceability.
 
 If you use the direct monitor, set these Script Properties in the standalone dashboard adapter:
 
@@ -296,12 +306,16 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 ### Project / Release Polling Test
 
-1. Run `syncLeadershipDashboardToAutomation`.
-2. Confirm normalized rows appear in the Automation Dashboard.
-3. Change a source project or release state in the leadership dashboard.
-4. Run `syncLeadershipDashboardToAutomation` again.
-5. Confirm `Trigger_Log` records the candidate and a Hub `Queue` draft is created.
-6. Approve the Hub row and confirm Slack receives the message.
+1. Confirm `Automation_Export_Source` has valid headers and at least one active Project or Release row.
+2. Run `debugValidateAutomationExport`.
+3. Run `syncLeadershipDashboardToAutomation`.
+4. Confirm `Automation_Export` is values-only and `Dashboard_Observations` has baseline rows.
+5. Change a project or release value in the raw/formula mapping.
+6. Run `syncLeadershipDashboardToAutomation` again.
+7. Confirm `Dashboard_Changes` and `Trigger_Log` record the candidate.
+8. With `CREATE_HUB_DRAFTS = FALSE`, confirm no Hub draft is created.
+9. Set `CREATE_HUB_DRAFTS = TRUE`, repeat a new material change, then confirm a Hub `Queue` draft appears.
+10. Approve the Hub row and confirm Slack receives the message.
 
 ### Manual Hub Test
 

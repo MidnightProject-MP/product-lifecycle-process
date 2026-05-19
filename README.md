@@ -12,7 +12,7 @@ The broader AI-first personal app suite is documented as future architecture onl
 Source update or Slack command
         |
         v
-Automation normalizes and compares state
+Automation validates a values-only dashboard export and compares state
         |
         v
 Personal Assistant Registry resolves template, routing, and approval policy

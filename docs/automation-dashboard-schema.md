@@ -1,137 +1,109 @@
 # Automation Dashboard Schema
 
-The Automation Dashboard is the middle layer between the stakeholder-facing Executive Dashboard and the Personal Assistant Hub.
+The Automation Dashboard is the owned adapter between the stakeholder-facing Executive Dashboard and the Personal Assistant Hub.
 
-It should be optimized for scripts and trigger logic, not presentation.
-
-The automation script is intentionally owned outside the Executive Dashboard. It opens the leadership-facing spreadsheet by ID, which keeps code ownership and script visibility separate from the presentation sheet owner.
+The Executive Dashboard remains free-form and externally owned. The Automation Dashboard owns formulas, validation, snapshots, evidence, trigger decisions, and Hub draft creation.
 
 ```text
-Leadership Executive Dashboard
+Executive Dashboard
         |
         v
-Automation Dashboard
+Raw formula tabs in Automation Dashboard
         |
         v
-Personal Assistant Hub
+Automation_Export_Source
         |
         v
-Slack
+Automation_Export
+        |
+        v
+Dashboard evidence + Hub drafts
 ```
 
-## Recommended Tabs
+## Current Tabs
 
 | Tab | Purpose |
 | --- | --- |
-| `Projects_Normalized` | Normalized project rows from the executive dashboard project table. |
-| `Gates_Normalized` | Normalized phase gate rows from the executive dashboard phase gates section. |
-| `Releases_Normalized` | Normalized release activity rows from the executive dashboard release activity section. |
-| `Snapshots` | Prior state records used to compare old state vs new state. |
-| `Trigger_Log` | Audit trail of detected trigger candidates and Hub draft creation attempts. |
-| `Config` | Non-secret integration configuration for source sheet names, start rows, and gate lead times. |
+| `Raw_Executive_Projects` | Formula-owned raw import area for project data. |
+| `Raw_Executive_Releases` | Formula-owned raw import area for release data. |
+| `Automation_Export_Source` | Formula staging view with the exact export headers. |
+| `Automation_Export` | Values-only last-known-good machine contract. |
+| `Dashboard_Snapshots` | Append-only state snapshots from each successful poll. |
+| `Dashboard_Changes` | Field-level old/new changes detected from observations. |
+| `Dashboard_Observations` | Last successfully processed state per `Source Item ID`. |
+| `Trigger_Log` | Communication trigger decisions and Hub draft creation attempts. |
+| `Config` | Non-secret automation configuration. |
 
-## Source Mapping
+The older `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, and `Snapshots` tabs remain during transition, but `Automation_Export` is the v2 input contract.
 
-Based on the current Executive Dashboard layout:
+## Export Contract
 
-| Source Section | Approximate Source Rows | Automation Tab |
-| --- | --- | --- |
-| Project status table | Row 3 onward | `Projects_Normalized` |
-| Phase Gates | Row 24 onward | `Gates_Normalized` |
-| Release Activity | Row 57 onward | `Releases_Normalized` |
-
-These row ranges are configurable in the Automation Dashboard `Config` tab:
-
-- `LEADERSHIP_SPREADSHEET_ID`
-- `HUB_SPREADSHEET_ID`
-- `CREATE_HUB_DRAFTS`
-- `PROJECTS_START_ROW`
-- `PROJECTS_END_ROW`
-- `GATES_START_ROW`
-- `GATES_END_ROW`
-- `RELEASES_START_ROW`
-- `RELEASES_END_ROW`
-
-## Sync Function
-
-The Automation Dashboard Apps Script provides:
+`Automation_Export_Source` and `Automation_Export` share the same headers:
 
 ```text
-syncLeadershipDashboardToAutomation
+Record Type, Source Item ID, Flow ID, Subject, Owner, Status, Phase, Risk Level,
+Confidence, Primary Risk, Next Gate, Next Gate ETA, Release Date, Release Status,
+Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
+Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
 ```
 
-This function:
+`Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes.
 
-1. Opens the leadership dashboard using `LEADERSHIP_SPREADSHEET_ID`.
-2. Reads configured source ranges.
-3. Normalizes project, gate, and release rows.
-4. Writes normalized rows into the Automation Dashboard.
-5. Records snapshots.
-6. Logs trigger candidates.
-7. Creates Hub queue drafts when `CREATE_HUB_DRAFTS` is `TRUE`.
+Identity rules:
 
-## Projects_Normalized
+- `Record Type` is `Project` or `Release`.
+- `Source Item ID` is required and stable.
+- `Flow ID` is required and must start with `prj-` for projects or `rel-` for releases.
+- `Active` rows are processed unless the value explicitly says false/no/0/inactive.
+- `Manual Review` records history and evidence but skips Hub draft creation.
 
-Use this for project status and weekly digest logic.
+## Circuit Breaker
 
-Key fields:
+Before `Automation_Export` is overwritten, the script validates `Automation_Export_Source`:
 
-- `Flow ID`: stable project flow identifier.
-- `Current State Hash`: hash of current normalized row.
-- `Previous State Hash`: prior hash from last processed state.
-- `Trigger Candidate`: detected trigger before Hub draft creation.
-- `Event Key`: Registry event key, such as `project.unexpected_status_change`.
-- `Dedupe Key`: prevents duplicate Hub drafts.
-- `Hub Queue ID`: queue row created in the Hub.
-- `Processing Status`: pending, processed, skipped, or error.
+- Header count and header names must exactly match the export contract.
+- Active row count must be at least `MIN_ACTIVE_EXPORT_ROWS`.
+- Headers and the first `EXPORT_ERROR_SCAN_ROWS` data rows are scanned for `#REF!`, `#N/A`, `#VALUE!`, `#NULL!`, and `#LOADING!`.
+- Active rows must have valid `Record Type`, `Source Item ID`, and `Flow ID`.
 
-## Gates_Normalized
+If any check fails, the script preserves the previous `Automation_Export`, logs `Skipped - Circuit Breaker`, and stops.
 
-Use this for gate approaching, passed, missed, failed, or delayed communication.
+## State Anchoring
 
-Key fields:
+Polling compares current export rows to `Dashboard_Observations`, not simply the previous poll.
 
-- `Days Until Target`
-- `Is Gate Approaching`
-- `Is Gate Missed`
-- `Gate Status`
-- `Previous Gate Status`
-- `Event Key`
+For each active row:
 
-## Releases_Normalized
+1. The script writes a snapshot to `Dashboard_Snapshots`.
+2. If the system has no observations yet, it records the first baseline and creates no drafts.
+3. If a new row appears after baseline, it is evaluated like a new observed change.
+4. If state changed, it writes field-level rows to `Dashboard_Changes`.
+5. It evaluates whether the change should become a Hub draft.
+6. It updates `Dashboard_Observations` only after the change is handled, explicitly skipped, or logged as no-communication-needed.
 
-Use this for production release communication.
+This prevents transient source-sheet issues from becoming false history.
 
-This normalizes the presentation-friendly Release Activity section into one row per release event.
+## Trigger Decisions
 
-Key fields:
+V2 supports Projects and Releases.
 
-- `Release ID`
-- `Release Event Key`
-- `Normalized Release Status`
-- `Go / No-Go Required`
-- `Slack Thread ID`
-- `Event Key`
+Project changes can create `project.unexpected_status_change` when status, risk, confidence, phase, primary risk, next gate, or next gate ETA materially changes.
 
-## Snapshots
+Release changes can create:
 
-The snapshot table stores the last known state for comparison.
+- `release.scheduled`
+- `release.go_no_go`
+- `release.started`
+- `release.delayed`
+- `release.rolled_back`
+- `release.completed`
 
-The script should:
+Hub draft creation is controlled by `CREATE_HUB_DRAFTS`. The default is `FALSE` for shadow polling.
 
-1. Build a normalized row.
-2. Create `State JSON`.
-3. Hash `State JSON` after excluding volatile operational fields such as processing status and timestamps.
-4. Compare to the previous snapshot.
-5. If changed, evaluate trigger rules.
+## Retention
 
-## Trigger_Log
+The script tracks `POLL_COUNT` and `LAST_GC_AT` in `Config`.
 
-The trigger log records what the automation saw and what it did.
+Every `GC_EVERY_N_POLLS` polls or weekly, it deletes active `Dashboard_Snapshots` and `Dashboard_Changes` rows older than `RETENTION_DAYS`.
 
-Use it to debug:
-
-- Why a Hub draft was created.
-- Why a change was skipped.
-- Whether dedupe suppressed a duplicate.
-- Whether Hub draft creation failed.
+Default retention is 60 days.

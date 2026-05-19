@@ -1,12 +1,91 @@
 function setupAutomationSheets() {
   const ss = SpreadsheetApp.getActive();
+
+  ensureAutomationRawSheet_(ss, AUTOMATION.SHEETS.RAW_PROJECTS);
+  ensureAutomationRawSheet_(ss, AUTOMATION.SHEETS.RAW_RELEASES);
+  ensureAutomationSheet_(ss, AUTOMATION.SHEETS.EXPORT_SOURCE, AUTOMATION.HEADERS.EXPORT);
+  ensureAutomationSheet_(ss, AUTOMATION.SHEETS.EXPORT, AUTOMATION.HEADERS.EXPORT);
+  ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS, AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS);
+  ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_CHANGES, AUTOMATION.HEADERS.DASHBOARD_CHANGES);
+  ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS, AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS);
+
+  // Legacy normalized tabs stay available during the cutover.
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.PROJECTS, AUTOMATION.HEADERS.PROJECTS);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.GATES, AUTOMATION.HEADERS.GATES);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.RELEASES, AUTOMATION.HEADERS.RELEASES);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.SNAPSHOTS, AUTOMATION.HEADERS.SNAPSHOTS);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.TRIGGER_LOG, AUTOMATION.HEADERS.TRIGGER_LOG);
+
   const config = ensureAutomationSheet_(ss, AUTOMATION.SHEETS.CONFIG, AUTOMATION.HEADERS.CONFIG);
   seedAutomationConfig_(config);
+}
+
+function syncLeadershipDashboardToAutomation() {
+  setupAutomationSheets();
+
+  const automation = SpreadsheetApp.getActive();
+  const config = getAutomationConfig_();
+  const pollCount = incrementAutomationPollCount_(automation, config);
+  const materialized = materializeAutomationExportIfValid_(automation, config);
+
+  if (!materialized.ok) {
+    recordAutomationTriggerLog_(automation, {
+      'Work Item Type': 'Automation Export',
+      'Flow ID': '',
+      'Source Row Key': '',
+      'Trigger Candidate': 'Circuit breaker blocked export materialization',
+      'Event Key': '',
+      'Old State Hash': '',
+      'New State Hash': '',
+      'Old State Summary': '',
+      'New State Summary': materialized.message,
+      'Dedupe Key': '',
+      'Hub Queue ID': '',
+      'Processing Status': 'Skipped - Circuit Breaker',
+      'Processed At': automationNowIso_(),
+      'Processing Error': materialized.message
+    });
+    return {
+      ok: false,
+      pollCount: pollCount,
+      message: materialized.message
+    };
+  }
+
+  const rows = readAutomationExportRows_(automation);
+  const result = processAutomationExportRows_(automation, config, rows);
+  const gc = runAutomationGarbageCollectionIfNeeded_(automation, getAutomationConfig_());
+
+  return {
+    ok: true,
+    pollCount: pollCount,
+    materializedRows: materialized.rowCount,
+    processedRows: result.processedRows,
+    changedRows: result.changedRows,
+    hubDraftsCreated: result.hubDraftsCreated,
+    skippedRows: result.skippedRows,
+    errors: result.errors,
+    garbageCollection: gc
+  };
+}
+
+function materializeAutomationExport() {
+  setupAutomationSheets();
+  return materializeAutomationExportIfValid_(SpreadsheetApp.getActive(), getAutomationConfig_());
+}
+
+function debugValidateAutomationExport() {
+  setupAutomationSheets();
+  const validation = validateAutomationExportSource_(SpreadsheetApp.getActive(), getAutomationConfig_());
+  return JSON.stringify(validation, null, 2);
+}
+
+function ensureAutomationRawSheet_(ss, name) {
+  const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1).setValue('Formula-owned raw import area.');
+  }
+  return sheet;
 }
 
 function ensureAutomationSheet_(ss, name, headers) {
@@ -36,423 +115,648 @@ function enforceAutomationHeaders_(sheet, headers) {
 function seedAutomationConfig_(sheet) {
   const values = sheet.getDataRange().getValues();
   const existingKeys = values.slice(1).map(row => String(row[0]));
+  const hadV2Config = existingKeys.indexOf('POLL_COUNT') >= 0;
 
   AUTOMATION.CONFIG_ROWS.slice().reverse().forEach(row => {
     if (existingKeys.indexOf(row[0]) >= 0) return;
     insertAutomationValuesAtTop_(sheet, row);
   });
-}
 
-function syncLeadershipDashboardToAutomation() {
-  setupAutomationSheets();
-
-  const config = getAutomationConfig_();
-  const leadershipId = config.LEADERSHIP_SPREADSHEET_ID;
-  if (!leadershipId) throw new Error('Missing LEADERSHIP_SPREADSHEET_ID in Automation Config.');
-
-  const leadership = SpreadsheetApp.openById(leadershipId);
-  const automation = SpreadsheetApp.getActive();
-
-  const projects = normalizeProjects_(leadership, config);
-  const gates = normalizeGates_(leadership, config);
-  const releases = normalizeReleases_(leadership, config);
-
-  writeNormalizedRows_(automation.getSheetByName(AUTOMATION.SHEETS.PROJECTS), AUTOMATION.HEADERS.PROJECTS, projects);
-  writeNormalizedRows_(automation.getSheetByName(AUTOMATION.SHEETS.GATES), AUTOMATION.HEADERS.GATES, gates);
-  writeNormalizedRows_(automation.getSheetByName(AUTOMATION.SHEETS.RELEASES), AUTOMATION.HEADERS.RELEASES, releases);
-
-  projects.concat(gates).concat(releases).forEach(row => recordSnapshotAndTrigger_(automation, row));
-
-  if (String(config.CREATE_HUB_DRAFTS || 'TRUE').toUpperCase() === 'TRUE') {
-    processPendingTriggersToHubQueue_(automation, config);
+  if (!hadV2Config) {
+    updateAutomationConfigValue_(SpreadsheetApp.getActive(), 'CREATE_HUB_DRAFTS', 'FALSE');
   }
 }
 
-function normalizeProjects_(leadership, config) {
-  const sheet = leadership.getSheetByName(config.PROJECTS_SOURCE_SHEET);
-  if (!sheet) throw new Error('Project source sheet not found: ' + config.PROJECTS_SOURCE_SHEET);
+function materializeAutomationExportIfValid_(automation, config) {
+  const validation = validateAutomationExportSource_(automation, config);
+  if (!validation.ok) return validation;
 
-  const rows = readRows_(sheet, Number(config.PROJECTS_START_ROW), Number(config.PROJECTS_END_ROW));
-  return rows
-    .filter(row => row[0])
-    .map((row, index) => {
-      const sourceRow = Number(config.PROJECTS_START_ROW) + index;
-      const project = String(row[0] || '').trim();
-      const status = String(row[6] || '').trim();
-      const normalized = {
-        'Work Item Type': 'Project',
-        'Source Spreadsheet ID': leadership.getId(),
-        'Source Sheet': config.PROJECTS_SOURCE_SHEET,
-        'Source Row': sourceRow,
-        'Source Row Key': 'project|' + project,
-        'Flow ID': 'project-' + normalizeAutomationKey_(project),
-        Project: project,
-        'Lead PM': row[1] || '',
-        Owner: row[2] || '',
-        'Current Phase': row[3] || '',
-        'Normalized Phase': normalizePhase_(row[3]),
-        'User Exposure': row[4] || '',
-        'Progress %': row[5] || '',
-        Status: status,
-        'Normalized Status': normalizeStatus_(status),
-        'Confidence of Owner (1-10)': row[7] || '',
-        'IT Risk Level': row[8] || '',
-        'Primary Risk': row[9] || '',
-        'Next Major Gate': row[10] || '',
-        'Next Gate ETA': row[11] || '',
-        'Primary Target': row[12] || '',
-        'Release Date': '',
-        'Release Status': '',
-        'Last Seen At': automationNowIso_(),
-        'Processing Status': 'Normalized'
+  const exportSheet = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT);
+  exportSheet.clearContents();
+  exportSheet.getRange(1, 1, 1, AUTOMATION.HEADERS.EXPORT.length).setValues([AUTOMATION.HEADERS.EXPORT]);
+
+  if (validation.rows.length) {
+    exportSheet
+      .getRange(2, 1, validation.rows.length, AUTOMATION.HEADERS.EXPORT.length)
+      .setValues(validation.rows.map(row => AUTOMATION.HEADERS.EXPORT.map(header => row[header] == null ? '' : row[header])));
+  }
+
+  return {
+    ok: true,
+    message: 'Automation_Export materialized.',
+    rowCount: validation.rows.length
+  };
+}
+
+function validateAutomationExportSource_(automation, config) {
+  const source = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT_SOURCE);
+  if (!source) {
+    return { ok: false, message: 'Missing Automation_Export_Source sheet.', rows: [] };
+  }
+
+  const headerValidation = validateAutomationExportHeaders_(source);
+  if (!headerValidation.ok) return headerValidation;
+
+  const errorScan = scanAutomationExportErrors_(source, Number(config.EXPORT_ERROR_SCAN_ROWS || 5));
+  if (!errorScan.ok) return errorScan;
+
+  const rows = getAutomationObjectsByHeaders_(source, AUTOMATION.HEADERS.EXPORT)
+    .filter(row => Object.keys(row).some(key => row[key] !== ''))
+    .filter(isAutomationExportRowActive_);
+
+  const identityValidation = validateAutomationExportIdentity_(rows);
+  if (!identityValidation.ok) return identityValidation;
+
+  const minRows = Number(config.MIN_ACTIVE_EXPORT_ROWS || 1);
+  if (rows.length < minRows) {
+    return {
+      ok: false,
+      message: 'Automation_Export_Source has ' + rows.length + ' active rows; minimum is ' + minRows + '.',
+      rows: []
+    };
+  }
+
+  return {
+    ok: true,
+    message: 'Automation_Export_Source passed validation.',
+    rows: rows
+  };
+}
+
+function validateAutomationExportHeaders_(sheet) {
+  const lastColumn = Math.max(sheet.getLastColumn(), AUTOMATION.HEADERS.EXPORT.length);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
+  const nonEmptyHeaders = headers.filter(value => String(value || '').trim() !== '');
+
+  if (nonEmptyHeaders.length !== AUTOMATION.HEADERS.EXPORT.length) {
+    return {
+      ok: false,
+      message: 'Automation_Export_Source header count mismatch. Expected ' +
+        AUTOMATION.HEADERS.EXPORT.length + ', found ' + nonEmptyHeaders.length + '.',
+      rows: []
+    };
+  }
+
+  for (let i = 0; i < AUTOMATION.HEADERS.EXPORT.length; i++) {
+    if (String(headers[i] || '').trim() !== AUTOMATION.HEADERS.EXPORT[i]) {
+      return {
+        ok: false,
+        message: 'Automation_Export_Source header mismatch at column ' + (i + 1) +
+          '. Expected "' + AUTOMATION.HEADERS.EXPORT[i] + '", found "' + headers[i] + '".',
+        rows: []
       };
-      return finalizeNormalizedRow_(normalized, 'Project');
-    });
-}
-
-function normalizeGates_(leadership, config) {
-  const sheet = leadership.getSheetByName(config.GATES_SOURCE_SHEET);
-  if (!sheet) throw new Error('Gate source sheet not found: ' + config.GATES_SOURCE_SHEET);
-
-  const rows = readRows_(sheet, Number(config.GATES_START_ROW), Number(config.GATES_END_ROW));
-  const leadDays = Number(config.GATE_APPROACHING_DAYS || 14);
-  return rows
-    .filter(row => row[0] || row[1] || row[2])
-    .map((row, index) => {
-      const sourceRow = Number(config.GATES_START_ROW) + index;
-      const project = String(row[0] || '').trim();
-      const gate = String(row[1] || row[2] || '').trim();
-      const targetDate = row[2] || '';
-      const actualDate = row[3] || '';
-      const status = String(row[4] || '').trim();
-      const daysUntil = daysUntil_(targetDate);
-      const normalized = {
-        'Work Item Type': 'Gate',
-        'Source Spreadsheet ID': leadership.getId(),
-        'Source Sheet': config.GATES_SOURCE_SHEET,
-        'Source Row': sourceRow,
-        'Source Row Key': 'gate|' + project + '|' + gate,
-        'Flow ID': 'project-' + normalizeAutomationKey_(project),
-        Project: project,
-        Gate: gate,
-        'Target Date': targetDate,
-        'Actual Date': actualDate,
-        'Gate Status': status,
-        'Normalized Gate Status': normalizeGateStatus_(status),
-        'Previous Gate Status': '',
-        'Days Until Target': daysUntil,
-        'Is Gate Approaching': daysUntil !== '' && daysUntil >= 0 && daysUntil <= leadDays ? 'TRUE' : 'FALSE',
-        'Is Gate Missed': daysUntil !== '' && daysUntil < 0 && !actualDate ? 'TRUE' : 'FALSE',
-        'Last Seen At': automationNowIso_(),
-        'Processing Status': 'Normalized'
-      };
-      return finalizeNormalizedRow_(normalized, 'Gate');
-    });
-}
-
-function normalizeReleases_(leadership, config) {
-  const sheet = leadership.getSheetByName(config.RELEASES_SOURCE_SHEET);
-  if (!sheet) throw new Error('Release source sheet not found: ' + config.RELEASES_SOURCE_SHEET);
-
-  const rows = readRows_(sheet, Number(config.RELEASES_START_ROW), Number(config.RELEASES_END_ROW));
-  return rows
-    .filter(row => row[0] || row[1] || row[2])
-    .map((row, index) => {
-      const sourceRow = Number(config.RELEASES_START_ROW) + index;
-      const releaseDate = row[0] || '';
-      const project = String(row[1] || '').trim();
-      const type = String(row[2] || '').trim();
-      const phase = String(row[3] || '').trim();
-      const impact = String(row[4] || '').trim();
-      const notes = String(row[5] || '').trim();
-      const releaseId = 'rel-' + normalizeAutomationKey_(project + '-' + releaseDate + '-' + type);
-      const normalized = {
-        'Work Item Type': 'Production Release',
-        'Source Spreadsheet ID': leadership.getId(),
-        'Source Sheet': config.RELEASES_SOURCE_SHEET,
-        'Source Row': sourceRow,
-        'Source Row Key': 'release|' + releaseId,
-        'Flow ID': 'release-' + normalizeAutomationKey_(releaseId),
-        'Release ID': releaseId,
-        Project: project,
-        'Release Date': releaseDate,
-        Type: type,
-        Phase: phase,
-        'Impact Level': impact,
-        Notes: notes,
-        'Normalized Release Status': normalizeReleaseStatus_(phase),
-        'Release Event Key': inferReleaseEventKey_(phase, notes),
-        'Included Projects': project,
-        'Included Bugs': '',
-        'Included Stray Stories': '',
-        'Known Issues': '',
-        'Go / No-Go Required': /go|no-go|readiness/i.test(notes) ? 'Yes' : '',
-        'Decision Owner': '',
-        'Primary Channel': '',
-        'Slack Thread ID': '',
-        'Last Seen At': automationNowIso_(),
-        'Processing Status': 'Normalized'
-      };
-      return finalizeNormalizedRow_(normalized, 'Production Release');
-    });
-}
-
-function finalizeNormalizedRow_(row, workItemType) {
-  const stateJson = JSON.stringify(buildComparableState_(row));
-  const hash = hashString_(stateJson);
-  const previous = findLatestSnapshot_(row['Source Row Key']);
-  const trigger = inferTrigger_(workItemType, row, previous);
-
-  row['Current State Hash'] = hash;
-  row['Previous State Hash'] = previous ? previous['State Hash'] : '';
-  row['Last Processed At'] = '';
-  row['Trigger Candidate'] = trigger.candidate;
-  row['Event Key'] = trigger.eventKey;
-  row['Dedupe Key'] = trigger.eventKey ? workItemType + '|' + row['Source Row Key'] + '|' + trigger.eventKey + '|' + hash : '';
-  row['Hub Queue ID'] = '';
-  row['Processing Error'] = '';
-  return row;
-}
-
-function inferTrigger_(workItemType, row, previous) {
-  if (!previous) {
-    return { candidate: 'Initial snapshot', eventKey: '' };
-  }
-
-  if (previous['State Hash'] === row['Current State Hash']) {
-    return { candidate: '', eventKey: '' };
-  }
-
-  if (workItemType === 'Project') {
-    if (['YELLOW', 'RED'].indexOf(row['Normalized Status']) >= 0) {
-      return { candidate: 'Material project status change', eventKey: 'project.unexpected_status_change' };
     }
-    return { candidate: 'Project changed', eventKey: '' };
   }
 
-  if (workItemType === 'Gate') {
-    if (row['Is Gate Missed'] === 'TRUE') {
-      return { candidate: 'Gate missed', eventKey: 'project.gate_exception' };
+  return { ok: true, message: 'Headers valid.', rows: [] };
+}
+
+function scanAutomationExportErrors_(sheet, scanRows) {
+  const rowsToScan = Math.min(Math.max(Number(scanRows || 5), 1) + 1, Math.max(sheet.getLastRow(), 1));
+  const values = sheet.getRange(1, 1, rowsToScan, AUTOMATION.HEADERS.EXPORT.length).getDisplayValues();
+  const tokens = ['#REF!', '#N/A', '#VALUE!', '#NULL!', '#LOADING!'];
+
+  for (let r = 0; r < values.length; r++) {
+    for (let c = 0; c < values[r].length; c++) {
+      const value = String(values[r][c] || '').toUpperCase();
+      for (let t = 0; t < tokens.length; t++) {
+        if (value.indexOf(tokens[t]) >= 0) {
+          return {
+            ok: false,
+            message: 'Automation_Export_Source contains ' + tokens[t] +
+              ' at row ' + (r + 1) + ', column ' + (c + 1) + '.',
+            rows: []
+          };
+        }
+      }
     }
-    if (row['Is Gate Approaching'] === 'TRUE') {
-      return { candidate: 'Gate approaching', eventKey: 'project.gate_approaching' };
-    }
-    return { candidate: 'Gate changed', eventKey: '' };
   }
 
-  if (workItemType === 'Production Release') {
-    return { candidate: 'Release changed', eventKey: row['Release Event Key'] || '' };
+  return { ok: true, message: 'No formula error tokens found.', rows: [] };
+}
+
+function validateAutomationExportIdentity_(rows) {
+  const seen = {};
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const recordType = normalizeAutomationRecordType_(row['Record Type']);
+    const sourceItemId = String(row['Source Item ID'] || '').trim();
+    const flowId = String(row['Flow ID'] || '').trim();
+
+    if (recordType !== 'Project' && recordType !== 'Release') {
+      return { ok: false, message: 'Invalid Record Type at active export row ' + (i + 2) + ': ' + row['Record Type'], rows: [] };
+    }
+    if (!sourceItemId) {
+      return { ok: false, message: 'Missing Source Item ID at active export row ' + (i + 2) + '.', rows: [] };
+    }
+    if (!flowId) {
+      return { ok: false, message: 'Missing Flow ID at active export row ' + (i + 2) + '.', rows: [] };
+    }
+    if (recordType === 'Project' && !/^prj-[a-z0-9-]+$/.test(flowId)) {
+      return { ok: false, message: 'Project Flow ID must match prj-* at active export row ' + (i + 2) + ': ' + flowId, rows: [] };
+    }
+    if (recordType === 'Release' && !/^rel-[a-z0-9-]+$/.test(flowId)) {
+      return { ok: false, message: 'Release Flow ID must match rel-* at active export row ' + (i + 2) + ': ' + flowId, rows: [] };
+    }
+    if (seen[sourceItemId]) {
+      return { ok: false, message: 'Duplicate Source Item ID in Automation_Export_Source: ' + sourceItemId, rows: [] };
+    }
+    seen[sourceItemId] = true;
+  }
+
+  return { ok: true, message: 'Export identity valid.', rows: rows };
+}
+
+function readAutomationExportRows_(automation) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT);
+  if (!sheet) return [];
+  return getAutomationObjectsByHeaders_(sheet, AUTOMATION.HEADERS.EXPORT)
+    .filter(row => Object.keys(row).some(key => row[key] !== ''))
+    .filter(isAutomationExportRowActive_);
+}
+
+function processAutomationExportRows_(automation, config, rows) {
+  const result = {
+    processedRows: 0,
+    changedRows: 0,
+    hubDraftsCreated: 0,
+    skippedRows: 0,
+    errors: 0
+  };
+  const hasExistingObservations = hasDashboardObservations_(automation);
+
+  rows.forEach(row => {
+    result.processedRows++;
+    const processed = processAutomationExportRow_(automation, config, row, hasExistingObservations);
+    if (processed.changed) result.changedRows++;
+    if (processed.hubDraftCreated) result.hubDraftsCreated++;
+    if (processed.skipped) result.skippedRows++;
+    if (processed.error) result.errors++;
+  });
+
+  return result;
+}
+
+function processAutomationExportRow_(automation, config, row, hasExistingObservations) {
+  const now = automationNowIso_();
+  const sourceItemId = String(row['Source Item ID'] || '').trim();
+  const flowId = String(row['Flow ID'] || '').trim();
+  const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  const state = buildAutomationExportState_(row);
+  const stateJson = JSON.stringify(state);
+  const stateHash = hashString_(stateJson);
+  const observation = findDashboardObservation_(automation, sourceItemId);
+
+  recordDashboardSnapshot_(automation, row, stateHash, stateJson, now);
+
+  if (!observation && !hasExistingObservations) {
+    upsertDashboardObservation_(automation, {
+      'Source Item ID': sourceItemId,
+      'Flow ID': flowId,
+      'Record Type': recordType,
+      Subject: row.Subject || '',
+      'State Hash': stateHash,
+      'State JSON': stateJson,
+      'Last Observed At': now,
+      'Last Processed At': now,
+      'Last Trigger Log ID': '',
+      'Processing Status': 'Baseline',
+      'Processing Error': ''
+    });
+    return { changed: false, hubDraftCreated: false, skipped: false, error: false };
+  }
+
+  if (observation && String(observation['Flow ID'] || '') !== flowId) {
+    const triggerId = recordAutomationTriggerLog_(automation, {
+      'Work Item Type': recordType,
+      'Flow ID': flowId,
+      'Source Row Key': sourceItemId,
+      'Trigger Candidate': 'Flow ID changed for existing source item',
+      'Event Key': '',
+      'Old State Hash': observation['State Hash'] || '',
+      'New State Hash': stateHash,
+      'Old State Summary': summarizeAutomationState_(parseJsonObject_(observation['State JSON'])),
+      'New State Summary': summarizeAutomationExportRow_(row),
+      'Dedupe Key': '',
+      'Hub Queue ID': '',
+      'Processing Status': 'Error',
+      'Processed At': now,
+      'Processing Error': 'Source Item ID ' + sourceItemId + ' changed Flow ID from ' +
+        observation['Flow ID'] + ' to ' + flowId + '.'
+    });
+    recordDashboardChangeRows_(automation, row, observation, stateHash, [{
+      field: 'Flow ID',
+      oldValue: observation['Flow ID'] || '',
+      newValue: flowId
+    }], {
+      triggerCandidate: 'Flow ID changed for existing source item',
+      eventKey: '',
+      dedupeKey: '',
+      processingStatus: 'Error',
+      processedAt: now,
+      processingError: 'Identity mismatch',
+      triggerLogId: triggerId
+    });
+    return { changed: true, hubDraftCreated: false, skipped: false, error: true };
+  }
+
+  if (observation && String(observation['State Hash'] || '') === stateHash) {
+    updateDashboardObservationFields_(automation, sourceItemId, {
+      'Last Observed At': now,
+      'Processing Status': 'No Change',
+      'Processing Error': ''
+    });
+    return { changed: false, hubDraftCreated: false, skipped: false, error: false };
+  }
+
+  const oldState = observation ? parseJsonObject_(observation['State JSON']) : {};
+  const changes = diffAutomationStates_(oldState, state);
+  const trigger = inferAutomationExportTrigger_(row, oldState, changes);
+  const manualReview = isTruthy_(row['Manual Review']);
+  const createHubDrafts = String(config.CREATE_HUB_DRAFTS || 'FALSE').toUpperCase() === 'TRUE';
+  const dedupeKey = trigger.eventKey ? 'dashboard|' + sourceItemId + '|' + trigger.eventKey + '|' + stateHash : '';
+  let hubQueueId = '';
+  let processingStatus = '';
+  let processingError = '';
+  let skipped = false;
+  let error = false;
+
+  if (!trigger.eventKey) {
+    processingStatus = 'Logged Only';
+    skipped = true;
+  } else if (manualReview) {
+    processingStatus = 'Skipped - Manual Review';
+    skipped = true;
+  } else if (!createHubDrafts) {
+    processingStatus = 'Skipped - Hub Drafts Disabled';
+    skipped = true;
+  } else {
+    try {
+      if (!config.HUB_SPREADSHEET_ID) throw new Error('Missing HUB_SPREADSHEET_ID in Automation Config.');
+      hubQueueId = insertHubDraftFromAutomationAtTop_(
+        config.HUB_SPREADSHEET_ID,
+        buildHubDraftFromExportChange_(row, trigger, changes, stateHash, dedupeKey)
+      );
+      processingStatus = 'Draft Created';
+    } catch (draftError) {
+      processingStatus = 'Error';
+      processingError = draftError.message || String(draftError);
+      error = true;
+    }
+  }
+
+  const triggerId = recordAutomationTriggerLog_(automation, {
+    'Work Item Type': recordType,
+    'Flow ID': flowId,
+    'Source Row Key': sourceItemId,
+    'Trigger Candidate': trigger.candidate,
+    'Event Key': trigger.eventKey,
+    'Old State Hash': observation && observation['State Hash'] || '',
+    'New State Hash': stateHash,
+    'Old State Summary': summarizeAutomationState_(oldState),
+    'New State Summary': summarizeAutomationExportRow_(row),
+    'Dedupe Key': dedupeKey,
+    'Hub Queue ID': hubQueueId,
+    'Processing Status': processingStatus,
+    'Processed At': now,
+    'Processing Error': processingError
+  });
+
+  recordDashboardChangeRows_(automation, row, observation, stateHash, changes, {
+    triggerCandidate: trigger.candidate,
+    eventKey: trigger.eventKey,
+    dedupeKey: dedupeKey,
+    processingStatus: processingStatus,
+    processedAt: now,
+    processingError: processingError,
+    triggerLogId: triggerId
+  });
+
+  if (!error) {
+    upsertDashboardObservation_(automation, {
+      'Source Item ID': sourceItemId,
+      'Flow ID': flowId,
+      'Record Type': recordType,
+      Subject: row.Subject || '',
+      'State Hash': stateHash,
+      'State JSON': stateJson,
+      'Last Observed At': now,
+      'Last Processed At': now,
+      'Last Trigger Log ID': triggerId,
+      'Processing Status': processingStatus,
+      'Processing Error': ''
+    });
+  }
+
+  return {
+    changed: true,
+    hubDraftCreated: Boolean(hubQueueId),
+    skipped: skipped,
+    error: error
+  };
+}
+
+function recordDashboardSnapshot_(automation, row, stateHash, stateJson, timestamp) {
+  insertByHeadersAtTop_(automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS), AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS, {
+    'Snapshot ID': Utilities.getUuid(),
+    'Snapshot At': timestamp,
+    'Record Type': normalizeAutomationRecordType_(row['Record Type']),
+    'Source Item ID': row['Source Item ID'],
+    'Flow ID': row['Flow ID'],
+    'State Hash': stateHash,
+    'State JSON': stateJson
+  });
+}
+
+function recordDashboardChangeRows_(automation, row, observation, newStateHash, changes, context) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES);
+  const oldStateHash = observation && observation['State Hash'] || '';
+  const now = context.processedAt || automationNowIso_();
+
+  changes.forEach(change => {
+    insertByHeadersAtTop_(sheet, AUTOMATION.HEADERS.DASHBOARD_CHANGES, {
+      'Change ID': Utilities.getUuid(),
+      'Detected At': now,
+      'Record Type': normalizeAutomationRecordType_(row['Record Type']),
+      'Source Item ID': row['Source Item ID'],
+      'Flow ID': row['Flow ID'],
+      Field: change.field,
+      'Old Value': change.oldValue,
+      'New Value': change.newValue,
+      'Old State Hash': oldStateHash,
+      'New State Hash': newStateHash,
+      'Trigger Candidate': context.triggerCandidate || '',
+      'Event Key': context.eventKey || '',
+      'Dedupe Key': context.dedupeKey || '',
+      'Processing Status': context.processingStatus || '',
+      'Processed At': now,
+      'Processing Error': context.processingError || ''
+    });
+  });
+}
+
+function recordAutomationTriggerLog_(automation, fields) {
+  const triggerId = Utilities.getUuid();
+  insertByHeadersAtTop_(automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG), AUTOMATION.HEADERS.TRIGGER_LOG, Object.assign({
+    'Trigger Log ID': triggerId,
+    'Created At': automationNowIso_()
+  }, fields));
+  return triggerId;
+}
+
+function hasDashboardObservations_(automation) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
+  return Boolean(sheet && sheet.getLastRow() >= 2);
+}
+
+function findDashboardObservation_(automation, sourceItemId) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  return getAutomationObjects_(sheet).find(row => String(row['Source Item ID']) === String(sourceItemId)) || null;
+}
+
+function upsertDashboardObservation_(automation, observation) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
+  const row = findDashboardObservationRow_(sheet, observation['Source Item ID']);
+  if (row) {
+    updateAutomationRowFields_(sheet, row, observation);
+    return;
+  }
+  insertByHeadersAtTop_(sheet, AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS, observation);
+}
+
+function updateDashboardObservationFields_(automation, sourceItemId, fields) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
+  const row = findDashboardObservationRow_(sheet, sourceItemId);
+  if (!row) return;
+  updateAutomationRowFields_(sheet, row, fields);
+}
+
+function findDashboardObservationRow_(sheet, sourceItemId) {
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const headers = getAutomationHeaders_(sheet);
+  const index = headers.indexOf('Source Item ID');
+  if (index < 0) return 0;
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  for (let i = 0; i < values.length; i++) {
+    if (String(values[i][index]) === String(sourceItemId)) return i + 2;
+  }
+  return 0;
+}
+
+function buildAutomationExportState_(row) {
+  const ignored = {
+    'Updated At': true,
+    Active: true,
+    'Manual Review': true,
+    'Channel Override': true,
+    'Slack Thread ID': true
+  };
+
+  return AUTOMATION.HEADERS.EXPORT.reduce((obj, header) => {
+    if (ignored[header]) return obj;
+    obj[header] = stringifyAutomationValue_(row[header]);
+    return obj;
+  }, {});
+}
+
+function diffAutomationStates_(oldState, newState) {
+  const keys = {};
+  Object.keys(oldState || {}).forEach(key => { keys[key] = true; });
+  Object.keys(newState || {}).forEach(key => { keys[key] = true; });
+
+  return Object.keys(keys).sort().filter(key =>
+    stringifyAutomationValue_(oldState[key]) !== stringifyAutomationValue_(newState[key])
+  ).map(key => ({
+    field: key,
+    oldValue: stringifyAutomationValue_(oldState[key]),
+    newValue: stringifyAutomationValue_(newState[key])
+  }));
+}
+
+function inferAutomationExportTrigger_(row, oldState, changes) {
+  const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  if (!changes.length) return { candidate: '', eventKey: '' };
+
+  if (recordType === 'Project') {
+    return inferProjectExportTrigger_(row, oldState, changes);
+  }
+
+  if (recordType === 'Release') {
+    return inferReleaseExportTrigger_(row, oldState, changes);
   }
 
   return { candidate: 'Changed', eventKey: '' };
 }
 
-function recordSnapshotAndTrigger_(automation, row) {
-  const snapshots = automation.getSheetByName(AUTOMATION.SHEETS.SNAPSHOTS);
-  const triggerLog = automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG);
-  const stateJson = JSON.stringify(buildComparableState_(row));
+function inferProjectExportTrigger_(row, oldState, changes) {
+  const fields = changes.map(change => change.field);
+  const status = normalizeStatus_(row.Status);
+  const risk = normalizeRiskLevel_(row['Risk Level']);
+  const confidence = Number(row.Confidence || 0);
+  const oldConfidence = Number(oldState.Confidence || 0);
 
-  insertByHeadersAtTop_(snapshots, AUTOMATION.HEADERS.SNAPSHOTS, {
-    'Snapshot ID': Utilities.getUuid(),
-    'Snapshot At': automationNowIso_(),
-    'Work Item Type': row['Work Item Type'],
-    'Flow ID': row['Flow ID'],
-    'Source Row Key': row['Source Row Key'],
-    'Source Sheet': row['Source Sheet'],
-    'Source Row': row['Source Row'],
-    'State Hash': row['Current State Hash'],
-    'State JSON': stateJson
-  });
+  if (fields.indexOf('Status') >= 0 && ['YELLOW', 'RED'].indexOf(status) >= 0) {
+    return { candidate: 'Material project status change', eventKey: 'project.unexpected_status_change' };
+  }
 
-  if (!row['Trigger Candidate']) return;
+  if (fields.indexOf('Risk Level') >= 0 && ['HIGH', 'CRITICAL'].indexOf(risk) >= 0) {
+    return { candidate: 'Material project risk change', eventKey: 'project.unexpected_status_change' };
+  }
 
-  insertByHeadersAtTop_(triggerLog, AUTOMATION.HEADERS.TRIGGER_LOG, {
-    'Trigger Log ID': Utilities.getUuid(),
-    'Created At': automationNowIso_(),
-    'Work Item Type': row['Work Item Type'],
-    'Flow ID': row['Flow ID'],
-    'Source Row Key': row['Source Row Key'],
-    'Trigger Candidate': row['Trigger Candidate'],
-    'Event Key': row['Event Key'],
-    'Old State Hash': row['Previous State Hash'],
-    'New State Hash': row['Current State Hash'],
-    'Old State Summary': '',
-    'New State Summary': summarizeRow_(row),
-    'Dedupe Key': row['Dedupe Key'],
-    'Hub Queue ID': '',
-    'Processing Status': row['Event Key'] ? 'Pending Hub Draft' : 'Logged Only',
-    'Processed At': row['Event Key'] ? '' : automationNowIso_(),
-    'Processing Error': ''
-  });
+  if (fields.indexOf('Confidence') >= 0 && confidence > 0 && (confidence <= 5 || oldConfidence - confidence >= 2)) {
+    return { candidate: 'Material project confidence change', eventKey: 'project.unexpected_status_change' };
+  }
+
+  if (fields.some(field => ['Phase', 'Primary Risk', 'Next Gate', 'Next Gate ETA'].indexOf(field) >= 0)) {
+    return { candidate: 'Project planning field changed', eventKey: 'project.unexpected_status_change' };
+  }
+
+  return { candidate: 'Project changed', eventKey: '' };
 }
 
-function buildComparableState_(row) {
-  const ignored = {
-    'Current State Hash': true,
-    'Previous State Hash': true,
-    'Last Seen At': true,
-    'Last Processed At': true,
-    'Trigger Candidate': true,
-    'Event Key': true,
-    'Dedupe Key': true,
-    'Hub Queue ID': true,
-    'Processing Status': true,
-    'Processing Error': true
-  };
-  return Object.keys(row).sort().reduce((obj, key) => {
-    if (ignored[key]) return obj;
-    obj[key] = row[key];
-    return obj;
-  }, {});
+function inferReleaseExportTrigger_(row, oldState, changes) {
+  const fields = changes.map(change => change.field);
+  const rollbackStatus = String(row['Rollback Status'] || '').trim().toLowerCase();
+  const goNoGo = String(row['Go / No-Go Required'] || '').trim().toLowerCase();
+  const releaseStatus = String(row['Release Status'] || row.Status || row.Phase || '').trim();
+
+  if (fields.indexOf('Rollback Status') >= 0 && rollbackStatus && rollbackStatus !== 'none' && rollbackStatus !== 'no') {
+    return { candidate: 'Release rollback state changed', eventKey: 'release.rolled_back' };
+  }
+
+  if (fields.indexOf('Go / No-Go Required') >= 0 && ['yes', 'true', 'required'].indexOf(goNoGo) >= 0) {
+    return { candidate: 'Release go / no-go required', eventKey: 'release.go_no_go' };
+  }
+
+  if (fields.indexOf('Release Status') >= 0 || fields.indexOf('Status') >= 0 || fields.indexOf('Phase') >= 0) {
+    const eventKey = inferReleaseEventKey_(releaseStatus, row.Notes);
+    if (eventKey) return { candidate: 'Release lifecycle state changed', eventKey: eventKey };
+  }
+
+  if (fields.indexOf('Release Date') >= 0 && row['Release Date']) {
+    return { candidate: 'Release schedule changed', eventKey: 'release.scheduled' };
+  }
+
+  return { candidate: 'Release changed', eventKey: '' };
 }
 
-function processPendingTriggersToHubQueue_(automation, config) {
-  const triggerLog = automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG);
-  if (!triggerLog || triggerLog.getLastRow() < 2) return;
-
-  const rows = getAutomationObjects_(triggerLog);
-  rows.forEach((trigger, index) => {
-    const sheetRow = index + 2;
-    if (trigger['Processing Status'] !== 'Pending Hub Draft' || !trigger['Event Key']) return;
-
-    try {
-      if (!config.HUB_SPREADSHEET_ID) throw new Error('Missing HUB_SPREADSHEET_ID in Automation Config.');
-
-      const current = findCurrentAutomationRow_(automation, trigger);
-      if (!current) throw new Error('Could not find current normalized row for ' + trigger['Source Row Key']);
-
-      const queueId = insertHubDraftFromAutomationAtTop_(config.HUB_SPREADSHEET_ID, buildHubDraftFromAutomation_(trigger, current));
-      updateAutomationRowFields_(triggerLog, sheetRow, {
-        'Hub Queue ID': queueId,
-        'Processing Status': 'Draft Created',
-        'Processed At': automationNowIso_(),
-        'Processing Error': ''
-      });
-      updateNormalizedProcessingFields_(automation, trigger['Work Item Type'], trigger['Source Row Key'], {
-        'Hub Queue ID': queueId,
-        'Processing Status': 'Draft Created',
-        'Last Processed At': automationNowIso_(),
-        'Processing Error': ''
-      });
-    } catch (error) {
-      updateAutomationRowFields_(triggerLog, sheetRow, {
-        'Processing Status': 'Error',
-        'Processed At': automationNowIso_(),
-        'Processing Error': error.message || String(error)
-      });
-      updateNormalizedProcessingFields_(automation, trigger['Work Item Type'], trigger['Source Row Key'], {
-        'Processing Status': 'Error',
-        'Last Processed At': automationNowIso_(),
-        'Processing Error': error.message || String(error)
-      });
-    }
-  });
-}
-
-function findCurrentAutomationRow_(automation, trigger) {
-  const sheetName = getAutomationSheetForWorkItemType_(trigger['Work Item Type']);
-  const sheet = sheetName ? automation.getSheetByName(sheetName) : null;
-  if (!sheet) return null;
-  return getAutomationObjects_(sheet).find(row => row['Source Row Key'] === trigger['Source Row Key']);
-}
-
-function getAutomationSheetForWorkItemType_(workItemType) {
-  const tabs = {
-    Project: AUTOMATION.SHEETS.PROJECTS,
-    Gate: AUTOMATION.SHEETS.GATES,
-    'Production Release': AUTOMATION.SHEETS.RELEASES
-  };
-  return tabs[workItemType] || '';
-}
-
-function buildHubDraftFromAutomation_(trigger, row) {
-  const owner = row.Owner ||
-    row['Lead PM'] ||
-    row['Decision Owner'] ||
-    'TPM';
-  const flowId = trigger['Flow ID'] || row['Flow ID'];
-  const payload = buildAutomationPayload_(trigger, row, owner);
+function buildHubDraftFromExportChange_(row, trigger, changes, stateHash, dedupeKey) {
+  const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  const owner = row.Owner || 'TPM';
+  const payload = buildAutomationPayloadFromExport_(row, trigger, changes, owner);
 
   return {
     'Queue ID': Utilities.getUuid(),
-    'Flow ID': flowId,
-    'Dedupe Key': trigger['Dedupe Key'],
+    'Flow ID': row['Flow ID'],
+    'Dedupe Key': dedupeKey || ('dashboard|' + row['Source Item ID'] + '|' + trigger.eventKey + '|' + stateHash),
     'Created At': automationNowIso_(),
     'Updated At': automationNowIso_(),
     Source: 'Automation Dashboard',
-    Lane: inferLaneFromAutomationWorkItem_(trigger['Work Item Type']),
-    'Event Key': trigger['Event Key'],
+    Lane: recordType === 'Release' ? 'Production Release' : 'Project',
+    'Event Key': trigger.eventKey,
     Status: 'Draft',
-    Priority: inferAutomationPriority_(trigger['Event Key'], row),
+    Priority: inferAutomationPriority_(trigger.eventKey, row),
     Owner: owner,
-    'Channel Override': row['Primary Channel'] || '',
+    'Channel Override': row['Channel Override'] || '',
     'Slack Thread ID': row['Slack Thread ID'] || '',
     'Payload JSON': JSON.stringify(payload)
   };
 }
 
-function buildAutomationPayload_(trigger, row, owner) {
+function buildAutomationPayloadFromExport_(row, trigger, changes, owner) {
+  const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  const subject = row.Subject || row['Source Item ID'];
   const payload = {
+    subject: subject,
     owner: owner,
-    project: row.Project || row['Release ID'] || trigger['Source Row Key'],
-    event_key: trigger['Event Key'],
-    source_row_key: trigger['Source Row Key'],
-    what: trigger['New State Summary'] || trigger['Trigger Candidate'],
-    so_what: inferAutomationSoWhat_(trigger['Work Item Type'], trigger['Event Key']),
-    whats_next: inferAutomationWhatsNext_(trigger['Work Item Type'], trigger['Event Key'])
+    project: subject,
+    event_key: trigger.eventKey,
+    source_item_id: row['Source Item ID'],
+    what: buildChangeSummary_(changes),
+    so_what: inferAutomationSoWhat_(recordType, trigger.eventKey),
+    whats_next: inferAutomationWhatsNext_(recordType, trigger.eventKey),
+    status: row.Status || '',
+    phase: row.Phase || '',
+    risk_level: row['Risk Level'] || '',
+    confidence: row.Confidence || '',
+    primary_risk: row['Primary Risk'] || '',
+    notes: row.Notes || ''
   };
 
-  if (trigger['Work Item Type'] === 'Gate') {
-    payload.gate = row.Gate;
-    payload.target_date = row['Target Date'];
-    payload.gate_status = row['Gate Status'];
-  }
-
-  if (trigger['Work Item Type'] === 'Production Release') {
-    payload.release_id = row['Release ID'];
-    payload.release_name = row.Project || row['Release ID'];
+  if (recordType === 'Release') {
+    payload.release_id = row['Source Item ID'];
+    payload.release_name = subject;
     payload.release_date = row['Release Date'];
-    payload.release_status = row['Normalized Release Status'];
+    payload.release_status = row['Release Status'] || row.Status || row.Phase || '';
     payload.included_projects = row['Included Projects'];
-    payload.included_bugs = row['Included Bugs'];
-    payload.included_stray_stories = row['Included Stray Stories'];
     payload.known_issues = row['Known Issues'];
-    payload.decision_owner = row['Decision Owner'];
+    payload.decision_owner = owner;
+    payload.rollback_status = row['Rollback Status'];
+    payload.go_no_go_required = row['Go / No-Go Required'];
   }
 
   return payload;
 }
 
-function inferAutomationSoWhat_(workItemType, eventKey) {
-  if (workItemType === 'Production Release') {
-    return 'This release update may affect production timing, support readiness, monitoring, or stakeholder expectations.';
+function buildChangeSummary_(changes) {
+  if (!changes.length) return 'Dashboard state changed.';
+  return changes.slice(0, 5).map(change =>
+    change.field + ' changed from "' + (change.oldValue || 'blank') + '" to "' + (change.newValue || 'blank') + '".'
+  ).join(' ');
+}
+
+function summarizeAutomationExportRow_(row) {
+  const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  if (recordType === 'Release') {
+    return [
+      row.Subject || row['Source Item ID'],
+      row['Release Date'] || '',
+      row['Release Status'] || row.Status || row.Phase || ''
+    ].filter(Boolean).join(' | ');
   }
-  if (eventKey === 'project.gate_exception') {
-    return 'This gate exception may affect timeline, readiness, scope, or leadership expectations.';
+  return [
+    row.Subject || row['Source Item ID'],
+    row.Status || '',
+    row.Phase || '',
+    row['Risk Level'] || row['Primary Risk'] || ''
+  ].filter(Boolean).join(' | ');
+}
+
+function summarizeAutomationState_(state) {
+  if (!state) return '';
+  return [
+    state.Subject || state['Source Item ID'] || '',
+    state.Status || state['Release Status'] || '',
+    state.Phase || '',
+    state['Risk Level'] || state['Primary Risk'] || ''
+  ].filter(Boolean).join(' | ');
+}
+
+function inferAutomationSoWhat_(recordType, eventKey) {
+  if (recordType === 'Release') {
+    if (eventKey === 'release.rolled_back') return 'Stakeholders need a clear production state and recovery expectation.';
+    if (eventKey === 'release.delayed') return 'Stakeholders need to adjust release expectations, support readiness, and timing.';
+    return 'This release update may affect production timing, support readiness, monitoring, or stakeholder expectations.';
   }
   return 'This may affect project expectations, risk, timeline, release, or stakeholder confidence.';
 }
 
-function inferAutomationWhatsNext_(workItemType, eventKey) {
-  if (workItemType === 'Production Release') {
-    return 'Release Owner should review readiness, confirm impact, and approve or discard this draft.';
-  }
-  if (eventKey === 'project.gate_approaching') {
-    return 'Gate owner should confirm readiness, decision owner, risks, and the next update time.';
+function inferAutomationWhatsNext_(recordType, eventKey) {
+  if (recordType === 'Release') {
+    if (eventKey === 'release.go_no_go') return 'Release owner should confirm readiness and the go / no-go decision.';
+    if (eventKey === 'release.rolled_back') return 'Release owner should confirm recovery status and whether a postmortem is needed.';
+    return 'Release owner should review readiness, confirm impact, and approve or discard this draft.';
   }
   return 'Lead PM or TPM should review the change, confirm impact, and approve or discard this draft.';
 }
 
 function inferAutomationPriority_(eventKey, row) {
   if (eventKey === 'release.rolled_back') return 'Critical';
-  if (eventKey === 'project.gate_exception' || eventKey === 'release.delayed' || eventKey === 'release.go_no_go') return 'High';
+  if (eventKey === 'release.delayed' || eventKey === 'release.go_no_go') return 'High';
   if (String(row.Status || '').toUpperCase() === 'RED') return 'High';
+  if (['HIGH', 'CRITICAL'].indexOf(normalizeRiskLevel_(row['Risk Level'])) >= 0) return 'High';
   return 'Medium';
-}
-
-function inferLaneFromAutomationWorkItem_(workItemType) {
-  if (workItemType === 'Production Release') return 'Production Release';
-  return 'Project';
 }
 
 function insertHubDraftFromAutomationAtTop_(hubId, draft) {
@@ -478,15 +782,74 @@ function findHubActiveQueueIdByDedupeKey_(queue, dedupeKey) {
   return active ? active['Queue ID'] : '';
 }
 
-function updateNormalizedProcessingFields_(automation, workItemType, sourceRowKey, fields) {
-  const sheetName = getAutomationSheetForWorkItemType_(workItemType);
-  const sheet = sheetName ? automation.getSheetByName(sheetName) : null;
-  if (!sheet || !sourceRowKey) return;
+function runAutomationGarbageCollectionIfNeeded_(automation, config) {
+  const pollCount = Number(config.POLL_COUNT || 0);
+  const every = Number(config.GC_EVERY_N_POLLS || 100);
+  const retentionDays = Number(config.RETENTION_DAYS || 60);
+  const lastGcAt = config.LAST_GC_AT ? new Date(config.LAST_GC_AT) : null;
+  const now = new Date();
+  const weeklyDue = !lastGcAt || now.getTime() - lastGcAt.getTime() >= 7 * 24 * 60 * 60 * 1000;
+  const countDue = every > 0 && pollCount > 0 && pollCount % every === 0;
 
-  const rows = getAutomationObjects_(sheet);
-  const index = rows.findIndex(row => row['Source Row Key'] === sourceRowKey);
-  if (index < 0) return;
-  updateAutomationRowFields_(sheet, index + 2, fields);
+  if (!weeklyDue && !countDue) {
+    return { ran: false, deletedRows: 0 };
+  }
+
+  const cutoff = new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);
+  const deletedSnapshots = pruneAutomationRowsOlderThan_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS),
+    'Snapshot At',
+    cutoff
+  );
+  const deletedChanges = pruneAutomationRowsOlderThan_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES),
+    'Detected At',
+    cutoff
+  );
+
+  updateAutomationConfigValue_(automation, 'LAST_GC_AT', automationNowIso_());
+  return {
+    ran: true,
+    deletedRows: deletedSnapshots + deletedChanges,
+    retentionDays: retentionDays
+  };
+}
+
+function pruneAutomationRowsOlderThan_(sheet, timestampHeader, cutoff) {
+  if (!sheet || sheet.getLastRow() < 2) return 0;
+  const headers = getAutomationHeaders_(sheet);
+  const timestampIndex = headers.indexOf(timestampHeader);
+  if (timestampIndex < 0) return 0;
+
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  let deleted = 0;
+  for (let i = values.length - 1; i >= 0; i--) {
+    const value = values[i][timestampIndex];
+    const date = value instanceof Date ? value : new Date(value);
+    if (value && !isNaN(date.getTime()) && date < cutoff) {
+      sheet.deleteRow(i + 2);
+      deleted++;
+    }
+  }
+  return deleted;
+}
+
+function incrementAutomationPollCount_(automation, config) {
+  const next = Number(config.POLL_COUNT || 0) + 1;
+  updateAutomationConfigValue_(automation, 'POLL_COUNT', String(next));
+  return next;
+}
+
+function updateAutomationConfigValue_(automation, key, value) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.CONFIG);
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(key)) {
+      sheet.getRange(i + 1, 2).setValue(value);
+      return;
+    }
+  }
+  insertAutomationValuesAtTop_(sheet, [key, value]);
 }
 
 function updateAutomationRowFields_(sheet, row, fields) {
@@ -497,17 +860,13 @@ function updateAutomationRowFields_(sheet, row, fields) {
   });
 }
 
-function writeNormalizedRows_(sheet, headers, rows) {
-  sheet.clearContents();
-  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  if (!rows.length) return;
-  sheet.getRange(2, 1, rows.length, headers.length).setValues(rows.map(row => headers.map(header => row[header] || '')));
+function insertByHeadersAtTop_(sheet, headers, row) {
+  insertAutomationValuesAtTop_(sheet, headers.map(header => row[header] == null ? '' : row[header]));
 }
 
-function readRows_(sheet, startRow, endRow) {
-  const rowCount = Math.max(endRow - startRow + 1, 1);
-  const colCount = sheet.getLastColumn();
-  return sheet.getRange(startRow, 1, rowCount, colCount).getValues();
+function insertAutomationValuesAtTop_(sheet, values) {
+  sheet.insertRowAfter(1);
+  sheet.getRange(2, 1, 1, values.length).setValues([values]);
 }
 
 function getAutomationConfig_() {
@@ -523,25 +882,6 @@ function getAutomationHeaders_(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
 }
 
-function findLatestSnapshot_(sourceRowKey) {
-  const sheet = SpreadsheetApp.getActive().getSheetByName(AUTOMATION.SHEETS.SNAPSHOTS);
-  if (!sheet || sheet.getLastRow() < 2) return null;
-  const rows = getAutomationObjects_(sheet);
-  for (let i = 0; i < rows.length; i++) {
-    if (rows[i]['Source Row Key'] === sourceRowKey) return rows[i];
-  }
-  return null;
-}
-
-function insertByHeadersAtTop_(sheet, headers, row) {
-  insertAutomationValuesAtTop_(sheet, headers.map(header => row[header] || ''));
-}
-
-function insertAutomationValuesAtTop_(sheet, values) {
-  sheet.insertRowAfter(1);
-  sheet.getRange(2, 1, 1, values.length).setValues([values]);
-}
-
 function getAutomationObjects_(sheet) {
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return [];
@@ -554,6 +894,37 @@ function getAutomationObjects_(sheet) {
   });
 }
 
+function getAutomationObjectsByHeaders_(sheet, headers) {
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  return values.map(row => headers.reduce((obj, header, index) => {
+    obj[header] = row[index];
+    return obj;
+  }, {}));
+}
+
+function isAutomationExportRowActive_(row) {
+  if (!String(row['Source Item ID'] || '').trim() && !String(row['Flow ID'] || '').trim()) return false;
+  return !isExplicitlyInactive_(row.Active);
+}
+
+function isExplicitlyInactive_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return ['false', 'no', '0', 'inactive', 'n'].indexOf(text) >= 0;
+}
+
+function isTruthy_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  return ['true', 'yes', '1', 'y', 'checked', 'manual review', 'hold'].indexOf(text) >= 0;
+}
+
+function normalizeAutomationRecordType_(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'release' || text === 'production release') return 'Release';
+  if (text === 'project') return 'Project';
+  return String(value || '').trim();
+}
+
 function normalizeStatus_(value) {
   const text = String(value || '').trim().toUpperCase();
   if (['GREEN', 'YELLOW', 'RED', 'GRAY'].indexOf(text) >= 0) return text;
@@ -563,26 +934,13 @@ function normalizeStatus_(value) {
   return text;
 }
 
-function normalizePhase_(value) {
-  return String(value || '').trim();
-}
-
-function normalizeGateStatus_(value) {
+function normalizeRiskLevel_(value) {
   const text = String(value || '').trim().toUpperCase();
-  if (/pass|approved|complete/.test(text.toLowerCase())) return 'PASSED';
-  if (/fail|miss|delay|blocked/.test(text.toLowerCase())) return 'MISSED';
-  if (/pending|upcoming|planned/.test(text.toLowerCase())) return 'PENDING';
+  if (/critical/.test(text.toLowerCase())) return 'CRITICAL';
+  if (/high/.test(text.toLowerCase())) return 'HIGH';
+  if (/medium|med/.test(text.toLowerCase())) return 'MEDIUM';
+  if (/low/.test(text.toLowerCase())) return 'LOW';
   return text;
-}
-
-function normalizeReleaseStatus_(phase) {
-  const text = String(phase || '').toLowerCase();
-  if (/complete|done|released/.test(text)) return 'COMPLETED';
-  if (/start|progress|deploy/.test(text)) return 'STARTED';
-  if (/delay|miss/.test(text)) return 'DELAYED';
-  if (/rollback|rolled/.test(text)) return 'ROLLED_BACK';
-  if (/schedule|planned/.test(text)) return 'SCHEDULED';
-  return String(phase || '').trim();
 }
 
 function inferReleaseEventKey_(phase, notes) {
@@ -590,19 +948,26 @@ function inferReleaseEventKey_(phase, notes) {
   if (/rollback|rolled back/.test(text)) return 'release.rolled_back';
   if (/delay|delayed|missed/.test(text)) return 'release.delayed';
   if (/complete|completed|done|released/.test(text)) return 'release.completed';
-  if (/start|started|deploying/.test(text)) return 'release.started';
+  if (/start|started|deploying|in progress/.test(text)) return 'release.started';
   if (/go|no-go|readiness/.test(text)) return 'release.go_no_go';
   if (/schedule|scheduled|planned/.test(text)) return 'release.scheduled';
   return '';
 }
 
-function daysUntil_(dateValue) {
-  if (!dateValue) return '';
-  const date = new Date(dateValue);
-  if (isNaN(date.getTime())) return '';
-  const today = new Date();
-  const ms = date.setHours(0, 0, 0, 0) - today.setHours(0, 0, 0, 0);
-  return Math.ceil(ms / 86400000);
+function parseJsonObject_(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(String(value));
+  } catch (error) {
+    return {};
+  }
+}
+
+function stringifyAutomationValue_(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (value == null) return '';
+  return String(value).trim();
 }
 
 function hashString_(text) {
@@ -611,26 +976,6 @@ function hashString_(text) {
     const value = byte < 0 ? byte + 256 : byte;
     return ('0' + value.toString(16)).slice(-2);
   }).join('');
-}
-
-function summarizeRow_(row) {
-  if (row['Work Item Type'] === 'Project') {
-    return row.Project + ' | ' + row.Status + ' | ' + row['Current Phase'] + ' | ' + row['Primary Risk'];
-  }
-  if (row['Work Item Type'] === 'Gate') {
-    return row.Project + ' | ' + row.Gate + ' | ' + row['Gate Status'];
-  }
-  if (row['Work Item Type'] === 'Production Release') {
-    return row.Project + ' | ' + row['Release Date'] + ' | ' + row.Phase;
-  }
-  return JSON.stringify(row);
-}
-
-function normalizeAutomationKey_(value) {
-  return String(value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 function automationNowIso_() {
