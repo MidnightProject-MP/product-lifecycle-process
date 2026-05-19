@@ -206,10 +206,6 @@ This creates or repairs:
 - `Dashboard_Snapshots`
 - `Dashboard_Changes`
 - `Dashboard_Observations`
-- `Projects_Normalized`
-- `Gates_Normalized`
-- `Releases_Normalized`
-- `Snapshots`
 - `Trigger_Log`
 - `Config`
 

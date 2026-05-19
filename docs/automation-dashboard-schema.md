@@ -34,7 +34,7 @@ Dashboard evidence + Hub drafts
 | `Trigger_Log` | Communication trigger decisions and Hub draft creation attempts. |
 | `Config` | Non-secret automation configuration. |
 
-The older `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, and `Snapshots` tabs remain during transition, but `Automation_Export` is the v2 input contract.
+The older `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, and `Snapshots` tabs are deprecated and are no longer created by setup.
 
 ## Export Contract
 
