@@ -241,16 +241,17 @@ function previewReviewControllerMessage(form) {
     const anchorText = renderTemplate_(getTemplateAnchorText_(template), item);
     const replyText = renderTemplate_(getTemplateReplyText_(template), item);
     const historyText = replyText || buildThreadHistoryText_(item, template, 'Preview');
-    const previewText = existingFlow && shouldReplyInThread_(template, item) ? historyText : anchorText;
+    const previewText = anchorText || historyText;
+    const previewMode = existingFlow && shouldUpdateAnchorMessage_(template, item) ? 'Anchor update' : 'Anchor';
     return {
       ok: true,
       previewText: previewText,
-      previewMode: existingFlow && shouldReplyInThread_(template, item) ? 'Thread reply' : 'Anchor',
+      previewMode: previewMode,
       anchorText: anchorText,
       replyText: historyText,
       templateKey: template['Template Key'],
       eventName: getReviewControllerEventDisplayName_(item['Event Key']),
-      diagnostics: buildReviewControllerPreviewDiagnostics_(item, template)
+      diagnostics: buildReviewControllerPreviewDiagnostics_(item, template, historyText)
     };
   } catch (error) {
     logReviewControllerEvent_('preview_error', form || {}, {
@@ -870,7 +871,7 @@ function reviewControllerFormValue_(form, key, fallback) {
   return fallback || '';
 }
 
-function buildReviewControllerPreviewDiagnostics_(item, template) {
+function buildReviewControllerPreviewDiagnostics_(item, template, replyText) {
   const payload = normalizePayload_(item);
   const eventKey = item['Event Key'] || payload.event_key || '';
   const expectedTemplateKey = getExpectedReviewControllerTemplateKey_(eventKey);
@@ -889,6 +890,7 @@ function buildReviewControllerPreviewDiagnostics_(item, template) {
     registryTemplateKey: registryTemplateKey,
     expectedTemplateKey: expectedTemplateKey,
     templateMismatch: Boolean(expectedTemplateKey && registryTemplateKey && expectedTemplateKey !== registryTemplateKey),
+    replyText: replyText || '',
     values: editableValues
   };
 }
