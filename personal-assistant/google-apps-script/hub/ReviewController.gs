@@ -7,6 +7,7 @@ function openReviewControllerSidebar() {
 }
 
 function expandReviewControllerWorkspace(form) {
+  logReviewControllerEvent_('mode_switch', form || {}, { targetMode: 'wide' });
   showReviewControllerWorkspace_('wide', form || {});
   return {
     ok: true,
@@ -15,6 +16,7 @@ function expandReviewControllerWorkspace(form) {
 }
 
 function minimizeReviewControllerWorkspace(form) {
+  logReviewControllerEvent_('mode_switch', form || {}, { targetMode: 'sidebar' });
   showReviewControllerWorkspace_('sidebar', form || {});
   return {
     ok: true,
@@ -38,10 +40,18 @@ function getReviewControllerInitialContext() {
   const launchState = getReviewControllerLaunchState();
   const form = launchState && launchState.form || {};
   const selection = form.selection || launchState.selection || '';
+  logReviewControllerEvent_('load_initial', form, { selection: selection });
   return {
     ok: true,
     launchState: launchState,
     context: getReviewControllerContextForSelection_(selection)
+  };
+}
+
+function logReviewControllerClientEvent(eventType, form, details) {
+  logReviewControllerEvent_(eventType, form || {}, details || {});
+  return {
+    ok: true
   };
 }
 
@@ -100,11 +110,27 @@ function buildReviewControllerLaunchState_(mode, form, hasForm) {
   };
 }
 
+function logReviewControllerEvent_(eventType, form, details) {
+  const safeForm = form || {};
+  logHub_('INFO', 'CommunicationConsole', safeForm.queueId || '', 'Communication Console event: ' + eventType, {
+    eventType: eventType,
+    selection: safeForm.selection || '',
+    flowAction: safeForm.flowAction || '',
+    eventKey: safeForm.eventKey || '',
+    flowId: safeForm.flowId || '',
+    mode: details && details.mode || '',
+    targetMode: details && details.targetMode || '',
+    error: details && details.error || '',
+    missing: details && details.missing || ''
+  });
+}
+
 function getReviewControllerContext(selection) {
   return getReviewControllerContextForSelection_(selection || '');
 }
 
 function saveReviewControllerDraft(form) {
+  logReviewControllerEvent_('save_draft', form || {}, {});
   const result = runSkillOrThrow_('save_review_draft', {
     queueId: form && form.queueId,
     form: form || {}
@@ -114,6 +140,7 @@ function saveReviewControllerDraft(form) {
 }
 
 function queueReviewControllerDraft(form) {
+  logReviewControllerEvent_('queue_draft', form || {}, {});
   const parsed = parseReviewControllerSelection_(form && form.selection);
   const action = String(form && form.flowAction || '').trim();
 
@@ -133,6 +160,7 @@ function queueReviewControllerDraft(form) {
 }
 
 function approveReviewControllerDraft(form) {
+  logReviewControllerEvent_('approve_draft', form || {}, {});
   const result = runSkillOrThrow_('approve_draft', {
     queueId: form && form.queueId,
     form: form || {}
@@ -146,6 +174,7 @@ function approveReviewControllerDraft(form) {
 }
 
 function approveReviewControllerSelection(form) {
+  logReviewControllerEvent_('approve_selection', form || {}, {});
   const parsed = parseReviewControllerSelection_(form && form.selection);
   const action = String(form && form.flowAction || '').trim();
   if (parsed.mode === 'new' || parsed.mode === 'flow' || (action && action !== 'selected')) {
@@ -166,6 +195,7 @@ function approveReviewControllerSelection(form) {
 }
 
 function discardReviewControllerDraft(form) {
+  logReviewControllerEvent_('discard_draft', form || {}, {});
   const reason = form && form.discardReason ? String(form.discardReason) : 'Discarded from Communication Console.';
   const result = runSkillOrThrow_('discard_draft', {
     queueId: form && form.queueId,
@@ -206,7 +236,7 @@ function createReviewControllerFlowActionDraft(form) {
 function previewReviewControllerMessage(form) {
   try {
     const item = buildReviewControllerPreviewItem_(form || {});
-    const template = findTemplate_(item);
+    const template = findReviewControllerTemplateForPreview_(item);
     const existingFlow = item['Flow ID'] ? findFlowStateByFlowId_(item['Flow ID']) : null;
     const anchorText = renderTemplate_(getTemplateAnchorText_(template), item);
     const replyText = renderTemplate_(getTemplateReplyText_(template), item);
@@ -219,14 +249,48 @@ function previewReviewControllerMessage(form) {
       anchorText: anchorText,
       replyText: historyText,
       templateKey: template['Template Key'],
-      eventName: getReviewControllerEventDisplayName_(item['Event Key'])
+      eventName: getReviewControllerEventDisplayName_(item['Event Key']),
+      diagnostics: buildReviewControllerPreviewDiagnostics_(item, template)
     };
   } catch (error) {
+    logReviewControllerEvent_('preview_error', form || {}, {
+      error: error.message || String(error)
+    });
     return {
       ok: false,
       message: error.message || String(error)
     };
   }
+}
+
+function findReviewControllerTemplateForPreview_(item) {
+  const template = findTemplate_(item);
+  const eventKey = item['Event Key'] || normalizePayload_(item).event_key || '';
+  const expectedTemplateKey = getExpectedReviewControllerTemplateKey_(eventKey);
+  const actualTemplateKey = template['Template Key'] || '';
+  if (!expectedTemplateKey || expectedTemplateKey === actualTemplateKey) return template;
+
+  const expectedTemplate = findActiveReviewControllerTemplateByKey_(expectedTemplateKey);
+  if (!expectedTemplate) return template;
+
+  return Object.assign({}, expectedTemplate, {
+    'Event Key': template['Event Key'] || eventKey,
+    'Channel Type': template['Channel Type'],
+    'Default Send Rule': template['Default Send Rule'],
+    'Post Mode': template['Post Mode'],
+    'Anchor Update Policy': template['Anchor Update Policy'],
+    'Thread Reply Policy': template['Thread Reply Policy'],
+    'Reply Broadcast': template['Reply Broadcast'],
+    '_Registry Template Key': actualTemplateKey
+  });
+}
+
+function findActiveReviewControllerTemplateByKey_(templateKey) {
+  const templates = getRegistryObjects_('Templates').filter(row =>
+    row['Template Key'] === templateKey &&
+    String(row.Active || '').toUpperCase() !== 'FALSE'
+  );
+  return templates.length ? templates[templates.length - 1] : null;
 }
 
 function createReviewControllerFlowActionDraftForFlow_(form, flow, selectedItem) {
@@ -412,7 +476,7 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
 }
 
 function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
-  const startEvents = buildReviewControllerStartEventActions_();
+  const startEvents = buildReviewControllerStartEventActions_(selectedValue);
   return {
     ok: true,
     mode: 'new',
@@ -447,10 +511,7 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
 
 function buildReviewControllerCommunicationOptions_() {
   const ss = SpreadsheetApp.getActive();
-  const options = [{
-    value: 'new',
-    label: '+ New communication'
-  }];
+  const options = buildReviewControllerNewCommunicationOptions_();
 
   const queueSheet = ss.getSheetByName(HUB.SHEETS.QUEUE);
   const activeFlowIds = {};
@@ -513,12 +574,13 @@ function resolveReviewControllerSelectedValue_(selection, options) {
     if (options.some(option => option.value === queueSelection)) return queueSelection;
   }
 
-  return 'new';
+  return 'new:project';
 }
 
 function parseReviewControllerSelection_(selection) {
   const value = String(selection || '').trim();
   if (!value || value === 'new') return { mode: 'new', id: '' };
+  if (value.indexOf('new:') === 0) return { mode: 'new', id: value.slice(4) };
   if (value.indexOf('queue:') === 0) return { mode: 'queue', id: value.slice(6) };
   if (value.indexOf('flow:') === 0) return { mode: 'flow', id: value.slice(5) };
   return { mode: 'queue', id: value };
@@ -655,12 +717,14 @@ function buildReviewControllerActions_(item, flow, options) {
   );
 }
 
-function buildReviewControllerStartEventActions_() {
+function buildReviewControllerStartEventActions_(selectedValue) {
   const cachedRows = getReviewControllerCachedRegistryRows_('Event_Catalog');
   const eventRows = cachedRows.length ? cachedRows : getFallbackReviewControllerStartEventRows_();
+  const selectedType = getReviewControllerNewTypeFromSelection_(selectedValue);
   return eventRows
     .filter(row => String(row.Active || 'TRUE').toUpperCase() !== 'FALSE')
     .filter(row => String(row.Path || '').toLowerCase() === 'start')
+    .filter(row => !selectedType || getReviewControllerNewTypeForEventKey_(row['Event Key']) === selectedType)
     .map(row => {
       const eventKey = row['Event Key'];
       return {
@@ -670,6 +734,41 @@ function buildReviewControllerStartEventActions_() {
         defaults: buildReviewControllerNewStartDefaults_(eventKey)
       };
     });
+}
+
+function buildReviewControllerNewCommunicationOptions_() {
+  return [
+    {
+      value: 'new:project',
+      label: '+ New Project communication'
+    },
+    {
+      value: 'new:release',
+      label: '+ New Release communication'
+    },
+    {
+      value: 'new:incident',
+      label: '+ New Critical Incident'
+    },
+    {
+      value: 'new:stray',
+      label: '+ New Stray Story'
+    }
+  ];
+}
+
+function getReviewControllerNewTypeFromSelection_(selection) {
+  const parsed = parseReviewControllerSelection_(selection);
+  return parsed.mode === 'new' ? parsed.id : '';
+}
+
+function getReviewControllerNewTypeForEventKey_(eventKey) {
+  const key = String(eventKey || '');
+  if (key.indexOf('project.') === 0) return 'project';
+  if (key.indexOf('release.') === 0) return 'release';
+  if (key.indexOf('incident.') === 0) return 'incident';
+  if (key.indexOf('stray.') === 0) return 'stray';
+  return '';
 }
 
 function getFallbackReviewControllerStartEventRows_() {
@@ -738,11 +837,11 @@ function buildReviewControllerPreviewItem_(form) {
   const eventKey = resolveCanonicalEventKey_(form.eventKey || item['Event Key'] || '', '');
   const payload = normalizePayload_(item);
   payload.event_key = eventKey || payload.event_key || item['Event Key'] || '';
-  payload.subject = stringFromForm_(form.subject) || payload.subject || '';
-  payload.owner = stringFromForm_(form.owner) || payload.owner || item.Owner || '';
-  payload.what = stringFromForm_(form.what) || payload.what || '';
-  payload.so_what = stringFromForm_(form.soWhat) || payload.so_what || '';
-  payload.whats_next = stringFromForm_(form.whatsNext) || payload.whats_next || '';
+  payload.subject = reviewControllerFormValue_(form, 'subject', payload.subject || '');
+  payload.owner = reviewControllerFormValue_(form, 'owner', payload.owner || item.Owner || '');
+  payload.what = reviewControllerFormValue_(form, 'what', payload.what || '');
+  payload.so_what = reviewControllerFormValue_(form, 'soWhat', payload.so_what || '');
+  payload.whats_next = reviewControllerFormValue_(form, 'whatsNext', payload.whats_next || '');
   payload.why = payload.so_what;
   payload.next = payload.whats_next;
   payload.lane = payload.lane || item.Lane || inferLaneFromEventKey_(payload.event_key);
@@ -764,6 +863,51 @@ function buildReviewControllerPreviewItem_(form) {
     next: payload.whats_next,
     'Payload JSON': stringifyJson_(payload)
   });
+}
+
+function reviewControllerFormValue_(form, key, fallback) {
+  if (form && Object.prototype.hasOwnProperty.call(form, key)) return stringFromForm_(form[key]);
+  return fallback || '';
+}
+
+function buildReviewControllerPreviewDiagnostics_(item, template) {
+  const payload = normalizePayload_(item);
+  const eventKey = item['Event Key'] || payload.event_key || '';
+  const expectedTemplateKey = getExpectedReviewControllerTemplateKey_(eventKey);
+  const actualTemplateKey = template['Template Key'] || '';
+  const registryTemplateKey = template['_Registry Template Key'] || actualTemplateKey;
+  const editableValues = {
+    subject: payload.subject || item.Subject || '',
+    owner: payload.owner || item.Owner || '',
+    what: payload.what || item.What || '',
+    so_what: payload.so_what || item['So What'] || '',
+    whats_next: payload.whats_next || item["What's Next"] || ''
+  };
+  return {
+    eventKey: eventKey,
+    templateKey: actualTemplateKey,
+    registryTemplateKey: registryTemplateKey,
+    expectedTemplateKey: expectedTemplateKey,
+    templateMismatch: Boolean(expectedTemplateKey && registryTemplateKey && expectedTemplateKey !== registryTemplateKey),
+    values: editableValues
+  };
+}
+
+function getExpectedReviewControllerTemplateKey_(eventKey) {
+  const event = findCachedReviewControllerRegistryRow_('Event_Catalog', 'Event Key', eventKey);
+  const registryKey = event && event['Template Key'] || '';
+  const defaults = {
+    'release.scheduled': 'release-scheduled',
+    'release.go_no_go': 'release-go-no-go',
+    'release.started': 'release-started',
+    'release.completed': 'release-completed',
+    'release.delayed': 'release-delayed',
+    'release.rollback_evaluating': 'release-rollback-evaluating',
+    'release.rollback_decision': 'release-rollback-decision',
+    'release.rolled_back': 'release-rolled-back',
+    'release.postmortem_needed': 'release-postmortem-needed'
+  };
+  return defaults[eventKey] || registryKey || '';
 }
 
 function buildReviewControllerSelectedDefaults_(item) {

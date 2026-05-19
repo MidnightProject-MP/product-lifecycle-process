@@ -21,6 +21,7 @@ function setupHubSheets() {
   configureHubPlainTextColumns_(history);
   configureHubPlainTextColumns_(flowState);
   syncReviewSheetFromQueue_();
+  hideInternalHubSheets_();
 }
 
 function resetHubForV2Dev() {
@@ -51,6 +52,10 @@ function onOpen() {
     .createMenu('Personal Assistant')
     .addItem('Open Communication Console', 'openReviewControllerSidebar')
     .addItem('Open Communication Console Wide', 'openReviewController')
+    .addSeparator()
+    .addItem('Hide Internal Sheets', 'hideInternalHubSheets')
+    .addItem('Show Internal Sheets', 'showInternalHubSheets')
+    .addSeparator()
     .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
     .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
     .addItem('Discard selected row(s)', 'discardSelectedQueueRows')
@@ -62,6 +67,52 @@ function onOpen() {
     .addItem('Check Hub configuration', 'debugCheckHubConfiguration')
     .addItem('Refresh Registry cache', 'clearHubRegistryCache')
     .addToUi();
+}
+
+function hideInternalHubSheets() {
+  hideInternalHubSheets_();
+  SpreadsheetApp.getUi().alert('Internal sheets hidden. Use Show Internal Sheets if you need to inspect Queue or Review.');
+}
+
+function showInternalHubSheets() {
+  const ss = SpreadsheetApp.getActive();
+  getInternalHubSheetNames_().forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (sheet) sheet.showSheet();
+  });
+  SpreadsheetApp.getUi().alert('Internal sheets are visible.');
+}
+
+function hideInternalHubSheets_() {
+  const ss = SpreadsheetApp.getActive();
+  const active = ss.getActiveSheet();
+  const internalNames = getInternalHubSheetNames_();
+  const fallback = ss.getSheets().find(sheet => internalNames.indexOf(sheet.getName()) < 0 && !sheet.isSheetHidden());
+  if (active && internalNames.indexOf(active.getName()) >= 0 && fallback) {
+    ss.setActiveSheet(fallback);
+  }
+
+  internalNames.forEach(name => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.isSheetHidden()) return;
+    if (ss.getSheets().filter(candidate => !candidate.isSheetHidden()).length <= 1) return;
+    try {
+      sheet.hideSheet();
+    } catch (error) {
+      logHub_('WARN', 'hideInternalHubSheets_', '', 'Skipped hiding internal sheet.', {
+        sheet: name,
+        error: error.message || String(error)
+      });
+    }
+  });
+}
+
+function getInternalHubSheetNames_() {
+  return [
+    HUB.SHEETS.QUEUE,
+    HUB.SHEETS.REVIEW,
+    HUB.SHEETS.FLOW_CONSOLE
+  ];
 }
 
 function onHubEdit(e) {

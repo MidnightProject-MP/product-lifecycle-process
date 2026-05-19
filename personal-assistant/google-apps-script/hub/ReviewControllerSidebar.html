@@ -139,6 +139,34 @@
       margin-bottom: 8px;
     }
 
+    .preview-warning {
+      background: #fef7e0;
+      border: 1px solid #fdd663;
+      border-radius: 6px;
+      color: #8a4b00;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 8px;
+      padding: 8px;
+    }
+
+    details.preview-details {
+      border-top: 1px solid #e0e0e0;
+      color: #5f6368;
+      font-size: 12px;
+      margin-top: 10px;
+      padding-top: 8px;
+    }
+
+    details.preview-details pre {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      overflow: auto;
+      padding: 8px;
+      white-space: pre-wrap;
+    }
+
     .status {
       margin: 10px 0;
       min-height: 18px;
@@ -194,7 +222,12 @@
         <a id="anchor" href="#" target="_blank" hidden>Open Slack anchor</a>
       </div>
       <div id="previewMeta" class="preview-muted"></div>
+      <div id="previewWarning" class="preview-warning" hidden></div>
       <div id="messagePreview" class="preview-text">Preview will appear here.</div>
+      <details id="previewDetails" class="preview-details" hidden>
+        <summary>Preview details</summary>
+        <pre id="previewDetailsBody"></pre>
+      </details>
     </div>
 
     <div class="actions">
@@ -209,6 +242,7 @@
     let consoleMode = 'sidebar';
     let previewTimer = null;
     let previewRequestId = 0;
+    let lastPreviewDiagnostics = null;
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -376,14 +410,49 @@
     function renderMessagePreview(result) {
       const meta = document.getElementById('previewMeta');
       const body = document.getElementById('messagePreview');
+      const warning = document.getElementById('previewWarning');
+      const details = document.getElementById('previewDetails');
+      const detailsBody = document.getElementById('previewDetailsBody');
       if (!result || !result.ok) {
         meta.textContent = '';
+        warning.hidden = true;
+        details.hidden = true;
         body.textContent = result && result.message ? result.message : 'Preview unavailable.';
         return;
       }
 
       meta.textContent = [result.previewMode, result.eventName, result.templateKey].filter(Boolean).join(' | ');
       body.textContent = result.previewText || result.anchorText || result.replyText || 'Preview unavailable.';
+      lastPreviewDiagnostics = result.diagnostics || null;
+      renderPreviewDiagnostics(lastPreviewDiagnostics);
+    }
+
+    function renderPreviewDiagnostics(diagnostics) {
+      const warning = document.getElementById('previewWarning');
+      const details = document.getElementById('previewDetails');
+      const detailsBody = document.getElementById('previewDetailsBody');
+      if (!diagnostics) {
+        warning.hidden = true;
+        details.hidden = true;
+        detailsBody.textContent = '';
+        return;
+      }
+
+      if (diagnostics.templateMismatch) {
+        warning.textContent = 'Preview is using ' + diagnostics.templateKey + ', but the Registry event currently points to ' + diagnostics.registryTemplateKey + '. Refresh release Registry defaults if send output still looks stale.';
+        warning.hidden = false;
+      } else {
+        warning.hidden = true;
+      }
+
+      details.hidden = false;
+      detailsBody.textContent = JSON.stringify({
+        eventKey: diagnostics.eventKey,
+        templateKey: diagnostics.templateKey,
+        registryTemplateKey: diagnostics.registryTemplateKey,
+        expectedTemplateKey: diagnostics.expectedTemplateKey,
+        values: diagnostics.values
+      }, null, 2);
     }
 
     function collectForm() {
@@ -410,11 +479,36 @@
 
     function queueDraft() {
       const form = collectForm();
+      const validation = validateForm(form);
+      if (!validation.ok) return showValidationFailure(validation, form);
       runAction('Queueing draft...', 'queueReviewControllerDraft', form, render);
     }
 
     function approveDraft() {
-      runAction('Approving and sending...', 'approveReviewControllerSelection', collectForm(), afterTerminalAction);
+      const form = collectForm();
+      const validation = validateForm(form);
+      if (!validation.ok) return showValidationFailure(validation, form);
+      runAction('Approving and sending...', 'approveReviewControllerSelection', form, afterTerminalAction);
+    }
+
+    function validateForm(form) {
+      const missing = [];
+      if (!form.eventKey) missing.push('action');
+      if (!String(form.subject || '').trim()) missing.push('subject');
+      if (!String(form.owner || '').trim()) missing.push('owner');
+      if (!String(form.what || '').trim()) missing.push('what changed');
+      if (!String(form.soWhat || '').trim()) missing.push('why it matters');
+      if (!String(form.whatsNext || '').trim()) missing.push('what happens next');
+      return {
+        ok: missing.length === 0,
+        missing: missing
+      };
+    }
+
+    function showValidationFailure(validation, form) {
+      const message = 'Add ' + validation.missing.join(', ') + ' before continuing.';
+      setStatus(message, 'error');
+      logClientEvent('validation_failure', form, { missing: validation.missing.join(', ') });
     }
 
     function toggleWorkspaceMode() {
@@ -463,6 +557,17 @@
     function showFailure(error) {
       setBusy(false);
       setStatus(error && error.message ? error.message : String(error), 'error');
+      logClientEvent('ui_error', currentContext && currentContext.ok ? collectForm() : {}, {
+        error: error && error.message ? error.message : String(error)
+      });
+    }
+
+    function logClientEvent(eventType, form, details) {
+      try {
+        google.script.run.logReviewControllerClientEvent(eventType, form || {}, details || {});
+      } catch (error) {
+        // Logging is best-effort and must never block PM workflow.
+      }
     }
 
     loadInitial();

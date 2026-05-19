@@ -310,7 +310,9 @@ For manual review, use `Personal Assistant` > `Open Communication Console`. The 
 The menu appears after reloading the Hub spreadsheet:
 
 - `Open Communication Console`
-- `Open Communication Console Modal`
+- `Open Communication Console Wide`
+- `Hide Internal Sheets`
+- `Show Internal Sheets`
 - `Refresh Flow Console`
 - `Create draft from Flow Console`
 - `Approve selected row(s)`
@@ -318,6 +320,8 @@ The menu appears after reloading the Hub spreadsheet:
 - `Refresh Review sheet`
 - `Process approved rows`
 - `Check Hub configuration`
+
+The Communication Console is the PM front door. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use.
 
 For direct technical testing, add a `Queue` row with:
 
