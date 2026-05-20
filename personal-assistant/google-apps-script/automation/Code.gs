@@ -18,6 +18,7 @@ function setupAutomationSheets() {
   ensureAutomationRawSheet_(ss, AUTOMATION.SHEETS.RAW_RELEASES);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.EXPORT_SOURCE, AUTOMATION.HEADERS.EXPORT);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.EXPORT, AUTOMATION.HEADERS.EXPORT);
+  ensureAutomationChangeIndexSheet_(ss);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS, AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_CHANGES, AUTOMATION.HEADERS.DASHBOARD_CHANGES);
   ensureAutomationSheet_(ss, AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS, AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS);
@@ -35,9 +36,27 @@ function syncLeadershipDashboardToAutomation() {
   const config = getAutomationConfig_();
   const pollCount = incrementAutomationPollCount_(automation, config);
   config.POLL_COUNT = String(pollCount);
+  const fastPreflight = buildAutomationFastChangePreflight_(automation, config);
+
+  if (fastPreflight.mode === 'Fast Skip') {
+    updateAutomationConfigValue_(automation, 'LAST_FAST_CHECK_AT', automationNowIso_());
+    updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', 'Fast Skip');
+    const gc = runAutomationGarbageCollectionIfNeeded_(automation, config);
+    return {
+      ok: true,
+      pollCount: pollCount,
+      syncMode: 'Fast Skip',
+      message: 'No source changes detected.',
+      changeIndexRows: fastPreflight.rowCount,
+      garbageCollection: gc,
+      durationMs: new Date().getTime() - startedAt
+    };
+  }
+
   const materialized = materializeAutomationExportIfValid_(automation, config);
 
   if (!materialized.ok) {
+    updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', 'Circuit Breaker');
     recordAutomationTriggerLog_(automation, {
       'Work Item Type': 'Automation Export',
       'Flow ID': '',
@@ -65,10 +84,19 @@ function syncLeadershipDashboardToAutomation() {
   const rows = readAutomationExportRows_(automation);
   const result = processAutomationExportRows_(automation, config, rows);
   const gc = runAutomationGarbageCollectionIfNeeded_(automation, config);
+  const fullSyncMode = result.errors ? 'Full Error' : 'Full';
+  if (!result.errors && fastPreflight.indexHealthy && fastPreflight.hash) {
+    updateAutomationConfigValue_(automation, 'LAST_CHANGE_INDEX_HASH', fastPreflight.hash);
+    updateAutomationConfigValue_(automation, 'LAST_CHANGE_INDEX_AT', automationNowIso_());
+  }
+  updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', fullSyncMode);
 
   return {
     ok: true,
     pollCount: pollCount,
+    syncMode: fullSyncMode,
+    fastPreflightReason: fastPreflight.reason,
+    changeIndexRows: fastPreflight.rowCount || 0,
     materializedRows: materialized.rowCount,
     processedRows: result.processedRows,
     changedRows: result.changedRows,
@@ -137,6 +165,10 @@ function resetAutomationShadowEvidenceForDev() {
   resetAutomationSheet_(ss.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG), AUTOMATION.HEADERS.TRIGGER_LOG);
   updateAutomationConfigValue_(ss, 'POLL_COUNT', '0');
   updateAutomationConfigValue_(ss, 'LAST_GC_AT', '');
+  updateAutomationConfigValue_(ss, 'LAST_CHANGE_INDEX_HASH', '');
+  updateAutomationConfigValue_(ss, 'LAST_CHANGE_INDEX_AT', '');
+  updateAutomationConfigValue_(ss, 'LAST_FAST_CHECK_AT', '');
+  updateAutomationConfigValue_(ss, 'LAST_SYNC_MODE', '');
   updateAutomationConfigValue_(ss, 'CREATE_HUB_DRAFTS', 'FALSE');
   return {
     ok: true,
@@ -149,6 +181,8 @@ function buildAutomationConfigSummary_(config) {
     CREATE_HUB_DRAFTS: String(config.CREATE_HUB_DRAFTS || ''),
     DASHBOARD_STABLE_POLLS: String(config.DASHBOARD_STABLE_POLLS || ''),
     REQUIRE_PROJECT_PRIMARY_RISK: String(config.REQUIRE_PROJECT_PRIMARY_RISK || ''),
+    FAST_CHANGE_INDEX_ENABLED: String(config.FAST_CHANGE_INDEX_ENABLED || ''),
+    LAST_SYNC_MODE: String(config.LAST_SYNC_MODE || ''),
     HUB_SPREADSHEET_ID_CONFIGURED: config.HUB_SPREADSHEET_ID ? 'TRUE' : 'FALSE'
   };
 }
@@ -181,6 +215,49 @@ function ensureAutomationSheet_(ss, name, headers) {
 
   enforceAutomationHeaders_(sheet, headers);
   return sheet;
+}
+
+function ensureAutomationChangeIndexSheet_(ss) {
+  const sheet = ensureAutomationSheet_(ss, AUTOMATION.SHEETS.CHANGE_INDEX, AUTOMATION.HEADERS.CHANGE_INDEX);
+  installAutomationChangeIndexFormulaIfNeeded_(sheet);
+  sheet.hideSheet();
+  return sheet;
+}
+
+function installAutomationChangeIndexFormulaIfNeeded_(sheet) {
+  const formula = buildAutomationChangeIndexFormula_();
+  if (sheet.getRange(2, 1).getFormula() === formula) return;
+
+  if (sheet.getMaxRows() < 2) sheet.insertRowAfter(1);
+  sheet
+    .getRange(2, 1, Math.max(sheet.getMaxRows() - 1, 1), AUTOMATION.HEADERS.CHANGE_INDEX.length)
+    .clearContent();
+  sheet.getRange(2, 1).setFormula(formula);
+  SpreadsheetApp.flush();
+}
+
+function buildAutomationChangeIndexFormula_() {
+  const source = "'" + AUTOMATION.SHEETS.EXPORT_SOURCE.replace(/'/g, "''") + "'";
+  const range = letter => source + '!' + letter + '2:' + letter;
+  const text = letter => letter === 'Z' ? 'IFERROR(TO_TEXT(' + range(letter) + '),"")' : 'TO_TEXT(' + range(letter) + ')';
+  const signature = letters => letters.map(text).join('&CHAR(31)&');
+  const sourceSignature = signature([
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+    'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z'
+  ]);
+  const signalSignature = signature(['F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'T', 'Z']);
+
+  return '=ARRAYFORMULA(IF(LEN(' + range('B') + ')=0,,{' +
+    [
+      text('B'),
+      text('C'),
+      text('A'),
+      text('Y'),
+      'ROW(' + range('B') + ')',
+      sourceSignature,
+      signalSignature
+    ].join(',') +
+    '}))';
 }
 
 function enforceAutomationHeaders_(sheet, headers) {
@@ -610,6 +687,170 @@ function hasPendingDashboardEvaluation_(observation) {
 
 function getDashboardStablePolls_(config) {
   return Math.max(1, Number(config.DASHBOARD_STABLE_POLLS || 2));
+}
+
+function buildAutomationFastChangePreflight_(automation, config) {
+  if (String(config.FAST_CHANGE_INDEX_ENABLED || 'TRUE').toUpperCase() === 'FALSE') {
+    return {
+      mode: 'Full',
+      reason: 'Fast change index disabled.',
+      indexHealthy: false,
+      rowCount: 0
+    };
+  }
+
+  const observationRows = readDashboardObservationRows_(automation);
+  const hasPendingEvaluation = observationRows.some(hasPendingDashboardEvaluation_);
+  const index = readAutomationChangeIndex_(automation);
+  if (!index.ok) {
+    return {
+      mode: 'Full',
+      reason: index.message,
+      indexHealthy: false,
+      rowCount: index.rowCount || 0,
+      hasPendingEvaluation: hasPendingEvaluation
+    };
+  }
+
+  if (hasPendingEvaluation) {
+    return {
+      mode: 'Full',
+      reason: 'Pending dashboard evaluation exists.',
+      indexHealthy: true,
+      hash: index.hash,
+      rowCount: index.rowCount,
+      hasPendingEvaluation: true
+    };
+  }
+
+  if (!observationRows.length) {
+    return {
+      mode: 'Full',
+      reason: 'No dashboard observation baseline exists.',
+      indexHealthy: true,
+      hash: index.hash,
+      rowCount: index.rowCount,
+      hasPendingEvaluation: false
+    };
+  }
+
+  const lastHash = String(config.LAST_CHANGE_INDEX_HASH || '').trim();
+  if (lastHash && lastHash === index.hash) {
+    return {
+      mode: 'Fast Skip',
+      reason: 'No source changes detected.',
+      indexHealthy: true,
+      hash: index.hash,
+      rowCount: index.rowCount,
+      hasPendingEvaluation: false
+    };
+  }
+
+  return {
+    mode: 'Full',
+    reason: lastHash ? 'Change index changed.' : 'No prior change index hash.',
+    indexHealthy: true,
+    hash: index.hash,
+    rowCount: index.rowCount,
+    hasPendingEvaluation: false
+  };
+}
+
+function readAutomationChangeIndex_(automation) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.CHANGE_INDEX);
+  if (!sheet) {
+    return { ok: false, message: 'Missing Automation_Change_Index sheet.', rowCount: 0 };
+  }
+
+  const headerValidation = validateAutomationChangeIndexHeaders_(sheet);
+  if (!headerValidation.ok) return headerValidation;
+
+  if (!sheet.getRange(2, 1).getFormula()) {
+    return { ok: false, message: 'Automation_Change_Index formula is missing.', rowCount: 0 };
+  }
+
+  const rows = getAutomationObjectsByHeaders_(sheet, AUTOMATION.HEADERS.CHANGE_INDEX)
+    .filter(row => Object.keys(row).some(key => row[key] !== ''));
+  const error = findAutomationErrorTokenInObjects_(rows);
+  if (error) {
+    return { ok: false, message: 'Automation_Change_Index contains ' + error + '.', rowCount: rows.length };
+  }
+
+  const activeRows = rows
+    .filter(row => String(row['Source Item ID'] || '').trim())
+    .filter(row => !isExplicitlyInactive_(row.Active))
+    .map(row => ({
+      'Source Item ID': String(row['Source Item ID'] || '').trim(),
+      'Flow ID': String(row['Flow ID'] || '').trim(),
+      'Record Type': normalizeAutomationRecordType_(row['Record Type']),
+      Active: String(row.Active || '').trim(),
+      'Source Row': String(row['Source Row'] || '').trim(),
+      'Source Signature': String(row['Source Signature'] || '').trim(),
+      'Signal Signature': String(row['Signal Signature'] || '').trim()
+    }));
+
+  if (!activeRows.length) {
+    return { ok: false, message: 'Automation_Change_Index has no active rows.', rowCount: 0 };
+  }
+
+  const invalid = activeRows.find(row =>
+    !row['Source Item ID'] ||
+    !row['Flow ID'] ||
+    ['Project', 'Release'].indexOf(row['Record Type']) < 0 ||
+    !row['Source Signature'] ||
+    !row['Signal Signature']
+  );
+  if (invalid) {
+    return {
+      ok: false,
+      message: 'Automation_Change_Index has an incomplete active row for Source Item ID: ' +
+        (invalid['Source Item ID'] || 'blank') + '.',
+      rowCount: activeRows.length
+    };
+  }
+
+  const hashInput = activeRows
+    .map(row => AUTOMATION.HEADERS.CHANGE_INDEX.map(header => row[header] || '').join('\u001e'))
+    .sort()
+    .join('\u001f');
+
+  return {
+    ok: true,
+    message: 'Automation_Change_Index is healthy.',
+    rowCount: activeRows.length,
+    hash: hashString_(hashInput)
+  };
+}
+
+function validateAutomationChangeIndexHeaders_(sheet) {
+  const headers = sheet
+    .getRange(1, 1, 1, AUTOMATION.HEADERS.CHANGE_INDEX.length)
+    .getDisplayValues()[0]
+    .map(value => String(value || '').trim());
+  for (let i = 0; i < AUTOMATION.HEADERS.CHANGE_INDEX.length; i++) {
+    if (headers[i] !== AUTOMATION.HEADERS.CHANGE_INDEX[i]) {
+      return {
+        ok: false,
+        message: 'Automation_Change_Index header mismatch at column ' + (i + 1) +
+          '. Expected "' + AUTOMATION.HEADERS.CHANGE_INDEX[i] + '", found "' + headers[i] + '".',
+        rowCount: 0
+      };
+    }
+  }
+  return { ok: true, message: 'Automation_Change_Index headers valid.', rowCount: 0 };
+}
+
+function findAutomationErrorTokenInObjects_(rows) {
+  const tokens = ['#REF!', '#N/A', '#VALUE!', '#NULL!', '#LOADING!'];
+  for (let r = 0; r < rows.length; r++) {
+    const values = Object.keys(rows[r]).map(key => String(rows[r][key] || '').toUpperCase());
+    for (let v = 0; v < values.length; v++) {
+      for (let t = 0; t < tokens.length; t++) {
+        if (values[v].indexOf(tokens[t]) >= 0) return tokens[t];
+      }
+    }
+  }
+  return '';
 }
 
 function projectSignalNeedsPrimaryRisk_(recordType, trigger, row, config) {

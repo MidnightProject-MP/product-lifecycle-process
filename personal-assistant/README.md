@@ -10,7 +10,7 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 | --- | --- |
 | Personal Assistant Registry | Central event catalog, templates, variables, approval rules, message behavior, and Slack channel defaults. |
 | Personal Assistant Hub | Lean active Queue, Communication Console/Review projection, outbound Slack sender, compact history, flow state, and run log. |
-| Automation Dashboard | Owned adapter with raw formula tabs, values-only export, circuit breaker, snapshots, observations, trigger logs, dedupe, and Hub draft creation. |
+| Automation Dashboard | Owned adapter with raw formula tabs, hidden fast change index, values-only export, circuit breaker, snapshots, observations, trigger logs, dedupe, and Hub draft creation. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |
 | Flow State | Parent state database for Slack anchors, thread timestamps, and next expected lifecycle events. |
@@ -65,6 +65,9 @@ Leadership dashboard changes
         |
         v
 Automation Dashboard formulas map into Automation_Export_Source
+        |
+        v
+Fast change index skips clean no-change polls
         |
         v
 Apps Script validates and materializes Automation_Export

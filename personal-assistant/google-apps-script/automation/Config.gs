@@ -4,6 +4,7 @@ const AUTOMATION = {
     RAW_RELEASES: 'Raw_Executive_Releases',
     EXPORT_SOURCE: 'Automation_Export_Source',
     EXPORT: 'Automation_Export',
+    CHANGE_INDEX: 'Automation_Change_Index',
     DASHBOARD_SNAPSHOTS: 'Dashboard_Snapshots',
     DASHBOARD_CHANGES: 'Dashboard_Changes',
     DASHBOARD_OBSERVATIONS: 'Dashboard_Observations',
@@ -65,6 +66,15 @@ const AUTOMATION = {
       'Processed At',
       'Processing Error'
     ],
+    CHANGE_INDEX: [
+      'Source Item ID',
+      'Flow ID',
+      'Record Type',
+      'Active',
+      'Source Row',
+      'Source Signature',
+      'Signal Signature'
+    ],
     DASHBOARD_OBSERVATIONS: [
       'Source Item ID',
       'Flow ID',
@@ -122,6 +132,11 @@ const AUTOMATION = {
     ['GC_EVERY_N_POLLS', '100'],
     ['LAST_GC_AT', ''],
     ['POLL_COUNT', '0'],
+    ['FAST_CHANGE_INDEX_ENABLED', 'TRUE'],
+    ['LAST_CHANGE_INDEX_HASH', ''],
+    ['LAST_CHANGE_INDEX_AT', ''],
+    ['LAST_FAST_CHECK_AT', ''],
+    ['LAST_SYNC_MODE', ''],
     ['GATE_APPROACHING_DAYS', '14'],
     ['DASHBOARD_STABLE_POLLS', '2'],
     ['REQUIRE_PROJECT_PRIMARY_RISK', 'TRUE']

@@ -12,7 +12,7 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 | --- | --- | --- |
 | Personal Assistant Registry | Event catalog, templates, variables, routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
 | Personal Assistant Hub | Draft queue, PM review projection, send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
-| Automation Dashboard | Owned source adapter, values-only export, snapshots, observations, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
+| Automation Dashboard | Owned source adapter, fast change index, values-only export, snapshots, observations, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
 The Executive Dashboard should not contain our automation code. Owned scripts should live in the Automation Dashboard, Hub, Registry, or optional standalone dashboard adapter, then read the Executive Dashboard by spreadsheet ID.
@@ -46,6 +46,7 @@ Queue stores only workflow handles, routing override, send rule, payload, and cu
 Traceability is split by layer:
 
 - Automation `Automation_Export`: last-known-good values-only dashboard contract.
+- Automation `Automation_Change_Index`: hidden fast fingerprint used to skip clean no-change polls.
 - Automation `Dashboard_Snapshots`: what the export state looked like when processed, excluding volatile processing fields.
 - Automation `Dashboard_Changes`: field-level old/new evidence from the last handled observation.
 - Automation `Dashboard_Observations`: last successfully handled state per source item.
@@ -89,7 +90,7 @@ The current implementation supports:
 
 - Registry-driven event, template, routing, send-rule, and required-variable lookup.
 - Hub queue review, approval, Slack send, History, and Run_Log.
-- Automation Dashboard export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
+- Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
 - Slack slash-command intake for `/incident` and `/release`.
 - Passive W-Graph memory behind the existing communication flow.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.

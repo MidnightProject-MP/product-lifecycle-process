@@ -202,6 +202,7 @@ This creates or repairs:
 - `Raw_Executive_Projects`
 - `Raw_Executive_Releases`
 - `Automation_Export_Source`
+- `Automation_Change_Index` hidden fast preflight sheet
 - `Automation_Export`
 - `Dashboard_Snapshots`
 - `Dashboard_Changes`
@@ -222,6 +223,11 @@ In the Automation Dashboard `Config` tab, set:
 | `GC_EVERY_N_POLLS` | Poll interval for garbage collection. |
 | `POLL_COUNT` | Maintained by the script. |
 | `LAST_GC_AT` | Maintained by the script. |
+| `FAST_CHANGE_INDEX_ENABLED` | Keep `TRUE` for scheduled polling; set `FALSE` only while debugging full sync. |
+| `LAST_CHANGE_INDEX_HASH` | Maintained by the script after successful full sync. |
+| `LAST_CHANGE_INDEX_AT` | Maintained by the script after successful full sync. |
+| `LAST_FAST_CHECK_AT` | Maintained by the script after no-change fast skips. |
+| `LAST_SYNC_MODE` | Maintained by the script as `Full`, `Fast Skip`, or circuit-breaker state. |
 
 Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Executive_Releases`, then map them into `Automation_Export_Source` using the exact export headers. Run:
 
@@ -231,7 +237,7 @@ Keep identity formulas text-safe. Date-like IDs such as `jan-26` should be emitt
 syncLeadershipDashboardToAutomation
 ```
 
-The first successful run materializes `Automation_Export` as values-only and records baseline observations. For ongoing polling, create a time-driven trigger for `syncLeadershipDashboardToAutomation`.
+The first successful run materializes `Automation_Export` as values-only and records baseline observations. Later runs first check `Automation_Change_Index`; when there are no source changes and no pending evaluations, the script exits quickly without writing snapshot/change rows. For ongoing polling, create a time-driven trigger for `syncLeadershipDashboardToAutomation`.
 
 During setup, if you need to clear bad shadow-poll rows from earlier formula or ID tests, run:
 
@@ -239,7 +245,7 @@ During setup, if you need to clear bad shadow-poll rows from earlier formula or 
 resetAutomationShadowEvidenceForDev
 ```
 
-This clears `Automation_Export`, `Dashboard_Snapshots`, `Dashboard_Changes`, `Dashboard_Observations`, and `Trigger_Log`, and leaves `CREATE_HUB_DRAFTS` set to `FALSE`.
+This clears `Automation_Export`, `Dashboard_Snapshots`, `Dashboard_Changes`, `Dashboard_Observations`, and `Trigger_Log`, resets fast-index status, and leaves `CREATE_HUB_DRAFTS` set to `FALSE`.
 
 ## 6. Optional Standalone Dashboard Monitor
 
