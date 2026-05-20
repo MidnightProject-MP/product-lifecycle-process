@@ -30,7 +30,7 @@ Dashboard evidence + Hub drafts
 | `Automation_Export` | Values-only last-known-good machine contract. |
 | `Dashboard_Snapshots` | Append-only state snapshots from each successful poll. |
 | `Dashboard_Changes` | Field-level old/new changes detected from observations. |
-| `Dashboard_Observations` | Last successfully processed state per `Source Item ID`. |
+| `Dashboard_Observations` | Last successfully processed state per `Source Item ID`, plus any pending signal waiting to settle. |
 | `Trigger_Log` | Communication trigger decisions and Hub draft creation attempts. |
 | `Config` | Non-secret automation configuration. |
 
@@ -90,6 +90,26 @@ For each active row:
 6. It updates `Dashboard_Observations` only after the change is handled, explicitly skipped, or logged as no-communication-needed.
 
 This prevents transient source-sheet issues from becoming false history.
+
+## Pending Evaluation
+
+Dashboard edits may arrive across multiple fields over several seconds or minutes. Communication signals therefore do not immediately replace the confirmed observation baseline.
+
+When a communication signal is detected, the script writes pending fields on `Dashboard_Observations`:
+
+- `Pending State Hash`
+- `Pending State JSON`
+- `Pending Since`
+- `Pending Last Seen At`
+- `Pending Stable Polls`
+- `Pending Trigger Candidate`
+- `Pending Event Key`
+
+The pending candidate must remain unchanged for `DASHBOARD_STABLE_POLLS` successful polls before it is evaluated for Hub draft creation or logged skip behavior. Default: `2`.
+
+If the dashboard row returns to the last confirmed state before the stable-poll threshold is met, the script logs `Signal Reverted`, clears the pending fields, and leaves the confirmed baseline unchanged.
+
+For project `project.unexpected_status_change` candidates, `Primary Risk` is required by default because it is currently the change reason/context field. If the signal settles but `Primary Risk` is blank, the script logs `Needs Reason`, keeps the pending candidate open, and does not create a Hub draft. This is controlled by `REQUIRE_PROJECT_PRIMARY_RISK`, default `TRUE`.
 
 ## Trigger Decisions
 

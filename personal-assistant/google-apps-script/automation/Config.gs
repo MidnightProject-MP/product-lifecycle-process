@@ -76,7 +76,14 @@ const AUTOMATION = {
       'Last Processed At',
       'Last Trigger Log ID',
       'Processing Status',
-      'Processing Error'
+      'Processing Error',
+      'Pending State Hash',
+      'Pending State JSON',
+      'Pending Since',
+      'Pending Last Seen At',
+      'Pending Stable Polls',
+      'Pending Trigger Candidate',
+      'Pending Event Key'
     ],
     TRIGGER_LOG: [
       'Trigger Log ID',
@@ -111,6 +118,8 @@ const AUTOMATION = {
     ['GC_EVERY_N_POLLS', '100'],
     ['LAST_GC_AT', ''],
     ['POLL_COUNT', '0'],
-    ['GATE_APPROACHING_DAYS', '14']
+    ['GATE_APPROACHING_DAYS', '14'],
+    ['DASHBOARD_STABLE_POLLS', '2'],
+    ['REQUIRE_PROJECT_PRIMARY_RISK', 'TRUE']
   ]
 };
