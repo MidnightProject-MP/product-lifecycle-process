@@ -136,6 +136,18 @@ Release changes can create:
 
 Hub draft creation is controlled by `CREATE_HUB_DRAFTS`. The default is `FALSE` for shadow polling.
 
+## Spreadsheet Menu
+
+The Automation Dashboard Apps Script adds a `Communication Automation` menu:
+
+- `Setup sheets`: creates or repairs required tabs and config keys.
+- `Enable sandbox draft creation`: sets `CREATE_HUB_DRAFTS = TRUE`, `DASHBOARD_STABLE_POLLS = 2`, and `REQUIRE_PROJECT_PRIMARY_RISK = TRUE`.
+- `Disable draft creation`: sets `CREATE_HUB_DRAFTS = FALSE`.
+- `Validate export`: runs the source validation circuit breaker check.
+- `Run dashboard sync`: materializes the export and processes changes.
+
+Use the menu for real-data sandbox acceptance testing. It does not create synthetic data or bypass manual Communication Console approval.
+
 ## Retention
 
 The script tracks `POLL_COUNT` and `LAST_GC_AT` in `Config`.

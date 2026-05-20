@@ -1,3 +1,16 @@
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('Communication Automation')
+    .addItem('Setup sheets', 'setupAutomationSheets')
+    .addSeparator()
+    .addItem('Enable sandbox draft creation', 'enableAutomationSandboxDraftCreation')
+    .addItem('Disable draft creation', 'disableAutomationDraftCreation')
+    .addSeparator()
+    .addItem('Validate export', 'showAutomationExportValidation')
+    .addItem('Run dashboard sync', 'showAutomationSyncResult')
+    .addToUi();
+}
+
 function setupAutomationSheets() {
   const ss = SpreadsheetApp.getActive();
 
@@ -78,6 +91,42 @@ function debugValidateAutomationExport() {
   return JSON.stringify(validation, null, 2);
 }
 
+function enableAutomationSandboxDraftCreation() {
+  setupAutomationSheets();
+  const ss = SpreadsheetApp.getActive();
+  updateAutomationConfigValue_(ss, 'CREATE_HUB_DRAFTS', 'TRUE');
+  updateAutomationConfigValue_(ss, 'DASHBOARD_STABLE_POLLS', '2');
+  updateAutomationConfigValue_(ss, 'REQUIRE_PROJECT_PRIMARY_RISK', 'TRUE');
+  const result = buildAutomationConfigSummary_(getAutomationConfig_());
+  showAutomationUiMessage_('Sandbox draft creation enabled', result);
+  return JSON.stringify(result, null, 2);
+}
+
+function disableAutomationDraftCreation() {
+  setupAutomationSheets();
+  const ss = SpreadsheetApp.getActive();
+  updateAutomationConfigValue_(ss, 'CREATE_HUB_DRAFTS', 'FALSE');
+  const result = buildAutomationConfigSummary_(getAutomationConfig_());
+  showAutomationUiMessage_('Dashboard draft creation disabled', result);
+  return JSON.stringify(result, null, 2);
+}
+
+function showAutomationExportValidation() {
+  const validation = JSON.parse(debugValidateAutomationExport());
+  showAutomationUiMessage_(validation.ok ? 'Automation export is valid' : 'Automation export validation failed', {
+    ok: validation.ok,
+    message: validation.message,
+    rowCount: validation.rows ? validation.rows.length : 0
+  });
+  return JSON.stringify(validation, null, 2);
+}
+
+function showAutomationSyncResult() {
+  const result = syncLeadershipDashboardToAutomation();
+  showAutomationUiMessage_(result.ok ? 'Dashboard sync completed' : 'Dashboard sync stopped', result);
+  return JSON.stringify(result, null, 2);
+}
+
 function resetAutomationShadowEvidenceForDev() {
   setupAutomationSheets();
   const ss = SpreadsheetApp.getActive();
@@ -93,6 +142,26 @@ function resetAutomationShadowEvidenceForDev() {
     ok: true,
     message: 'Automation shadow evidence reset. CREATE_HUB_DRAFTS is FALSE.'
   };
+}
+
+function buildAutomationConfigSummary_(config) {
+  return {
+    CREATE_HUB_DRAFTS: String(config.CREATE_HUB_DRAFTS || ''),
+    DASHBOARD_STABLE_POLLS: String(config.DASHBOARD_STABLE_POLLS || ''),
+    REQUIRE_PROJECT_PRIMARY_RISK: String(config.REQUIRE_PROJECT_PRIMARY_RISK || ''),
+    HUB_SPREADSHEET_ID_CONFIGURED: config.HUB_SPREADSHEET_ID ? 'TRUE' : 'FALSE'
+  };
+}
+
+function showAutomationUiMessage_(title, details) {
+  const text = Object.keys(details || {}).map(key => key + ': ' + formatAutomationUiValue_(details[key])).join('\n');
+  SpreadsheetApp.getUi().alert(title, text || 'Done.', SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+function formatAutomationUiValue_(value) {
+  if (value == null) return '';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 function ensureAutomationRawSheet_(ss, name) {
