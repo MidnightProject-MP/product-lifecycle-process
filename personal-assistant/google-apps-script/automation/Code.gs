@@ -161,17 +161,18 @@ function materializeAutomationExportIfValid_(automation, config) {
   const validation = validateAutomationExportSource_(automation, config);
   if (!validation.ok) return validation;
 
+  const exportHeaders = validation.headers || AUTOMATION.HEADERS.EXPORT;
   const exportSheet = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT);
   exportSheet.clearContents();
   exportSheet
-    .getRange(1, 1, Math.max(validation.rows.length + 1, 1), AUTOMATION.HEADERS.EXPORT.length)
+    .getRange(1, 1, Math.max(validation.rows.length + 1, 1), exportHeaders.length)
     .setNumberFormat('@');
-  exportSheet.getRange(1, 1, 1, AUTOMATION.HEADERS.EXPORT.length).setValues([AUTOMATION.HEADERS.EXPORT]);
+  exportSheet.getRange(1, 1, 1, exportHeaders.length).setValues([exportHeaders]);
 
   if (validation.rows.length) {
     exportSheet
-      .getRange(2, 1, validation.rows.length, AUTOMATION.HEADERS.EXPORT.length)
-      .setValues(validation.rows.map(row => AUTOMATION.HEADERS.EXPORT.map(header => row[header] == null ? '' : row[header])));
+      .getRange(2, 1, validation.rows.length, exportHeaders.length)
+      .setValues(validation.rows.map(row => exportHeaders.map(header => row[header] == null ? '' : row[header])));
   }
 
   return {
@@ -190,10 +191,10 @@ function validateAutomationExportSource_(automation, config) {
   const headerValidation = validateAutomationExportHeaders_(source);
   if (!headerValidation.ok) return headerValidation;
 
-  const errorScan = scanAutomationExportErrors_(source, Number(config.EXPORT_ERROR_SCAN_ROWS || 5));
+  const errorScan = scanAutomationExportErrors_(source, Number(config.EXPORT_ERROR_SCAN_ROWS || 5), headerValidation.headers.length);
   if (!errorScan.ok) return errorScan;
 
-  const rows = getAutomationObjectsByHeaders_(source, AUTOMATION.HEADERS.EXPORT)
+  const rows = getAutomationObjectsByHeaders_(source, headerValidation.headers)
     .filter(row => Object.keys(row).some(key => row[key] !== ''))
     .filter(isAutomationExportRowActive_);
 
@@ -212,7 +213,8 @@ function validateAutomationExportSource_(automation, config) {
   return {
     ok: true,
     message: 'Automation_Export_Source passed validation.',
-    rows: rows
+    rows: rows,
+    headers: headerValidation.headers
   };
 }
 
@@ -220,11 +222,12 @@ function validateAutomationExportHeaders_(sheet) {
   const lastColumn = Math.max(sheet.getLastColumn(), AUTOMATION.HEADERS.EXPORT.length);
   const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0];
   const nonEmptyHeaders = headers.filter(value => String(value || '').trim() !== '');
+  const optionalHeaders = getAutomationOptionalExportHeaders_();
 
-  if (nonEmptyHeaders.length !== AUTOMATION.HEADERS.EXPORT.length) {
+  if (nonEmptyHeaders.length < AUTOMATION.HEADERS.EXPORT.length) {
     return {
       ok: false,
-      message: 'Automation_Export_Source header count mismatch. Expected ' +
+      message: 'Automation_Export_Source header count mismatch. Expected at least ' +
         AUTOMATION.HEADERS.EXPORT.length + ', found ' + nonEmptyHeaders.length + '.',
       rows: []
     };
@@ -241,12 +244,23 @@ function validateAutomationExportHeaders_(sheet) {
     }
   }
 
-  return { ok: true, message: 'Headers valid.', rows: [] };
+  for (let i = AUTOMATION.HEADERS.EXPORT.length; i < nonEmptyHeaders.length; i++) {
+    if (optionalHeaders.indexOf(String(nonEmptyHeaders[i] || '').trim()) < 0) {
+      return {
+        ok: false,
+        message: 'Automation_Export_Source has unsupported optional header "' + nonEmptyHeaders[i] +
+          '" at column ' + (i + 1) + '.',
+        rows: []
+      };
+    }
+  }
+
+  return { ok: true, message: 'Headers valid.', rows: [], headers: nonEmptyHeaders };
 }
 
-function scanAutomationExportErrors_(sheet, scanRows) {
+function scanAutomationExportErrors_(sheet, scanRows, columnCount) {
   const rowsToScan = Math.min(Math.max(Number(scanRows || 5), 1) + 1, Math.max(sheet.getLastRow(), 1));
-  const values = sheet.getRange(1, 1, rowsToScan, AUTOMATION.HEADERS.EXPORT.length).getDisplayValues();
+  const values = sheet.getRange(1, 1, rowsToScan, columnCount || AUTOMATION.HEADERS.EXPORT.length).getDisplayValues();
   const tokens = ['#REF!', '#N/A', '#VALUE!', '#NULL!', '#LOADING!'];
 
   for (let r = 0; r < values.length; r++) {
@@ -303,9 +317,24 @@ function validateAutomationExportIdentity_(rows) {
 function readAutomationExportRows_(automation) {
   const sheet = automation.getSheetByName(AUTOMATION.SHEETS.EXPORT);
   if (!sheet) return [];
-  return getAutomationObjectsByHeaders_(sheet, AUTOMATION.HEADERS.EXPORT)
+  return getAutomationObjectsByHeaders_(sheet, getAutomationEffectiveExportHeaders_(sheet))
     .filter(row => Object.keys(row).some(key => row[key] !== ''))
     .filter(isAutomationExportRowActive_);
+}
+
+function getAutomationEffectiveExportHeaders_(sheet) {
+  if (!sheet || sheet.getLastRow() < 1) return AUTOMATION.HEADERS.EXPORT;
+  const headers = sheet
+    .getRange(1, 1, 1, Math.max(sheet.getLastColumn(), AUTOMATION.HEADERS.EXPORT.length))
+    .getDisplayValues()[0]
+    .filter(value => String(value || '').trim() !== '')
+    .map(value => String(value || '').trim());
+  if (headers.length < AUTOMATION.HEADERS.EXPORT.length) return AUTOMATION.HEADERS.EXPORT;
+  return headers;
+}
+
+function getAutomationOptionalExportHeaders_() {
+  return AUTOMATION.OPTIONAL_EXPORT_HEADERS || [];
 }
 
 function processAutomationExportRows_(automation, config, rows) {
@@ -481,7 +510,7 @@ function processAutomationExportRow_(automation, config, row, context) {
       if (!config.HUB_SPREADSHEET_ID) throw new Error('Missing HUB_SPREADSHEET_ID in Automation Config.');
       hubQueueId = insertHubDraftFromAutomationAtTop_(
         config.HUB_SPREADSHEET_ID,
-        buildHubDraftFromExportChange_(row, trigger, changes, stateHash, dedupeKey)
+        buildHubDraftFromExportChange_(row, trigger, changes, oldState, stateHash, dedupeKey)
       );
       processingStatus = 'Draft Created';
     } catch (draftError) {
@@ -624,11 +653,19 @@ function buildAutomationExportState_(row) {
     'Slack Thread ID': true
   };
 
-  return AUTOMATION.HEADERS.EXPORT.reduce((obj, header) => {
+  return getAutomationStateHeadersForRow_(row).reduce((obj, header) => {
     if (ignored[header]) return obj;
     obj[header] = stringifyAutomationValue_(row[header]);
     return obj;
   }, {});
+}
+
+function getAutomationStateHeadersForRow_(row) {
+  const headers = AUTOMATION.HEADERS.EXPORT.slice();
+  getAutomationOptionalExportHeaders_().forEach(header => {
+    if (Object.prototype.hasOwnProperty.call(row, header)) headers.push(header);
+  });
+  return headers;
 }
 
 function diffAutomationStates_(oldState, newState) {
@@ -663,27 +700,59 @@ function inferAutomationExportTrigger_(row, oldState, changes) {
 function inferProjectExportTrigger_(row, oldState, changes) {
   const fields = changes.map(change => change.field);
   const status = normalizeStatus_(row.Status);
-  const risk = normalizeRiskLevel_(row['Risk Level']);
-  const confidence = Number(row.Confidence || 0);
-  const oldConfidence = Number(oldState.Confidence || 0);
+  const oldStatus = normalizeStatus_(oldState.Status);
 
-  if (fields.indexOf('Status') >= 0 && ['YELLOW', 'RED'].indexOf(status) >= 0) {
-    return { candidate: 'Material project status change', eventKey: 'project.unexpected_status_change' };
+  if (isProjectGateCleared_(row, oldState, fields)) {
+    if (isProjectPrimaryTargetCleared_(row, oldState)) {
+      return { candidate: 'Project primary target cleared', eventKey: 'project.completed' };
+    }
+    return { candidate: 'Project gate cleared', eventKey: 'project.gate_passed' };
   }
 
-  if (fields.indexOf('Risk Level') >= 0 && ['HIGH', 'CRITICAL'].indexOf(risk) >= 0) {
-    return { candidate: 'Material project risk change', eventKey: 'project.unexpected_status_change' };
+  if (isProjectStatusCommunication_(oldStatus, status, fields)) {
+    return {
+      candidate: status === 'GREEN' ? 'Project back on track' : 'Material project status change',
+      eventKey: 'project.unexpected_status_change'
+    };
   }
 
-  if (fields.indexOf('Confidence') >= 0 && confidence > 0 && (confidence <= 5 || oldConfidence - confidence >= 2)) {
-    return { candidate: 'Material project confidence change', eventKey: 'project.unexpected_status_change' };
+  if (fields.indexOf('Next Gate ETA') >= 0) {
+    return { candidate: 'Project next gate ETA changed', eventKey: 'project.unexpected_status_change' };
   }
 
-  if (fields.some(field => ['Phase', 'Primary Risk', 'Next Gate', 'Next Gate ETA'].indexOf(field) >= 0)) {
-    return { candidate: 'Project planning field changed', eventKey: 'project.unexpected_status_change' };
+  if (fields.indexOf('Primary Target') >= 0) {
+    return { candidate: 'Project primary target changed', eventKey: 'project.unexpected_status_change' };
   }
 
   return { candidate: 'Project changed', eventKey: '' };
+}
+
+function isProjectStatusCommunication_(oldStatus, newStatus, fields) {
+  if (fields.indexOf('Status') < 0 || oldStatus === newStatus) return false;
+  if (['YELLOW', 'RED'].indexOf(newStatus) >= 0) return true;
+  return newStatus === 'GREEN' && ['YELLOW', 'RED'].indexOf(oldStatus) >= 0;
+}
+
+function isProjectGateCleared_(row, oldState, fields) {
+  if (fields.indexOf('Phase') < 0 || fields.indexOf('Next Gate') < 0 || fields.indexOf('Next Gate ETA') < 0) {
+    return false;
+  }
+
+  const oldEta = parseAutomationDate_(oldState['Next Gate ETA']);
+  const newEta = parseAutomationDate_(row['Next Gate ETA']);
+  if (!oldEta || !newEta || newEta.getTime() <= oldEta.getTime()) return false;
+
+  return stringifyAutomationValue_(oldState.Phase) !== stringifyAutomationValue_(row.Phase) &&
+    stringifyAutomationValue_(oldState['Next Gate']) !== stringifyAutomationValue_(row['Next Gate']);
+}
+
+function isProjectPrimaryTargetCleared_(row, oldState) {
+  const primaryTarget = stringifyAutomationValue_(row['Primary Target'] || oldState['Primary Target']);
+  if (!primaryTarget) return false;
+
+  const oldGate = stringifyAutomationValue_(oldState['Next Gate']);
+  const oldPhase = stringifyAutomationValue_(oldState.Phase);
+  return automationTextMatches_(oldGate, primaryTarget) || automationTextMatches_(oldPhase, primaryTarget);
 }
 
 function inferReleaseExportTrigger_(row, oldState, changes) {
@@ -712,10 +781,10 @@ function inferReleaseExportTrigger_(row, oldState, changes) {
   return { candidate: 'Release changed', eventKey: '' };
 }
 
-function buildHubDraftFromExportChange_(row, trigger, changes, stateHash, dedupeKey) {
+function buildHubDraftFromExportChange_(row, trigger, changes, oldState, stateHash, dedupeKey) {
   const recordType = normalizeAutomationRecordType_(row['Record Type']);
   const owner = row.Owner || 'TPM';
-  const payload = buildAutomationPayloadFromExport_(row, trigger, changes, owner);
+  const payload = buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owner);
 
   return {
     'Queue ID': Utilities.getUuid(),
@@ -735,7 +804,7 @@ function buildHubDraftFromExportChange_(row, trigger, changes, stateHash, dedupe
   };
 }
 
-function buildAutomationPayloadFromExport_(row, trigger, changes, owner) {
+function buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owner) {
   const recordType = normalizeAutomationRecordType_(row['Record Type']);
   const subject = row.Subject || row['Source Item ID'];
   const payload = {
@@ -744,14 +813,18 @@ function buildAutomationPayloadFromExport_(row, trigger, changes, owner) {
     project: subject,
     event_key: trigger.eventKey,
     source_item_id: row['Source Item ID'],
-    what: buildChangeSummary_(changes),
-    so_what: inferAutomationSoWhat_(recordType, trigger.eventKey),
-    whats_next: inferAutomationWhatsNext_(recordType, trigger.eventKey),
+    what: buildAutomationWhat_(recordType, row, trigger, changes, oldState),
+    so_what: inferAutomationSoWhat_(recordType, trigger.eventKey, trigger),
+    whats_next: inferAutomationWhatsNext_(recordType, trigger.eventKey, trigger),
     status: row.Status || '',
     phase: row.Phase || '',
+    gate: row['Next Gate'] || '',
+    next_gate: row['Next Gate'] || '',
+    next_gate_eta: row['Next Gate ETA'] || '',
     risk_level: row['Risk Level'] || '',
     confidence: row.Confidence || '',
     primary_risk: row['Primary Risk'] || '',
+    primary_target: row['Primary Target'] || '',
     notes: row.Notes || ''
   };
 
@@ -768,6 +841,53 @@ function buildAutomationPayloadFromExport_(row, trigger, changes, owner) {
   }
 
   return payload;
+}
+
+function buildAutomationWhat_(recordType, row, trigger, changes, oldState) {
+  if (recordType === 'Project') {
+    return buildProjectChangeSummary_(row, oldState || {}, changes, trigger);
+  }
+  return buildChangeSummary_(changes);
+}
+
+function buildProjectChangeSummary_(row, oldState, changes, trigger) {
+  const candidate = String(trigger.candidate || '');
+  const reason = row['Primary Risk'] || oldState['Primary Risk'] || 'No primary risk is listed yet.';
+
+  if (candidate === 'Project primary target cleared') {
+    return 'Primary target cleared: ' + (row['Primary Target'] || oldState['Primary Target'] || 'target') +
+      '. Current phase moved from "' + (oldState.Phase || 'blank') + '" to "' + (row.Phase || 'blank') +
+      '"; next gate is "' + (row['Next Gate'] || 'blank') + '" with ETA "' + (row['Next Gate ETA'] || 'blank') + '".';
+  }
+
+  if (candidate === 'Project gate cleared') {
+    return 'Gate cleared: "' + (oldState['Next Gate'] || 'previous gate') + '". Current phase moved from "' +
+      (oldState.Phase || 'blank') + '" to "' + (row.Phase || 'blank') + '"; next gate is "' +
+      (row['Next Gate'] || 'blank') + '" with ETA "' + (row['Next Gate ETA'] || 'blank') + '".';
+  }
+
+  if (candidate === 'Project back on track') {
+    return 'Status moved back to green from "' + (oldState.Status || 'blank') +
+      '". Reason / context: ' + reason;
+  }
+
+  if (candidate === 'Material project status change') {
+    return 'Status changed from "' + (oldState.Status || 'blank') + '" to "' + (row.Status || 'blank') +
+      '". Primary risk / reason: ' + reason;
+  }
+
+  if (candidate === 'Project next gate ETA changed') {
+    return 'Next gate timing changed for "' + (row['Next Gate'] || oldState['Next Gate'] || 'the next gate') +
+      '": ETA moved from "' + (oldState['Next Gate ETA'] || 'blank') + '" to "' +
+      (row['Next Gate ETA'] || 'blank') + '". Reason / context: ' + reason;
+  }
+
+  if (candidate === 'Project primary target changed') {
+    return 'Primary target changed from "' + (oldState['Primary Target'] || 'blank') + '" to "' +
+      (row['Primary Target'] || 'blank') + '". Reason / context: ' + reason;
+  }
+
+  return buildChangeSummary_(changes);
 }
 
 function buildChangeSummary_(changes) {
@@ -804,21 +924,51 @@ function summarizeAutomationState_(state) {
   ].filter(Boolean).join(' | ');
 }
 
-function inferAutomationSoWhat_(recordType, eventKey) {
+function inferAutomationSoWhat_(recordType, eventKey, trigger) {
   if (recordType === 'Release') {
     if (eventKey === 'release.rolled_back') return 'Stakeholders need a clear production state and recovery expectation.';
     if (eventKey === 'release.delayed') return 'Stakeholders need to adjust release expectations, support readiness, and timing.';
     return 'This release update may affect production timing, support readiness, monitoring, or stakeholder expectations.';
   }
+
+  const candidate = trigger && trigger.candidate || '';
+  if (candidate === 'Project primary target cleared') {
+    return 'Stakeholders should know the project reached its primary target; any further rollout work can be tracked separately.';
+  }
+  if (candidate === 'Project gate cleared') {
+    return 'Stakeholders should know the project advanced and expectations have shifted to the next gate.';
+  }
+  if (candidate === 'Project back on track') {
+    return 'Stakeholders should know the project is back on track and the prior risk has been reduced.';
+  }
+  if (candidate === 'Project next gate ETA changed' || candidate === 'Project primary target changed') {
+    return 'Stakeholders need updated timing or target expectations for planning and dependency management.';
+  }
+
   return 'This may affect project expectations, risk, timeline, release, or stakeholder confidence.';
 }
 
-function inferAutomationWhatsNext_(recordType, eventKey) {
+function inferAutomationWhatsNext_(recordType, eventKey, trigger) {
   if (recordType === 'Release') {
     if (eventKey === 'release.go_no_go') return 'Release owner should confirm readiness and the go / no-go decision.';
     if (eventKey === 'release.rolled_back') return 'Release owner should confirm recovery status and whether a postmortem is needed.';
     return 'Release owner should review readiness, confirm impact, and approve or discard this draft.';
   }
+
+  const candidate = trigger && trigger.candidate || '';
+  if (candidate === 'Project primary target cleared') {
+    return 'Lead PM should confirm whether the project can be marked complete or whether additional rollout phases remain.';
+  }
+  if (candidate === 'Project gate cleared') {
+    return 'Lead PM should confirm the next gate, ETA, and any readiness needs before approving this update.';
+  }
+  if (candidate === 'Project back on track') {
+    return 'Lead PM should confirm the risk is resolved or contained and approve the back-on-track update.';
+  }
+  if (candidate === 'Project next gate ETA changed' || candidate === 'Project primary target changed') {
+    return 'Lead PM should confirm the reason, updated timing, and stakeholder impact before approving this update.';
+  }
+
   return 'Lead PM or TPM should review the change, confirm impact, and approve or discard this draft.';
 }
 
@@ -1016,6 +1166,10 @@ function normalizeAutomationRecordType_(value) {
 
 function normalizeStatus_(value) {
   const text = String(value || '').trim().toUpperCase();
+  if (text.indexOf('🟢') >= 0 || /GREEN/.test(text)) return 'GREEN';
+  if (text.indexOf('🟡') >= 0 || /YELLOW|AMBER/.test(text)) return 'YELLOW';
+  if (text.indexOf('🔴') >= 0 || /RED/.test(text)) return 'RED';
+  if (text.indexOf('⚪') >= 0 || /GRAY|GREY/.test(text)) return 'GRAY';
   if (['GREEN', 'YELLOW', 'RED', 'GRAY'].indexOf(text) >= 0) return text;
   if (/risk/i.test(text)) return 'YELLOW';
   if (/block|off/i.test(text)) return 'RED';
@@ -1057,6 +1211,26 @@ function stringifyAutomationValue_(value) {
   if (value instanceof Date) return value.toISOString();
   if (value == null) return '';
   return String(value).trim();
+}
+
+function parseAutomationDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+  const date = new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function automationTextMatches_(left, right) {
+  const normalizedLeft = normalizeAutomationText_(left);
+  const normalizedRight = normalizeAutomationText_(right);
+  if (!normalizedLeft || !normalizedRight) return false;
+  return normalizedLeft === normalizedRight ||
+    normalizedLeft.indexOf(normalizedRight) >= 0 ||
+    normalizedRight.indexOf(normalizedLeft) >= 0;
+}
+
+function normalizeAutomationText_(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function hashString_(text) {

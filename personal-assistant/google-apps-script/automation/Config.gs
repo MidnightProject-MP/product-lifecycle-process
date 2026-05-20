@@ -98,6 +98,9 @@ const AUTOMATION = {
     ],
     CONFIG: ['Key', 'Value']
   },
+  OPTIONAL_EXPORT_HEADERS: [
+    'Primary Target'
+  ],
   CONFIG_ROWS: [
     ['LEADERSHIP_SPREADSHEET_ID', ''],
     ['HUB_SPREADSHEET_ID', ''],

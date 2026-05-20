@@ -38,7 +38,7 @@ The older `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, and 
 
 ## Export Contract
 
-`Automation_Export_Source` and `Automation_Export` share the same headers:
+`Automation_Export_Source` and `Automation_Export` share the same required headers:
 
 ```text
 Record Type, Source Item ID, Flow ID, Subject, Owner, Status, Phase, Risk Level,
@@ -46,6 +46,14 @@ Confidence, Primary Risk, Next Gate, Next Gate ETA, Release Date, Release Status
 Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
 Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
 ```
+
+Optional supported project header:
+
+```text
+Primary Target
+```
+
+If `Primary Target` exists in `Automation_Export_Source`, the script carries it into `Automation_Export` and includes it in project change detection. If it is absent, existing exports remain valid.
 
 `Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats automation-owned output sheets as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
@@ -61,7 +69,7 @@ Identity rules:
 
 Before `Automation_Export` is overwritten, the script validates `Automation_Export_Source`:
 
-- Header count and header names must exactly match the export contract.
+- Required header names must exactly match the export contract. Supported optional headers may appear after the required columns.
 - Active row count must be at least `MIN_ACTIVE_EXPORT_ROWS`.
 - Headers and the first `EXPORT_ERROR_SCAN_ROWS` data rows are scanned for `#REF!`, `#N/A`, `#VALUE!`, `#NULL!`, and `#LOADING!`.
 - Active rows must have valid `Record Type`, `Source Item ID`, and `Flow ID`.
@@ -87,7 +95,15 @@ This prevents transient source-sheet issues from becoming false history.
 
 V2 supports Projects and Releases.
 
-Project changes can create `project.unexpected_status_change` when status, risk, confidence, phase, primary risk, next gate, or next gate ETA materially changes.
+Project dashboard changes create communication drafts only for the baseline cases below:
+
+- Status moves into yellow/red or returns from yellow/red back to green. This creates `project.unexpected_status_change`; `Primary Risk` is used as the current reason/context.
+- `Next Gate ETA` changes. This creates `project.unexpected_status_change` with old/new timing and the current next gate.
+- Optional `Primary Target` changes. This creates `project.unexpected_status_change` with old/new target values.
+- Gate cleared pattern: `Phase`, `Next Gate`, and `Next Gate ETA` all change, and the new ETA is later than the previous ETA. This creates `project.gate_passed`.
+- If the cleared gate matches the optional `Primary Target`, the script treats it as primary project completion and creates `project.completed`.
+
+Risk level, confidence, exposure, phase-only changes, and primary-risk-only changes are recorded as evidence but are expected to be communicated through the weekly status update.
 
 Release changes can create:
 
