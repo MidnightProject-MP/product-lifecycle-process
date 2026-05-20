@@ -15,11 +15,13 @@ function setupAutomationSheets() {
 }
 
 function syncLeadershipDashboardToAutomation() {
+  const startedAt = new Date().getTime();
   setupAutomationSheets();
 
   const automation = SpreadsheetApp.getActive();
   const config = getAutomationConfig_();
   const pollCount = incrementAutomationPollCount_(automation, config);
+  config.POLL_COUNT = String(pollCount);
   const materialized = materializeAutomationExportIfValid_(automation, config);
 
   if (!materialized.ok) {
@@ -42,13 +44,14 @@ function syncLeadershipDashboardToAutomation() {
     return {
       ok: false,
       pollCount: pollCount,
-      message: materialized.message
+      message: materialized.message,
+      durationMs: new Date().getTime() - startedAt
     };
   }
 
   const rows = readAutomationExportRows_(automation);
   const result = processAutomationExportRows_(automation, config, rows);
-  const gc = runAutomationGarbageCollectionIfNeeded_(automation, getAutomationConfig_());
+  const gc = runAutomationGarbageCollectionIfNeeded_(automation, config);
 
   return {
     ok: true,
@@ -59,7 +62,8 @@ function syncLeadershipDashboardToAutomation() {
     hubDraftsCreated: result.hubDraftsCreated,
     skippedRows: result.skippedRows,
     errors: result.errors,
-    garbageCollection: gc
+    garbageCollection: gc,
+    durationMs: new Date().getTime() - startedAt
   };
 }
 
@@ -101,9 +105,8 @@ function ensureAutomationRawSheet_(ss, name) {
 
 function ensureAutomationSheet_(ss, name, headers) {
   const sheet = ss.getSheetByName(name) || ss.insertSheet(name);
-  formatAutomationSheetAsText_(sheet, headers.length);
   if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(1, 1, 1, headers.length).setNumberFormat('@').setValues([headers]);
     return sheet;
   }
 
@@ -121,18 +124,22 @@ function enforceAutomationHeaders_(sheet, headers) {
     if (merged.indexOf(header) < 0) merged.push(header);
   });
 
+  const alreadyCurrent = merged.every((header, index) => String(current[index] || '') === String(header)) &&
+    current.slice(merged.length).every(value => value === '');
+  if (alreadyCurrent) return;
+
   sheet.getRange(1, 1, 1, merged.length).setValues([merged]);
 }
 
 function resetAutomationSheet_(sheet, headers) {
   sheet.clearContents();
-  formatAutomationSheetAsText_(sheet, headers.length);
+  formatAutomationSheetAsText_(sheet, headers.length, 1);
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
 }
 
-function formatAutomationSheetAsText_(sheet, columnCount) {
+function formatAutomationSheetAsText_(sheet, columnCount, rowCount) {
   if (!sheet || !columnCount) return;
-  sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), 1), columnCount).setNumberFormat('@');
+  sheet.getRange(1, 1, Math.max(Number(rowCount || 1), 1), columnCount).setNumberFormat('@');
 }
 
 function seedAutomationConfig_(sheet) {
@@ -309,34 +316,86 @@ function processAutomationExportRows_(automation, config, rows) {
     skippedRows: 0,
     errors: 0
   };
-  const hasExistingObservations = hasDashboardObservations_(automation);
+  const context = createAutomationProcessingContext_(automation);
 
   rows.forEach(row => {
     result.processedRows++;
-    const processed = processAutomationExportRow_(automation, config, row, hasExistingObservations);
+    const processed = processAutomationExportRow_(automation, config, row, context);
     if (processed.changed) result.changedRows++;
     if (processed.hubDraftCreated) result.hubDraftsCreated++;
     if (processed.skipped) result.skippedRows++;
     if (processed.error) result.errors++;
   });
 
+  flushAutomationProcessingContext_(automation, context);
+
   return result;
 }
 
-function processAutomationExportRow_(automation, config, row, hasExistingObservations) {
-  const now = automationNowIso_();
+function createAutomationProcessingContext_(automation) {
+  const observationRows = readDashboardObservationRows_(automation);
+  return {
+    now: automationNowIso_(),
+    hasExistingObservations: observationRows.length > 0,
+    observationsBySourceItemId: buildDashboardObservationMap_(observationRows),
+    snapshots: [],
+    changes: [],
+    triggerLogs: []
+  };
+}
+
+function flushAutomationProcessingContext_(automation, context) {
+  insertAutomationObjectsAtTop_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS),
+    AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS,
+    context.snapshots
+  );
+  insertAutomationObjectsAtTop_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES),
+    AUTOMATION.HEADERS.DASHBOARD_CHANGES,
+    context.changes
+  );
+  insertAutomationObjectsAtTop_(
+    automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG),
+    AUTOMATION.HEADERS.TRIGGER_LOG,
+    context.triggerLogs
+  );
+  rewriteAutomationObjects_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS),
+    AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS,
+    Object.keys(context.observationsBySourceItemId).map(key => context.observationsBySourceItemId[key])
+  );
+}
+
+function readDashboardObservationRows_(automation) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+  return getAutomationObjectsByHeaders_(sheet, AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS)
+    .filter(row => Object.keys(row).some(key => row[key] !== ''));
+}
+
+function buildDashboardObservationMap_(rows) {
+  return rows.reduce((obj, row) => {
+    const sourceItemId = String(row['Source Item ID'] || '').trim();
+    if (sourceItemId) obj[sourceItemId] = row;
+    return obj;
+  }, {});
+}
+
+function processAutomationExportRow_(automation, config, row, context) {
+  const now = context.now || automationNowIso_();
   const sourceItemId = String(row['Source Item ID'] || '').trim();
   const flowId = String(row['Flow ID'] || '').trim();
   const recordType = normalizeAutomationRecordType_(row['Record Type']);
   const state = buildAutomationExportState_(row);
   const stateJson = JSON.stringify(state);
   const stateHash = hashString_(stateJson);
-  const observation = findDashboardObservation_(automation, sourceItemId);
+  const observation = context.observationsBySourceItemId[sourceItemId] || null;
 
-  recordDashboardSnapshot_(automation, row, stateHash, stateJson, now);
+  context.snapshots.push(buildDashboardSnapshotRow_(row, stateHash, stateJson, now));
 
-  if (!observation && !hasExistingObservations) {
-    upsertDashboardObservation_(automation, {
+  if (!observation && !context.hasExistingObservations) {
+    context.observationsBySourceItemId[sourceItemId] = {
       'Source Item ID': sourceItemId,
       'Flow ID': flowId,
       'Record Type': recordType,
@@ -348,12 +407,12 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
       'Last Trigger Log ID': '',
       'Processing Status': 'Baseline',
       'Processing Error': ''
-    });
+    };
     return { changed: false, hubDraftCreated: false, skipped: false, error: false };
   }
 
   if (observation && String(observation['Flow ID'] || '') !== flowId) {
-    const triggerId = recordAutomationTriggerLog_(automation, {
+    const triggerId = queueAutomationTriggerLog_(context, {
       'Work Item Type': recordType,
       'Flow ID': flowId,
       'Source Row Key': sourceItemId,
@@ -370,7 +429,7 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
       'Processing Error': 'Source Item ID ' + sourceItemId + ' changed Flow ID from ' +
         observation['Flow ID'] + ' to ' + flowId + '.'
     });
-    recordDashboardChangeRows_(automation, row, observation, stateHash, [{
+    context.changes = context.changes.concat(buildDashboardChangeRows_(row, observation, stateHash, [{
       field: 'Flow ID',
       oldValue: observation['Flow ID'] || '',
       newValue: flowId
@@ -382,16 +441,17 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
       processedAt: now,
       processingError: 'Identity mismatch',
       triggerLogId: triggerId
-    });
+    }));
     return { changed: true, hubDraftCreated: false, skipped: false, error: true };
   }
 
   if (observation && String(observation['State Hash'] || '') === stateHash) {
-    updateDashboardObservationFields_(automation, sourceItemId, {
+    Object.assign(observation, {
       'Last Observed At': now,
       'Processing Status': 'No Change',
       'Processing Error': ''
     });
+    context.observationsBySourceItemId[sourceItemId] = observation;
     return { changed: false, hubDraftCreated: false, skipped: false, error: false };
   }
 
@@ -431,7 +491,7 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
     }
   }
 
-  const triggerId = recordAutomationTriggerLog_(automation, {
+  const triggerId = queueAutomationTriggerLog_(context, {
     'Work Item Type': recordType,
     'Flow ID': flowId,
     'Source Row Key': sourceItemId,
@@ -448,7 +508,7 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
     'Processing Error': processingError
   });
 
-  recordDashboardChangeRows_(automation, row, observation, stateHash, changes, {
+  context.changes = context.changes.concat(buildDashboardChangeRows_(row, observation, stateHash, changes, {
     triggerCandidate: trigger.candidate,
     eventKey: trigger.eventKey,
     dedupeKey: dedupeKey,
@@ -456,10 +516,10 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
     processedAt: now,
     processingError: processingError,
     triggerLogId: triggerId
-  });
+  }));
 
   if (!error) {
-    upsertDashboardObservation_(automation, {
+    context.observationsBySourceItemId[sourceItemId] = {
       'Source Item ID': sourceItemId,
       'Flow ID': flowId,
       'Record Type': recordType,
@@ -471,7 +531,7 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
       'Last Trigger Log ID': triggerId,
       'Processing Status': processingStatus,
       'Processing Error': ''
-    });
+    };
   }
 
   return {
@@ -483,7 +543,15 @@ function processAutomationExportRow_(automation, config, row, hasExistingObserva
 }
 
 function recordDashboardSnapshot_(automation, row, stateHash, stateJson, timestamp) {
-  insertByHeadersAtTop_(automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS), AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS, {
+  insertByHeadersAtTop_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_SNAPSHOTS),
+    AUTOMATION.HEADERS.DASHBOARD_SNAPSHOTS,
+    buildDashboardSnapshotRow_(row, stateHash, stateJson, timestamp)
+  );
+}
+
+function buildDashboardSnapshotRow_(row, stateHash, stateJson, timestamp) {
+  return {
     'Snapshot ID': Utilities.getUuid(),
     'Snapshot At': timestamp,
     'Record Type': normalizeAutomationRecordType_(row['Record Type']),
@@ -491,16 +559,23 @@ function recordDashboardSnapshot_(automation, row, stateHash, stateJson, timesta
     'Flow ID': row['Flow ID'],
     'State Hash': stateHash,
     'State JSON': stateJson
-  });
+  };
 }
 
 function recordDashboardChangeRows_(automation, row, observation, newStateHash, changes, context) {
-  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES);
+  insertAutomationObjectsAtTop_(
+    automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_CHANGES),
+    AUTOMATION.HEADERS.DASHBOARD_CHANGES,
+    buildDashboardChangeRows_(row, observation, newStateHash, changes, context)
+  );
+}
+
+function buildDashboardChangeRows_(row, observation, newStateHash, changes, context) {
   const oldStateHash = observation && observation['State Hash'] || '';
   const now = context.processedAt || automationNowIso_();
 
-  changes.forEach(change => {
-    insertByHeadersAtTop_(sheet, AUTOMATION.HEADERS.DASHBOARD_CHANGES, {
+  return changes.map(change => {
+    return {
       'Change ID': Utilities.getUuid(),
       'Detected At': now,
       'Record Type': normalizeAutomationRecordType_(row['Record Type']),
@@ -517,57 +592,27 @@ function recordDashboardChangeRows_(automation, row, observation, newStateHash, 
       'Processing Status': context.processingStatus || '',
       'Processed At': now,
       'Processing Error': context.processingError || ''
-    });
+    };
   });
 }
 
 function recordAutomationTriggerLog_(automation, fields) {
-  const triggerId = Utilities.getUuid();
-  insertByHeadersAtTop_(automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG), AUTOMATION.HEADERS.TRIGGER_LOG, Object.assign({
-    'Trigger Log ID': triggerId,
-    'Created At': automationNowIso_()
-  }, fields));
-  return triggerId;
+  const row = buildAutomationTriggerLogRow_(fields);
+  insertByHeadersAtTop_(automation.getSheetByName(AUTOMATION.SHEETS.TRIGGER_LOG), AUTOMATION.HEADERS.TRIGGER_LOG, row);
+  return row['Trigger Log ID'];
 }
 
-function hasDashboardObservations_(automation) {
-  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
-  return Boolean(sheet && sheet.getLastRow() >= 2);
+function queueAutomationTriggerLog_(context, fields) {
+  const row = buildAutomationTriggerLogRow_(fields, context.now);
+  context.triggerLogs.push(row);
+  return row['Trigger Log ID'];
 }
 
-function findDashboardObservation_(automation, sourceItemId) {
-  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
-  if (!sheet || sheet.getLastRow() < 2) return null;
-  return getAutomationObjects_(sheet).find(row => String(row['Source Item ID']) === String(sourceItemId)) || null;
-}
-
-function upsertDashboardObservation_(automation, observation) {
-  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
-  const row = findDashboardObservationRow_(sheet, observation['Source Item ID']);
-  if (row) {
-    updateAutomationRowFields_(sheet, row, observation);
-    return;
-  }
-  insertByHeadersAtTop_(sheet, AUTOMATION.HEADERS.DASHBOARD_OBSERVATIONS, observation);
-}
-
-function updateDashboardObservationFields_(automation, sourceItemId, fields) {
-  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS);
-  const row = findDashboardObservationRow_(sheet, sourceItemId);
-  if (!row) return;
-  updateAutomationRowFields_(sheet, row, fields);
-}
-
-function findDashboardObservationRow_(sheet, sourceItemId) {
-  if (!sheet || sheet.getLastRow() < 2) return 0;
-  const headers = getAutomationHeaders_(sheet);
-  const index = headers.indexOf('Source Item ID');
-  if (index < 0) return 0;
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-  for (let i = 0; i < values.length; i++) {
-    if (String(values[i][index]) === String(sourceItemId)) return i + 2;
-  }
-  return 0;
+function buildAutomationTriggerLogRow_(fields, timestamp) {
+  return Object.assign({
+    'Trigger Log ID': Utilities.getUuid(),
+    'Created At': timestamp || automationNowIso_()
+  }, fields);
 }
 
 function buildAutomationExportState_(row) {
@@ -878,16 +923,34 @@ function updateAutomationConfigValue_(automation, key, value) {
   insertAutomationValuesAtTop_(sheet, [key, value]);
 }
 
-function updateAutomationRowFields_(sheet, row, fields) {
-  const headers = getAutomationHeaders_(sheet);
-  Object.keys(fields).forEach(key => {
-    const col = headers.indexOf(key) + 1;
-    if (col > 0) sheet.getRange(row, col).setValue(fields[key]);
-  });
+function insertByHeadersAtTop_(sheet, headers, row) {
+  insertAutomationObjectsAtTop_(sheet, headers, [row]);
 }
 
-function insertByHeadersAtTop_(sheet, headers, row) {
-  insertAutomationValuesAtTop_(sheet, headers.map(header => row[header] == null ? '' : row[header]));
+function insertAutomationObjectsAtTop_(sheet, headers, rows) {
+  if (!sheet || !rows || !rows.length) return;
+  const values = rows.map(row => headers.map(header => row[header] == null ? '' : row[header]));
+  sheet.insertRowsAfter(1, values.length);
+  sheet.getRange(2, 1, values.length, headers.length).setNumberFormat('@').setValues(values);
+}
+
+function rewriteAutomationObjects_(sheet, headers, rows) {
+  if (!sheet) return;
+  const sortedRows = (rows || []).slice().sort((a, b) =>
+    String(b['Last Observed At'] || '').localeCompare(String(a['Last Observed At'] || ''))
+  );
+
+  sheet.clearContents();
+  sheet
+    .getRange(1, 1, Math.max(sortedRows.length + 1, 1), headers.length)
+    .setNumberFormat('@');
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+  if (sortedRows.length) {
+    sheet
+      .getRange(2, 1, sortedRows.length, headers.length)
+      .setValues(sortedRows.map(row => headers.map(header => row[header] == null ? '' : row[header])));
+  }
 }
 
 function insertAutomationValuesAtTop_(sheet, values) {
