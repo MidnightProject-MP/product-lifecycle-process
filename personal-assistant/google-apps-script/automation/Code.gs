@@ -265,6 +265,7 @@ function validateAutomationExportSource_(automation, config) {
 
   const rows = getAutomationObjectsByHeaders_(source, headerValidation.headers)
     .filter(row => Object.keys(row).some(key => row[key] !== ''))
+    .map(normalizeAutomationExportRow_)
     .filter(isAutomationExportRowActive_);
 
   const identityValidation = validateAutomationExportIdentity_(rows);
@@ -388,6 +389,7 @@ function readAutomationExportRows_(automation) {
   if (!sheet) return [];
   return getAutomationObjectsByHeaders_(sheet, getAutomationEffectiveExportHeaders_(sheet))
     .filter(row => Object.keys(row).some(key => row[key] !== ''))
+    .map(normalizeAutomationExportRow_)
     .filter(isAutomationExportRowActive_);
 }
 
@@ -404,6 +406,51 @@ function getAutomationEffectiveExportHeaders_(sheet) {
 
 function getAutomationOptionalExportHeaders_() {
   return AUTOMATION.OPTIONAL_EXPORT_HEADERS || [];
+}
+
+function getAutomationDateExportHeaders_() {
+  return AUTOMATION.DATE_EXPORT_HEADERS || [];
+}
+
+function normalizeAutomationExportRow_(row) {
+  const normalized = Object.assign({}, row);
+  getAutomationDateExportHeaders_().forEach(header => {
+    if (Object.prototype.hasOwnProperty.call(normalized, header)) {
+      normalized[header] = normalizeAutomationDateValue_(normalized[header]);
+    }
+  });
+  return normalized;
+}
+
+function normalizeAutomationDateValue_(value) {
+  if (value == null || value === '') return '';
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  const text = String(value).trim();
+  if (!text) return '';
+  if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(text)) return normalizeAutomationParsedDateString_(text);
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(text)) return normalizeAutomationParsedDateString_(text);
+  if (/^\d{5,6}(\.0+)?$/.test(text)) {
+    const serialDate = parseGoogleSheetsSerialDate_(Number(text));
+    if (serialDate) return Utilities.formatDate(serialDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+
+  return text;
+}
+
+function normalizeAutomationParsedDateString_(text) {
+  const parsed = parseAutomationDate_(text);
+  if (!parsed) return text;
+  return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function parseGoogleSheetsSerialDate_(serial) {
+  if (!isFinite(serial) || serial <= 0) return null;
+  const millis = Math.round((serial - 25569) * 24 * 60 * 60 * 1000);
+  const date = new Date(millis);
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function processAutomationExportRows_(automation, config, rows) {

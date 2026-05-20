@@ -57,6 +57,13 @@ If `Primary Target` exists in `Automation_Export_Source`, the script carries it 
 
 `Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats automation-owned output sheets as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
+Date handling:
+
+- `Next Gate ETA` and `Release Date` are normalized by Apps Script before `Automation_Export` is written.
+- Google Sheets serial date numbers, such as `45432`, are converted to `yyyy-MM-dd`.
+- Existing displayed date strings such as `5/12/2026` are also normalized to `yyyy-MM-dd`.
+- Blank or non-date text such as `TBD` is preserved.
+
 Identity rules:
 
 - `Record Type` is `Project` or `Release`.

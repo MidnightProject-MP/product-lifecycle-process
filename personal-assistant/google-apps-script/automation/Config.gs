@@ -108,6 +108,10 @@ const AUTOMATION = {
   OPTIONAL_EXPORT_HEADERS: [
     'Primary Target'
   ],
+  DATE_EXPORT_HEADERS: [
+    'Next Gate ETA',
+    'Release Date'
+  ],
   CONFIG_ROWS: [
     ['LEADERSHIP_SPREADSHEET_ID', ''],
     ['HUB_SPREADSHEET_ID', ''],
