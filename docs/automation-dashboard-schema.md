@@ -45,19 +45,20 @@ The older `Projects_Normalized`, `Gates_Normalized`, `Releases_Normalized`, and 
 `Automation_Export_Source` and `Automation_Export` share the same required headers:
 
 ```text
-Record Type, Source Item ID, Flow ID, Subject, Owner, Status, Phase, Risk Level,
-Confidence, Primary Risk, Next Gate, Next Gate ETA, Release Date, Release Status,
-Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
-Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
+Record Type, Source Item ID, Flow ID, Subject, Lead PM, Owner, Status, Phase,
+Risk Level, Confidence, Primary Risk, Next Gate, Next Gate ETA, Release Date,
+Release Status, Go / No-Go Required, Rollback Status, Impact, Included Projects,
+Known Issues, Notes, Channel Override, Slack Thread ID, Manual Review, Updated At,
+Active
 ```
 
-Optional supported project headers:
+Optional supported project header:
 
 ```text
-Primary Target, Lead PM
+Primary Target
 ```
 
-If `Primary Target` or `Lead PM` exists in `Automation_Export_Source`, the script carries it into `Automation_Export` and includes it in state hashing, payloads, and evidence. If either is absent, existing exports remain valid.
+`Lead PM` is part of the required export contract and sits between `Subject` and `Owner`. If `Primary Target` exists in `Automation_Export_Source`, the script carries it into `Automation_Export` and includes it in state hashing, payloads, and evidence. If it is absent, existing exports remain valid.
 
 `Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats automation-owned output sheets as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
@@ -78,7 +79,7 @@ Headers:
 Source Item ID, Flow ID, Record Type, Active, Source Row, Source Signature, Signal Signature
 ```
 
-- `Source Signature` covers all fields that affect the processed dashboard state, including optional `Primary Target` and `Lead PM`.
+- `Source Signature` covers all fields that affect the processed dashboard state, including required `Lead PM` and optional `Primary Target`.
 - `Signal Signature` focuses on communication-relevant fields such as status, phase, risk/reason, next gate, ETA, release date/status, go/no-go, rollback, and notes.
 - Signatures include stable prefixes, so rows with blank signal fields still produce a valid fingerprint.
 - If the index is missing, broken, empty, or contains formula errors, the script falls back to full sync.

@@ -17,6 +17,7 @@ const AUTOMATION = {
       'Source Item ID',
       'Flow ID',
       'Subject',
+      'Lead PM',
       'Owner',
       'Status',
       'Phase',
@@ -116,8 +117,7 @@ const AUTOMATION = {
     CONFIG: ['Key', 'Value']
   },
   OPTIONAL_EXPORT_HEADERS: [
-    'Primary Target',
-    'Lead PM'
+    'Primary Target'
   ],
   DATE_EXPORT_HEADERS: [
     'Next Gate ETA',
