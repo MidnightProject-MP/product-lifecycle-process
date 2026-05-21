@@ -359,6 +359,8 @@ function buildFlowSubject_(item, payload) {
 }
 
 function buildAnchorText_(text, item) {
+  if (hasFinalMessageOverride_(item)) return String(text || '');
+
   return String(text || '') +
     '\n\n_Current state: ' + getEventDisplayName_(item['Event Key']) + ' | Last updated: ' + nowIso_() + '_';
 }

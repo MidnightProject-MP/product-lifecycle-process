@@ -362,9 +362,13 @@ function handleValidateTemplateVariablesSkill_(input) {
 }
 
 function handleRenderAnchorMessageSkill_(input) {
-  const text = renderTemplate_(getTemplateAnchorText_(input.template || {}), input.item || {});
+  const item = input.item || {};
+  const text = hasFinalMessageOverride_(item) ?
+    renderFinalAnchorMessage_(item) :
+    renderTemplate_(getTemplateAnchorText_(input.template || {}), item);
   return {
     text: text,
+    finalMessageOverride: hasFinalMessageOverride_(item),
     textLength: String(text || '').length
   };
 }
@@ -373,6 +377,15 @@ function handleRenderThreadReplySkill_(input) {
   const template = input.template || {};
   const item = input.item || {};
   const existingFlow = input.existingFlow || null;
+  if (hasFinalMessageOverride_(item)) {
+    const text = renderFinalThreadReply_(item);
+    return {
+      text: text,
+      finalMessageOverride: true,
+      textLength: String(text || '').length
+    };
+  }
+
   const registryReplyText = renderTemplate_(getTemplateReplyText_(template), item);
   const fallbackLabel = existingFlow ? 'Update' : 'Initial update';
   const text = String(registryReplyText || '').trim() || buildThreadHistoryText_(item, template, fallbackLabel);

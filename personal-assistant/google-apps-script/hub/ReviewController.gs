@@ -94,6 +94,8 @@ function buildReviewControllerLaunchState_(mode, form, hasForm) {
     flowAction: stringFromForm_(form.flowAction),
     eventKey: stringFromForm_(form.eventKey),
     subject: stringFromForm_(form.subject),
+    messageTitle: stringFromForm_(form.messageTitle),
+    messageBodyHtml: stringFromForm_(form.messageBodyHtml),
     what: stringFromForm_(form.what),
     soWhat: stringFromForm_(form.soWhat),
     whatsNext: stringFromForm_(form.whatsNext),
@@ -264,6 +266,125 @@ function previewReviewControllerMessage(form) {
   }
 }
 
+function buildReviewControllerFinalMessage_(item) {
+  const payload = normalizePayload_(item);
+  if (payload.message_title || payload.message_body_html) {
+    return {
+      title: stripHtml_(payload.message_title || getReviewControllerSubject_(item, payload)),
+      bodyHtml: String(payload.message_body_html || '')
+    };
+  }
+
+  try {
+    const template = findReviewControllerTemplateForPreview_(item);
+    const rendered = renderTemplate_(getTemplateAnchorText_(template), item);
+    return splitRenderedMessageForEditor_(rendered, getReviewControllerSubject_(item, payload) || getReviewControllerEventDisplayName_(item['Event Key']));
+  } catch (error) {
+    return buildFallbackReviewControllerFinalMessage_(item, payload);
+  }
+}
+
+function buildFallbackReviewControllerFinalMessage_(item, payload) {
+  const title = getReviewControllerSubject_(item, payload) || getReviewControllerEventDisplayName_(item['Event Key']);
+  const lines = [
+    payload.what || '',
+    payload.so_what || '',
+    payload.whats_next || ''
+  ].filter(Boolean);
+  return {
+    title: title,
+    bodyHtml: reviewControllerPlainTextToHtml_(lines.join('\n\n'))
+  };
+}
+
+function splitRenderedMessageForEditor_(text, fallbackTitle) {
+  const lines = String(text || '').replace(/\\n/g, '\n').split(/\n/);
+  let title = '';
+  const bodyLines = [];
+
+  lines.forEach(line => {
+    if (!title && String(line || '').trim()) {
+      title = cleanReviewControllerTitle_(line);
+      return;
+    }
+    bodyLines.push(line);
+  });
+
+  return {
+    title: title || fallbackTitle || '',
+    bodyHtml: slackTextToReviewControllerHtml_(bodyLines.join('\n').trim())
+  };
+}
+
+function cleanReviewControllerTitle_(line) {
+  return decodeHtmlEntities_(
+    String(line || '')
+      .replace(/^[\s>*\u2022-]+/, '')
+      .replace(/\*/g, '')
+      .replace(/_/g, '')
+      .trim()
+  );
+}
+
+function slackTextToReviewControllerHtml_(text) {
+  const lines = String(text || '').split(/\n/);
+  const html = [];
+  let listOpen = false;
+
+  lines.forEach(rawLine => {
+    const line = String(rawLine || '').trim();
+    if (!line) {
+      if (listOpen) {
+        html.push('</ul>');
+        listOpen = false;
+      }
+      return;
+    }
+
+    const bullet = line.match(/^[-\u2022]\s+(.+)$/);
+    if (bullet) {
+      if (!listOpen) {
+        html.push('<ul>');
+        listOpen = true;
+      }
+      html.push('<li>' + reviewControllerSlackInlineToHtml_(bullet[1]) + '</li>');
+      return;
+    }
+
+    if (listOpen) {
+      html.push('</ul>');
+      listOpen = false;
+    }
+    html.push('<p>' + reviewControllerSlackInlineToHtml_(line) + '</p>');
+  });
+
+  if (listOpen) html.push('</ul>');
+  return html.join('');
+}
+
+function reviewControllerPlainTextToHtml_(text) {
+  return String(text || '')
+    .split(/\n{2,}/)
+    .map(paragraph => '<p>' + escapeReviewControllerHtml_(paragraph).replace(/\n/g, '<br>') + '</p>')
+    .join('');
+}
+
+function reviewControllerSlackInlineToHtml_(text) {
+  return escapeReviewControllerHtml_(text)
+    .replace(/&lt;([^|&]+)\|([^&]+)&gt;/g, '<a href="$1">$2</a>')
+    .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>');
+}
+
+function escapeReviewControllerHtml_(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function findReviewControllerTemplateForPreview_(item) {
   const template = findTemplate_(item);
   const eventKey = item['Event Key'] || normalizePayload_(item).event_key || '';
@@ -309,6 +430,7 @@ function createReviewControllerFlowActionDraftForFlow_(form, flow, selectedItem)
 
   const values = buildReviewControllerFlowValues_(form || {}, selectedItem || buildReviewControllerItemFromFlow_(flow));
   const payload = buildFlowConsolePayload_(flow, values, eventKey);
+  applyReviewControllerFinalMessageToPayload_(payload, form || {});
   const priority = values.Priority || event.Severity || selectedItem && selectedItem.Priority || 'Medium';
   const draft = {
     Source: 'Communication Console',
@@ -346,18 +468,23 @@ function createReviewControllerNewCommunicationDraft(form) {
   if (!event) throw new Error('Registry is missing Event_Catalog row for: ' + eventKey);
 
   const lane = event.Lane || inferLaneFromEventKey_(eventKey);
+  const messageTitle = stringFromForm_(form.messageTitle);
+  const messageBodyHtml = stringFromForm_(form.messageBodyHtml);
   const payload = {
     event_key: eventKey,
     lane: lane,
-    subject: stringFromForm_(form.subject),
+    subject: stringFromForm_(form.subject) || messageTitle,
     owner: stringFromForm_(form.owner),
-    what: stringFromForm_(form.what),
-    so_what: stringFromForm_(form.soWhat),
+    what: stringFromForm_(form.what) || messageTitle,
+    so_what: stringFromForm_(form.soWhat) || htmlToSlackText_(messageBodyHtml),
     whats_next: stringFromForm_(form.whatsNext),
+    message_title: messageTitle,
+    message_body_html: messageBodyHtml,
+    message_format: 'html_v1',
     priority: event.Severity || 'Medium'
   };
-  if (!payload.subject) throw new Error('Add a subject before queueing a new communication.');
-  if (!payload.owner) throw new Error('Add an owner before queueing a new communication.');
+  if (!payload.message_title) throw new Error('Add a title before queueing a new communication.');
+  if (!stripHtml_(payload.message_body_html)) throw new Error('Add a body before queueing a new communication.');
 
   const draft = {
     Source: 'Communication Console',
@@ -405,6 +532,7 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
     const row = resolved.row;
     const item = getRowObject_(queueSheet, row);
     const payload = normalizePayload_(item);
+    const finalMessage = buildReviewControllerFinalMessage_(item);
     const flow = findFlowStateByFlowId_(item['Flow ID']);
 
     return {
@@ -428,6 +556,8 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
         priority: item.Priority || '',
         owner: item.Owner || payload.owner || '',
         subject: getReviewControllerSubject_(item, payload),
+        messageTitle: finalMessage.title,
+        messageBodyHtml: finalMessage.bodyHtml,
         what: payload.what || '',
         soWhat: payload.so_what || '',
         whatsNext: payload.whats_next || '',
@@ -444,6 +574,7 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
   if (!flow) throw new Error('Flow not found in Flow_State: ' + flowId);
   const item = buildReviewControllerItemFromFlow_(flow);
   const payload = normalizePayload_(item);
+  const finalMessage = buildReviewControllerFinalMessage_(item);
   return {
     ok: true,
     mode: 'flow',
@@ -465,6 +596,8 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
       priority: payload.priority || '',
       owner: flow.Owner || payload.owner || '',
       subject: flow.Subject || payload.subject || flowId,
+      messageTitle: finalMessage.title,
+      messageBodyHtml: finalMessage.bodyHtml,
       what: payload.what || '',
       soWhat: payload.so_what || '',
       whatsNext: payload.whats_next || '',
@@ -499,6 +632,8 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
       priority: '',
       owner: '',
       subject: '',
+      messageTitle: '',
+      messageBodyHtml: '',
       what: '',
       soWhat: '',
       whatsNext: '',
@@ -633,10 +768,20 @@ function getQueueIdFromActiveReviewControllerSelection_(ss) {
 function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
   const item = getRowObject_(queueSheet, row);
   const payload = normalizePayload_(item);
-  payload.subject = stringFromForm_(form.subject) || payload.subject || '';
-  payload.what = stringFromForm_(form.what);
-  payload.so_what = stringFromForm_(form.soWhat);
-  payload.whats_next = stringFromForm_(form.whatsNext);
+  const messageTitle = reviewControllerFormValue_(form, 'messageTitle', payload.message_title || payload.subject || '');
+  const messageBodyHtml = reviewControllerFormValue_(form, 'messageBodyHtml', payload.message_body_html || '');
+
+  if (messageTitle || messageBodyHtml) {
+    payload.message_title = messageTitle;
+    payload.message_body_html = messageBodyHtml;
+    payload.message_format = 'html_v1';
+  }
+  payload.subject = stringFromForm_(form.subject) || payload.subject || messageTitle || '';
+  if (Object.prototype.hasOwnProperty.call(form || {}, 'what')) payload.what = stringFromForm_(form.what);
+  if (Object.prototype.hasOwnProperty.call(form || {}, 'soWhat')) payload.so_what = stringFromForm_(form.soWhat);
+  if (Object.prototype.hasOwnProperty.call(form || {}, 'whatsNext')) payload.whats_next = stringFromForm_(form.whatsNext);
+  if (!payload.what && messageTitle) payload.what = messageTitle;
+  if (!payload.so_what && messageBodyHtml) payload.so_what = htmlToSlackText_(messageBodyHtml);
   payload.owner = stringFromForm_(form.owner) || payload.owner || item.Owner || '';
   payload.priority = stringFromForm_(form.priority) || payload.priority || item.Priority || '';
 
@@ -653,10 +798,24 @@ function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
   return item['Queue ID'];
 }
 
+function applyReviewControllerFinalMessageToPayload_(payload, form) {
+  const messageTitle = stringFromForm_(form && form.messageTitle);
+  const messageBodyHtml = stringFromForm_(form && form.messageBodyHtml);
+  if (!messageTitle && !messageBodyHtml) return payload;
+
+  payload.message_title = messageTitle;
+  payload.message_body_html = messageBodyHtml;
+  payload.message_format = 'html_v1';
+  if (messageTitle && !payload.subject) payload.subject = messageTitle;
+  if (messageTitle && !payload.what) payload.what = messageTitle;
+  if (messageBodyHtml && !payload.so_what) payload.so_what = htmlToSlackText_(messageBodyHtml);
+  return payload;
+}
+
 function buildReviewControllerFlowValues_(form, item) {
   return {
-    'What changed?': stringFromForm_(form.what) || normalizePayload_(item).what || '',
-    'Why it matters': stringFromForm_(form.soWhat) || normalizePayload_(item).so_what || '',
+    'What changed?': stringFromForm_(form.messageTitle) || stringFromForm_(form.what) || normalizePayload_(item).what || '',
+    'Why it matters': htmlToSlackText_(form.messageBodyHtml || '') || stringFromForm_(form.soWhat) || normalizePayload_(item).so_what || '',
     'What happens next?': stringFromForm_(form.whatsNext) || normalizePayload_(item).whats_next || '',
     Owner: stringFromForm_(form.owner) || item.Owner || '',
     Priority: stringFromForm_(form.priority) || item.Priority || 'Medium'
@@ -705,11 +864,12 @@ function buildReviewControllerActions_(item, flow, options) {
   getAvailableFlowConsoleActions_(flow).forEach(action => {
     const eventKey = resolveFlowConsoleEventKey_(flow, action);
     if (!eventKey) return;
+    const defaults = buildReviewControllerActionDefaults_(item, flow, eventKey, action);
     actions.push({
       value: action,
       label: action + ': ' + getReviewControllerEventDisplayName_(eventKey),
       eventKey: eventKey,
-      defaults: buildReviewControllerActionDefaults_(item, flow, eventKey, action)
+      defaults: enrichReviewControllerDefaultsWithFinalMessage_(defaults, item, flow, eventKey)
     });
   });
 
@@ -728,11 +888,21 @@ function buildReviewControllerStartEventActions_(selectedValue) {
     .filter(row => !selectedType || getReviewControllerNewTypeForEventKey_(row['Event Key']) === selectedType)
     .map(row => {
       const eventKey = row['Event Key'];
+      const defaults = buildReviewControllerNewStartDefaults_(eventKey);
       return {
         value: 'new_start:' + eventKey,
         label: row.Lane + ': ' + (row['Communication Event'] || getReviewControllerEventDisplayName_(eventKey)),
         eventKey: eventKey,
-        defaults: buildReviewControllerNewStartDefaults_(eventKey)
+        defaults: enrichReviewControllerDefaultsWithFinalMessage_(defaults, {
+          'Event Key': eventKey,
+          Lane: row.Lane || inferLaneFromEventKey_(eventKey),
+          'Payload JSON': stringifyJson_(Object.assign({
+            event_key: eventKey,
+            lane: row.Lane || inferLaneFromEventKey_(eventKey),
+            subject: '',
+            owner: ''
+          }, defaults))
+        }, null, eventKey)
       };
     });
 }
@@ -914,11 +1084,39 @@ function getExpectedReviewControllerTemplateKey_(eventKey) {
 
 function buildReviewControllerSelectedDefaults_(item) {
   const payload = normalizePayload_(item);
+  const finalMessage = buildReviewControllerFinalMessage_(item);
   return {
+    messageTitle: finalMessage.title,
+    messageBodyHtml: finalMessage.bodyHtml,
     what: payload.what || '',
     soWhat: payload.so_what || '',
     whatsNext: payload.whats_next || ''
   };
+}
+
+function enrichReviewControllerDefaultsWithFinalMessage_(defaults, item, flow, eventKey) {
+  defaults = Object.assign({}, defaults || {});
+  const payload = normalizePayload_(item);
+  const subject = flow && flow.Subject ||
+    getReviewControllerSubject_(item, payload) ||
+    defaults.subject ||
+    getReviewControllerEventDisplayName_(eventKey);
+  const itemForRender = Object.assign({}, item, {
+    'Event Key': eventKey || item['Event Key'] || payload.event_key || '',
+    Subject: subject,
+    'Payload JSON': stringifyJson_(Object.assign({}, payload, {
+      event_key: eventKey || item['Event Key'] || payload.event_key || '',
+      subject: subject,
+      owner: payload.owner || item.Owner || '',
+      what: defaults.what || payload.what || '',
+      so_what: defaults.soWhat || payload.so_what || '',
+      whats_next: defaults.whatsNext || payload.whats_next || ''
+    }))
+  });
+  const finalMessage = buildReviewControllerFinalMessage_(itemForRender);
+  defaults.messageTitle = finalMessage.title;
+  defaults.messageBodyHtml = finalMessage.bodyHtml;
+  return defaults;
 }
 
 function buildReviewControllerActionDefaults_(item, flow, eventKey, action) {

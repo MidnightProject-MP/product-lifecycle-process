@@ -79,6 +79,70 @@ function renderTemplate_(text, item) {
   });
 }
 
+function hasFinalMessageOverride_(item) {
+  const payload = getPayload_(item);
+  return Boolean(String(payload.message_title || '').trim() || String(payload.message_body_html || '').trim());
+}
+
+function renderFinalAnchorMessage_(item) {
+  const payload = getPayload_(item);
+  const title = stripHtml_(payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
+  const body = htmlToSlackText_(payload.message_body_html || '').trim();
+  return [title, body].filter(Boolean).join('\n\n');
+}
+
+function renderFinalThreadReply_(item) {
+  const payload = getPayload_(item);
+  return stripHtml_(payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
+}
+
+function htmlToSlackText_(html) {
+  let text = String(html || '');
+  if (!text) return '';
+
+  text = text
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+    .replace(/<\s*ol(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*ol\s*>/gi, (_, body) => {
+      let index = 0;
+      return String(body || '').replace(/<\s*li(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*li\s*>/gi, (_, item) => '\n' + (++index) + '. ' + item);
+    })
+    .replace(/<\s*ul(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*ul\s*>/gi, (_, body) =>
+      String(body || '').replace(/<\s*li(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*li\s*>/gi, (_, item) => '\n- ' + item)
+    )
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/\s*p\s*>/gi, '\n\n')
+    .replace(/<\s*p(?:\s[^>]*)?>/gi, '')
+    .replace(/<\s*div(?:\s[^>]*)?>/gi, '')
+    .replace(/<\s*\/\s*div\s*>/gi, '\n')
+    .replace(/<\s*li(?:\s[^>]*)?>/gi, '\n- ')
+    .replace(/<\s*\/\s*li\s*>/gi, '')
+    .replace(/<\s*\/?\s*(ul|ol)(?:\s[^>]*)?>/gi, '\n')
+    .replace(/<\s*(strong|b)(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*\1\s*>/gi, '*$2*')
+    .replace(/<\s*(em|i)(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*\1\s*>/gi, '_$2_')
+    .replace(/<\s*a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\s*\/\s*a\s*>/gi, '<$1|$2>')
+    .replace(/<[^>]+>/g, '');
+
+  text = decodeHtmlEntities_(text);
+  return text
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function stripHtml_(html) {
+  return decodeHtmlEntities_(String(html || '').replace(/<[^>]+>/g, '')).trim();
+}
+
+function decodeHtmlEntities_(value) {
+  return String(value || '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
 function buildTemplatePayload_(item) {
   const payload = Object.assign({}, item, getPayload_(item));
   if (payload.what && !payload.What) payload.What = payload.what;
@@ -132,6 +196,8 @@ function normalizeTemplatePolicy_(value) {
 }
 
 function validateRequiredTemplateVariables_(template, item) {
+  if (hasFinalMessageOverride_(item)) return true;
+
   const payload = Object.assign({}, getPayload_(item), item);
   const templateKey = template['Template Key'];
   const variableRows = getRegistryObjects_('Template_Variables')

@@ -29,7 +29,7 @@
 
     select,
     input,
-    textarea {
+    .html-editor {
       box-sizing: border-box;
       width: 100%;
       border: 1px solid #dadce0;
@@ -40,8 +40,11 @@
       background: #fff;
     }
 
-    textarea {
-      min-height: 72px;
+    .html-editor {
+      line-height: 1.4;
+      min-height: 190px;
+      outline: none;
+      overflow: auto;
       resize: vertical;
     }
 
@@ -92,8 +95,8 @@
       margin-top: 14px;
     }
 
-    body.wide textarea {
-      min-height: 96px;
+    body.wide .html-editor {
+      min-height: 360px;
     }
 
     .meta {
@@ -117,54 +120,15 @@
       font-weight: 700;
     }
 
-    .preview-title {
-      align-items: center;
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      color: #3c4043;
-      font-weight: 700;
-    }
-
-    .preview-text {
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      line-height: 1.35;
-    }
-
-    .preview-muted {
+    .editor-note {
       color: #5f6368;
       font-size: 12px;
-      font-weight: 400;
-      margin-bottom: 8px;
-    }
-
-    .preview-warning {
-      background: #fef7e0;
-      border: 1px solid #fdd663;
-      border-radius: 6px;
-      color: #8a4b00;
-      font-size: 12px;
       line-height: 1.35;
-      margin-bottom: 8px;
-      padding: 8px;
+      margin-top: 4px;
     }
 
-    details.preview-details {
-      border-top: 1px solid #e0e0e0;
-      color: #5f6368;
-      font-size: 12px;
+    .link-row {
       margin-top: 10px;
-      padding-top: 8px;
-    }
-
-    details.preview-details pre {
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
-      overflow: auto;
-      padding: 8px;
-      white-space: pre-wrap;
     }
 
     .status {
@@ -201,33 +165,15 @@
     <label for="flowAction">Action</label>
     <select id="flowAction"></select>
 
-    <label for="subjectInput">Subject</label>
-    <input id="subjectInput" type="text" placeholder="Example: May Prod Release">
+    <label for="messageTitle">Title</label>
+    <input id="messageTitle" type="text" placeholder="Short Slack update title">
 
-    <label for="ownerInput">Owner</label>
-    <input id="ownerInput" type="text" placeholder="Communication owner">
+    <label for="messageBody">Body</label>
+    <div id="messageBody" class="html-editor" contenteditable="true"></div>
+    <div class="editor-note">Use normal rich text editing for bold, italics, links, and lists.</div>
 
-    <label for="what">What changed?</label>
-    <textarea id="what"></textarea>
-
-    <label for="soWhat">Why it matters</label>
-    <textarea id="soWhat"></textarea>
-
-    <label for="whatsNext">What happens next?</label>
-    <textarea id="whatsNext"></textarea>
-
-    <div class="meta">
-      <div class="preview-title">
-        <span>Message preview</span>
-        <a id="anchor" href="#" target="_blank" hidden>Open Slack anchor</a>
-      </div>
-      <div id="previewMeta" class="preview-muted"></div>
-      <div id="previewWarning" class="preview-warning" hidden></div>
-      <div id="messagePreview" class="preview-text">Preview will appear here.</div>
-      <details id="previewDetails" class="preview-details" hidden>
-        <summary>Preview details</summary>
-        <pre id="previewDetailsBody"></pre>
-      </details>
+    <div class="link-row">
+      <a id="anchor" href="#" target="_blank" hidden>Open Slack anchor</a>
     </div>
 
     <div class="actions">
@@ -240,9 +186,6 @@
     let currentContext = null;
     let actionDefaults = {};
     let consoleMode = 'sidebar';
-    let previewTimer = null;
-    let previewRequestId = 0;
-    let lastPreviewDiagnostics = null;
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -251,9 +194,14 @@
     }
 
     function setBusy(isBusy) {
-      ['communicationSelect', 'flowAction', 'subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext', 'queueBtn', 'approveBtn', 'modeToggle'].forEach(id => {
+      ['communicationSelect', 'flowAction', 'messageTitle', 'messageBody', 'queueBtn', 'approveBtn', 'modeToggle'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.disabled = isBusy;
+        if (!el) return;
+        if (id === 'messageBody') {
+          el.contentEditable = isBusy ? 'false' : 'true';
+        } else {
+          el.disabled = isBusy;
+        }
       });
     }
 
@@ -315,11 +263,8 @@
         load(communicationSelect.value);
       };
 
-      document.getElementById('subjectInput').value = context.queue.subject || '';
-      document.getElementById('ownerInput').value = context.queue.owner || '';
-      document.getElementById('what').value = context.queue.what || '';
-      document.getElementById('soWhat').value = context.queue.soWhat || '';
-      document.getElementById('whatsNext').value = context.queue.whatsNext || '';
+      document.getElementById('messageTitle').value = context.queue.messageTitle || context.queue.subject || '';
+      document.getElementById('messageBody').innerHTML = context.queue.messageBodyHtml || '';
 
       const anchor = document.getElementById('anchor');
       if (context.flow.anchorUrl) {
@@ -341,17 +286,11 @@
         actionDefaults[action.value] = action.defaults || {};
       });
       actionSelect.onchange = applyActionDefaults;
-      ['subjectInput', 'ownerInput', 'what', 'soWhat', 'whatsNext'].forEach(id => {
-        const field = document.getElementById(id);
-        field.oninput = refreshPreviewForChosenAction;
-        field.onchange = refreshPreviewForChosenAction;
-      });
       if (formOverride) {
         applyFormOverride(formOverride);
       } else if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) {
         applyActionDefaults();
       }
-      refreshPreviewForChosenAction();
     }
 
     function applyFormOverride(form) {
@@ -362,11 +301,8 @@
         actionSelect.value = form.flowAction;
       }
 
-      document.getElementById('subjectInput').value = form.subject || '';
-      document.getElementById('ownerInput').value = form.owner || '';
-      document.getElementById('what').value = form.what || '';
-      document.getElementById('soWhat').value = form.soWhat || '';
-      document.getElementById('whatsNext').value = form.whatsNext || '';
+      document.getElementById('messageTitle').value = form.messageTitle || '';
+      document.getElementById('messageBody').innerHTML = form.messageBodyHtml || '';
     }
 
     function applyActionDefaults() {
@@ -374,100 +310,24 @@
       const defaults = actionDefaults[action];
       if (!defaults) return;
 
-      document.getElementById('what').value = defaults.what || '';
-      document.getElementById('soWhat').value = defaults.soWhat || '';
-      document.getElementById('whatsNext').value = defaults.whatsNext || '';
-      refreshPreviewForChosenAction();
+      document.getElementById('messageTitle').value = defaults.messageTitle || '';
+      document.getElementById('messageBody').innerHTML = defaults.messageBodyHtml || '';
       setStatus(action === 'selected' ? 'Selected draft restored.' : 'Default text loaded for chosen action.', 'success');
     }
 
-    function refreshPreviewForChosenAction() {
-      if (!currentContext || !currentContext.ok) return;
-      scheduleMessagePreview();
-    }
-
-    function scheduleMessagePreview() {
-      window.clearTimeout(previewTimer);
-      previewTimer = window.setTimeout(loadMessagePreview, 250);
-    }
-
-    function loadMessagePreview() {
-      if (!currentContext || !currentContext.ok) return;
-      const requestId = ++previewRequestId;
-      document.getElementById('messagePreview').textContent = 'Rendering preview...';
-      google.script.run
-        .withSuccessHandler(result => {
-          if (requestId === previewRequestId) renderMessagePreview(result);
-        })
-        .withFailureHandler(error => {
-          if (requestId !== previewRequestId) return;
-          document.getElementById('previewMeta').textContent = '';
-          document.getElementById('messagePreview').textContent = error && error.message ? error.message : String(error);
-        })
-        .previewReviewControllerMessage(collectForm());
-    }
-
-    function renderMessagePreview(result) {
-      const meta = document.getElementById('previewMeta');
-      const body = document.getElementById('messagePreview');
-      const warning = document.getElementById('previewWarning');
-      const details = document.getElementById('previewDetails');
-      const detailsBody = document.getElementById('previewDetailsBody');
-      if (!result || !result.ok) {
-        meta.textContent = '';
-        warning.hidden = true;
-        details.hidden = true;
-        body.textContent = result && result.message ? result.message : 'Preview unavailable.';
-        return;
-      }
-
-      meta.textContent = [result.previewMode, result.eventName, result.templateKey].filter(Boolean).join(' | ');
-      body.textContent = result.previewText || result.anchorText || result.replyText || 'Preview unavailable.';
-      lastPreviewDiagnostics = result.diagnostics || null;
-      renderPreviewDiagnostics(lastPreviewDiagnostics);
-    }
-
-    function renderPreviewDiagnostics(diagnostics) {
-      const warning = document.getElementById('previewWarning');
-      const details = document.getElementById('previewDetails');
-      const detailsBody = document.getElementById('previewDetailsBody');
-      if (!diagnostics) {
-        warning.hidden = true;
-        details.hidden = true;
-        detailsBody.textContent = '';
-        return;
-      }
-
-      if (diagnostics.templateMismatch) {
-        warning.textContent = 'Preview is using ' + diagnostics.templateKey + ', but the Registry event currently points to ' + diagnostics.registryTemplateKey + '. Refresh release Registry defaults if send output still looks stale.';
-        warning.hidden = false;
-      } else {
-        warning.hidden = true;
-      }
-
-      details.hidden = false;
-      detailsBody.textContent = JSON.stringify({
-        eventKey: diagnostics.eventKey,
-        templateKey: diagnostics.templateKey,
-        registryTemplateKey: diagnostics.registryTemplateKey,
-        expectedTemplateKey: diagnostics.expectedTemplateKey,
-        replyText: diagnostics.replyText,
-        values: diagnostics.values
-      }, null, 2);
-    }
-
     function collectForm() {
+      const title = document.getElementById('messageTitle').value;
+      const bodyHtml = document.getElementById('messageBody').innerHTML;
       return {
         selection: document.getElementById('communicationSelect').value,
         queueId: currentContext && currentContext.queue ? currentContext.queue.queueId : '',
         flowId: currentContext && currentContext.queue ? currentContext.queue.flowId : '',
         flowAction: document.getElementById('flowAction').value,
         eventKey: selectedActionEventKey(),
-        subject: document.getElementById('subjectInput').value,
-        what: document.getElementById('what').value,
-        soWhat: document.getElementById('soWhat').value,
-        whatsNext: document.getElementById('whatsNext').value,
-        owner: document.getElementById('ownerInput').value,
+        subject: currentContext && currentContext.queue ? currentContext.queue.subject : title,
+        messageTitle: title,
+        messageBodyHtml: bodyHtml,
+        owner: currentContext && currentContext.queue ? currentContext.queue.owner : '',
         priority: currentContext && currentContext.queue ? currentContext.queue.priority : ''
       };
     }
@@ -495,15 +355,18 @@
     function validateForm(form) {
       const missing = [];
       if (!form.eventKey) missing.push('action');
-      if (!String(form.subject || '').trim()) missing.push('subject');
-      if (!String(form.owner || '').trim()) missing.push('owner');
-      if (!String(form.what || '').trim()) missing.push('what changed');
-      if (!String(form.soWhat || '').trim()) missing.push('why it matters');
-      if (!String(form.whatsNext || '').trim()) missing.push('what happens next');
+      if (!String(form.messageTitle || '').trim()) missing.push('title');
+      if (!htmlHasVisibleText(form.messageBodyHtml)) missing.push('body');
       return {
         ok: missing.length === 0,
         missing: missing
       };
+    }
+
+    function htmlHasVisibleText(html) {
+      const scratch = document.createElement('div');
+      scratch.innerHTML = html || '';
+      return Boolean(String(scratch.textContent || '').trim());
     }
 
     function showValidationFailure(validation, form) {
