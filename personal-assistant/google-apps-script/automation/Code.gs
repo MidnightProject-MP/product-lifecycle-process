@@ -240,12 +240,12 @@ function buildAutomationChangeIndexFormula_() {
   const source = "'" + AUTOMATION.SHEETS.EXPORT_SOURCE.replace(/'/g, "''") + "'";
   const range = letter => source + '!' + letter + '2:' + letter;
   const text = letter => letter === 'Z' ? 'IFERROR(TO_TEXT(' + range(letter) + '),"")' : 'TO_TEXT(' + range(letter) + ')';
-  const signature = letters => letters.map(text).join('&CHAR(31)&');
-  const sourceSignature = signature([
+  const signature = (prefix, letters) => '"' + prefix + '|"&' + letters.map(text).join('&CHAR(31)&');
+  const sourceSignature = signature('source', [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
     'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z'
   ]);
-  const signalSignature = signature(['F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'T', 'Z']);
+  const signalSignature = signature('signal', ['F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'T', 'Z']);
 
   return '=ARRAYFORMULA(IF(LEN(' + range('B') + ')=0,,{' +
     [

@@ -80,6 +80,7 @@ Source Item ID, Flow ID, Record Type, Active, Source Row, Source Signature, Sign
 
 - `Source Signature` covers all fields that affect the processed dashboard state, including optional `Primary Target`.
 - `Signal Signature` focuses on communication-relevant fields such as status, phase, risk/reason, next gate, ETA, release date/status, go/no-go, rollback, and notes.
+- Signatures include stable prefixes, so rows with blank signal fields still produce a valid fingerprint.
 - If the index is missing, broken, empty, or contains formula errors, the script falls back to full sync.
 
 Fast skip rules:
