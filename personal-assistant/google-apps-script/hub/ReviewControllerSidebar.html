@@ -48,6 +48,43 @@
       resize: vertical;
     }
 
+    .editor-toolbar {
+      align-items: center;
+      background: #f8fafd;
+      border: 1px solid #dadce0;
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 5px;
+    }
+
+    .editor-toolbar button {
+      background: transparent;
+      border-radius: 4px;
+      color: #3c4043;
+      min-width: 30px;
+      padding: 5px 7px;
+    }
+
+    .editor-toolbar button:hover,
+    .editor-toolbar button:focus {
+      background: #e8f0fe;
+      outline: none;
+    }
+
+    .editor-toolbar .separator {
+      background: #dadce0;
+      height: 22px;
+      margin: 0 2px;
+      width: 1px;
+    }
+
+    .html-editor.with-toolbar {
+      border-radius: 0 0 6px 6px;
+    }
+
     button {
       border: 0;
       border-radius: 6px;
@@ -169,8 +206,20 @@
     <input id="messageTitle" type="text" placeholder="Short Slack update title">
 
     <label for="messageBody">Body</label>
-    <div id="messageBody" class="html-editor" contenteditable="true"></div>
-    <div class="editor-note">Use normal rich text editing for bold, italics, links, and lists.</div>
+    <div class="editor-toolbar" aria-label="Body formatting tools">
+      <button type="button" title="Bold" onmousedown="formatBody(event, 'bold')"><strong>B</strong></button>
+      <button type="button" title="Italic" onmousedown="formatBody(event, 'italic')"><em>I</em></button>
+      <span class="separator"></span>
+      <button type="button" title="Bullet list" onmousedown="formatBody(event, 'insertUnorderedList')">&bull;</button>
+      <button type="button" title="Numbered list" onmousedown="formatBody(event, 'insertOrderedList')">1.</button>
+      <button type="button" title="Decrease list level" onmousedown="formatBody(event, 'outdent')">&larr;</button>
+      <button type="button" title="Increase list level" onmousedown="formatBody(event, 'indent')">&rarr;</button>
+      <span class="separator"></span>
+      <button type="button" title="Add link" onmousedown="addLink(event)">Link</button>
+      <button type="button" title="Remove link" onmousedown="formatBody(event, 'unlink')">Unlink</button>
+    </div>
+    <div id="messageBody" class="html-editor with-toolbar" contenteditable="true"></div>
+    <div class="editor-note">Use the toolbar for formatting. Tab and Shift+Tab adjust list levels.</div>
 
     <div class="link-row">
       <a id="anchor" href="#" target="_blank" hidden>Open Slack anchor</a>
@@ -186,6 +235,7 @@
     let currentContext = null;
     let actionDefaults = {};
     let consoleMode = 'sidebar';
+    let savedEditorRange = null;
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -202,6 +252,9 @@
         } else {
           el.disabled = isBusy;
         }
+      });
+      Array.from(document.querySelectorAll('.editor-toolbar button')).forEach(button => {
+        button.disabled = isBusy;
       });
     }
 
@@ -291,6 +344,7 @@
       } else if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) {
         applyActionDefaults();
       }
+      bindEditorEvents();
     }
 
     function applyFormOverride(form) {
@@ -367,6 +421,59 @@
       const scratch = document.createElement('div');
       scratch.innerHTML = html || '';
       return Boolean(String(scratch.textContent || '').trim());
+    }
+
+    function bindEditorEvents() {
+      const editor = document.getElementById('messageBody');
+      editor.onkeyup = saveEditorSelection;
+      editor.onmouseup = saveEditorSelection;
+      editor.onfocus = saveEditorSelection;
+      editor.onkeydown = handleEditorKeydown;
+    }
+
+    function saveEditorSelection() {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const editor = document.getElementById('messageBody');
+      const range = selection.getRangeAt(0);
+      if (editor.contains(range.commonAncestorContainer)) {
+        savedEditorRange = range.cloneRange();
+      }
+    }
+
+    function restoreEditorSelection() {
+      const editor = document.getElementById('messageBody');
+      editor.focus();
+      if (!savedEditorRange) return;
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedEditorRange);
+    }
+
+    function formatBody(event, command) {
+      event.preventDefault();
+      restoreEditorSelection();
+      document.execCommand(command, false, null);
+      saveEditorSelection();
+      document.getElementById('messageBody').focus();
+    }
+
+    function addLink(event) {
+      event.preventDefault();
+      restoreEditorSelection();
+      const url = window.prompt('Link URL');
+      if (!url) return;
+      document.execCommand('createLink', false, url);
+      saveEditorSelection();
+      document.getElementById('messageBody').focus();
+    }
+
+    function handleEditorKeydown(event) {
+      saveEditorSelection();
+      if (event.key !== 'Tab') return;
+      event.preventDefault();
+      document.execCommand(event.shiftKey ? 'outdent' : 'indent', false, null);
+      saveEditorSelection();
     }
 
     function showValidationFailure(validation, form) {
