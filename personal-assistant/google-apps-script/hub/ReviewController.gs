@@ -95,6 +95,7 @@ function buildReviewControllerLaunchState_(mode, form, hasForm) {
     eventKey: stringFromForm_(form.eventKey),
     subject: stringFromForm_(form.subject),
     messageTitle: stringFromForm_(form.messageTitle),
+    messageTitleHtml: stringFromForm_(form.messageTitleHtml),
     messageBodyHtml: stringFromForm_(form.messageBodyHtml),
     what: stringFromForm_(form.what),
     soWhat: stringFromForm_(form.soWhat),
@@ -268,9 +269,10 @@ function previewReviewControllerMessage(form) {
 
 function buildReviewControllerFinalMessage_(item) {
   const payload = normalizePayload_(item);
-  if (payload.message_title || payload.message_body_html) {
+  if (payload.message_title || payload.message_title_html || payload.message_body_html) {
     return {
-      title: stripHtml_(payload.message_title || getReviewControllerSubject_(item, payload)),
+      title: stripHtml_(payload.message_title_html || payload.message_title || getReviewControllerSubject_(item, payload)),
+      titleHtml: payload.message_title_html || reviewControllerPlainTextToHtml_(payload.message_title || getReviewControllerSubject_(item, payload)),
       bodyHtml: String(payload.message_body_html || '')
     };
   }
@@ -293,6 +295,7 @@ function buildFallbackReviewControllerFinalMessage_(item, payload) {
   ].filter(Boolean);
   return {
     title: title,
+    titleHtml: reviewControllerPlainTextToHtml_(title),
     bodyHtml: reviewControllerPlainTextToHtml_(lines.join('\n\n'))
   };
 }
@@ -312,6 +315,7 @@ function splitRenderedMessageForEditor_(text, fallbackTitle) {
 
   return {
     title: title || fallbackTitle || '',
+    titleHtml: reviewControllerSlackInlineToHtml_(title || fallbackTitle || ''),
     bodyHtml: slackTextToReviewControllerHtml_(bodyLines.join('\n').trim())
   };
 }
@@ -468,7 +472,8 @@ function createReviewControllerNewCommunicationDraft(form) {
   if (!event) throw new Error('Registry is missing Event_Catalog row for: ' + eventKey);
 
   const lane = event.Lane || inferLaneFromEventKey_(eventKey);
-  const messageTitle = stringFromForm_(form.messageTitle);
+  const messageTitleHtml = stringFromForm_(form.messageTitleHtml);
+  const messageTitle = stringFromForm_(form.messageTitle) || stripHtml_(messageTitleHtml);
   const messageBodyHtml = stringFromForm_(form.messageBodyHtml);
   const payload = {
     event_key: eventKey,
@@ -479,6 +484,7 @@ function createReviewControllerNewCommunicationDraft(form) {
     so_what: stringFromForm_(form.soWhat) || htmlToSlackText_(messageBodyHtml),
     whats_next: stringFromForm_(form.whatsNext),
     message_title: messageTitle,
+    message_title_html: messageTitleHtml || reviewControllerPlainTextToHtml_(messageTitle),
     message_body_html: messageBodyHtml,
     message_format: 'html_v1',
     priority: event.Severity || 'Medium'
@@ -557,6 +563,7 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
         owner: item.Owner || payload.owner || '',
         subject: getReviewControllerSubject_(item, payload),
         messageTitle: finalMessage.title,
+        messageTitleHtml: finalMessage.titleHtml,
         messageBodyHtml: finalMessage.bodyHtml,
         what: payload.what || '',
         soWhat: payload.so_what || '',
@@ -597,6 +604,7 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
       owner: flow.Owner || payload.owner || '',
       subject: flow.Subject || payload.subject || flowId,
       messageTitle: finalMessage.title,
+      messageTitleHtml: finalMessage.titleHtml,
       messageBodyHtml: finalMessage.bodyHtml,
       what: payload.what || '',
       soWhat: payload.so_what || '',
@@ -633,6 +641,7 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
       owner: '',
       subject: '',
       messageTitle: '',
+      messageTitleHtml: '',
       messageBodyHtml: '',
       what: '',
       soWhat: '',
@@ -768,11 +777,13 @@ function getQueueIdFromActiveReviewControllerSelection_(ss) {
 function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
   const item = getRowObject_(queueSheet, row);
   const payload = normalizePayload_(item);
-  const messageTitle = reviewControllerFormValue_(form, 'messageTitle', payload.message_title || payload.subject || '');
+  const messageTitleHtml = reviewControllerFormValue_(form, 'messageTitleHtml', payload.message_title_html || reviewControllerPlainTextToHtml_(payload.message_title || payload.subject || ''));
+  const messageTitle = reviewControllerFormValue_(form, 'messageTitle', payload.message_title || stripHtml_(messageTitleHtml) || payload.subject || '');
   const messageBodyHtml = reviewControllerFormValue_(form, 'messageBodyHtml', payload.message_body_html || '');
 
-  if (messageTitle || messageBodyHtml) {
+  if (messageTitle || messageTitleHtml || messageBodyHtml) {
     payload.message_title = messageTitle;
+    payload.message_title_html = messageTitleHtml;
     payload.message_body_html = messageBodyHtml;
     payload.message_format = 'html_v1';
   }
@@ -799,11 +810,13 @@ function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
 }
 
 function applyReviewControllerFinalMessageToPayload_(payload, form) {
-  const messageTitle = stringFromForm_(form && form.messageTitle);
+  const messageTitleHtml = stringFromForm_(form && form.messageTitleHtml);
+  const messageTitle = stringFromForm_(form && form.messageTitle) || stripHtml_(messageTitleHtml);
   const messageBodyHtml = stringFromForm_(form && form.messageBodyHtml);
-  if (!messageTitle && !messageBodyHtml) return payload;
+  if (!messageTitle && !messageTitleHtml && !messageBodyHtml) return payload;
 
   payload.message_title = messageTitle;
+  payload.message_title_html = messageTitleHtml || reviewControllerPlainTextToHtml_(messageTitle);
   payload.message_body_html = messageBodyHtml;
   payload.message_format = 'html_v1';
   if (messageTitle && !payload.subject) payload.subject = messageTitle;
@@ -1087,6 +1100,7 @@ function buildReviewControllerSelectedDefaults_(item) {
   const finalMessage = buildReviewControllerFinalMessage_(item);
   return {
     messageTitle: finalMessage.title,
+    messageTitleHtml: finalMessage.titleHtml,
     messageBodyHtml: finalMessage.bodyHtml,
     what: payload.what || '',
     soWhat: payload.so_what || '',
@@ -1115,6 +1129,7 @@ function enrichReviewControllerDefaultsWithFinalMessage_(defaults, item, flow, e
   });
   const finalMessage = buildReviewControllerFinalMessage_(itemForRender);
   defaults.messageTitle = finalMessage.title;
+  defaults.messageTitleHtml = finalMessage.titleHtml;
   defaults.messageBodyHtml = finalMessage.bodyHtml;
   return defaults;
 }
