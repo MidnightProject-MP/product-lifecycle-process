@@ -216,11 +216,6 @@
       <button type="button" title="Bold" onmousedown="formatEditor(event, 'messageTitle', 'bold')"><strong>B</strong></button>
       <button type="button" title="Italic" onmousedown="formatEditor(event, 'messageTitle', 'italic')"><em>I</em></button>
       <span class="separator"></span>
-      <button type="button" title="Bullet list" onmousedown="formatEditor(event, 'messageTitle', 'insertUnorderedList')">&bull;</button>
-      <button type="button" title="Numbered list" onmousedown="formatEditor(event, 'messageTitle', 'insertOrderedList')">1.</button>
-      <button type="button" title="Decrease list level" onmousedown="formatEditor(event, 'messageTitle', 'outdent')">&larr;</button>
-      <button type="button" title="Increase list level" onmousedown="formatEditor(event, 'messageTitle', 'indent')">&rarr;</button>
-      <span class="separator"></span>
       <button type="button" title="Add link" onmousedown="addLink(event, 'messageTitle')">Link</button>
       <button type="button" title="Remove link" onmousedown="formatEditor(event, 'messageTitle', 'unlink')">Unlink</button>
     </div>
@@ -497,6 +492,11 @@
 
     function handleEditorKeydown(event, editorId) {
       saveEditorSelection(editorId);
+      if (editorId === 'messageTitle' && event.key === 'Enter') {
+        event.preventDefault();
+        return;
+      }
+      if (editorId !== 'messageBody') return;
       if (event.key !== 'Tab') return;
       event.preventDefault();
       document.execCommand(event.shiftKey ? 'outdent' : 'indent', false, null);
