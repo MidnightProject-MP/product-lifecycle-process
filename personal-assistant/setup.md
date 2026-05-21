@@ -233,6 +233,13 @@ Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Execut
 
 Keep identity formulas text-safe. Date-like IDs such as `jan-26` should be emitted as text; the script also reads display values and writes `Automation_Export` as plain text to avoid spreadsheet serial-number conversion.
 
+Optional `Automation_Export_Source` headers may be added after the required export columns:
+
+- `Primary Target`
+- `Lead PM`
+
+For project rows where `Next Gate` is `Special Release`, populate `Next Gate ETA` and `Lead PM` when available. The automation will create a single-project release flow using `release.scheduled` and a `rel-special-<source-item-id>` flow ID.
+
 ```text
 syncLeadershipDashboardToAutomation
 ```

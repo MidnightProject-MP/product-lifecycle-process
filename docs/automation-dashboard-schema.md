@@ -51,13 +51,13 @@ Go / No-Go Required, Rollback Status, Impact, Included Projects, Known Issues,
 Notes, Channel Override, Slack Thread ID, Manual Review, Updated At, Active
 ```
 
-Optional supported project header:
+Optional supported project headers:
 
 ```text
-Primary Target
+Primary Target, Lead PM
 ```
 
-If `Primary Target` exists in `Automation_Export_Source`, the script carries it into `Automation_Export` and includes it in project change detection. If it is absent, existing exports remain valid.
+If `Primary Target` or `Lead PM` exists in `Automation_Export_Source`, the script carries it into `Automation_Export` and includes it in state hashing, payloads, and evidence. If either is absent, existing exports remain valid.
 
 `Automation_Export_Source` may contain formulas. `Automation_Export` must be values-only and is written by Apps Script only after validation passes. The script reads the source using displayed values and formats automation-owned output sheets as plain text so date-like IDs such as `jan-26` are not converted into spreadsheet serial numbers.
 
@@ -78,7 +78,7 @@ Headers:
 Source Item ID, Flow ID, Record Type, Active, Source Row, Source Signature, Signal Signature
 ```
 
-- `Source Signature` covers all fields that affect the processed dashboard state, including optional `Primary Target`.
+- `Source Signature` covers all fields that affect the processed dashboard state, including optional `Primary Target` and `Lead PM`.
 - `Signal Signature` focuses on communication-relevant fields such as status, phase, risk/reason, next gate, ETA, release date/status, go/no-go, rollback, and notes.
 - Signatures include stable prefixes, so rows with blank signal fields still produce a valid fingerprint.
 - If the index is missing, broken, empty, or contains formula errors, the script falls back to full sync.
@@ -151,6 +151,7 @@ V2 supports Projects and Releases.
 Project dashboard changes create communication drafts only for the baseline cases below:
 
 - Status moves into yellow/red or returns from yellow/red back to green. This creates `project.unexpected_status_change`; `Primary Risk` is used as the current reason/context.
+- `Next Gate = Special Release` with a populated `Next Gate ETA` creates a project-originated `release.scheduled` draft after stable evaluation. The draft uses a release-style flow ID, `rel-special-<source-item-id>`, so Slack behavior follows the release anchor/thread lifecycle while staying linked to the source project in payload memory.
 - `Next Gate ETA` changes. This creates `project.unexpected_status_change` with old/new timing and the current next gate.
 - Optional `Primary Target` changes. This creates `project.unexpected_status_change` with old/new target values.
 - Gate cleared pattern: `Phase`, `Next Gate`, and `Next Gate ETA` all change, and the new ETA is later than the previous ETA. This creates `project.gate_passed`.

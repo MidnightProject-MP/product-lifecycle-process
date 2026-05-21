@@ -239,11 +239,11 @@ function installAutomationChangeIndexFormulaIfNeeded_(sheet) {
 function buildAutomationChangeIndexFormula_() {
   const source = "'" + AUTOMATION.SHEETS.EXPORT_SOURCE.replace(/'/g, "''") + "'";
   const range = letter => source + '!' + letter + '2:' + letter;
-  const text = letter => letter === 'Z' ? 'IFERROR(TO_TEXT(' + range(letter) + '),"")' : 'TO_TEXT(' + range(letter) + ')';
+  const text = letter => ['Z', 'AA'].indexOf(letter) >= 0 ? 'IFERROR(TO_TEXT(' + range(letter) + '),"")' : 'TO_TEXT(' + range(letter) + ')';
   const signature = (prefix, letters) => '"' + prefix + '|"&' + letters.map(text).join('&CHAR(31)&');
   const sourceSignature = signature('source', [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-    'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z'
+    'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'Z', 'AA'
   ]);
   const signalSignature = signature('signal', ['F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'T', 'Z']);
 
@@ -1238,6 +1238,9 @@ function inferProjectExportTrigger_(row, oldState, changes) {
   const status = normalizeStatus_(row.Status);
   const oldStatus = normalizeStatus_(oldState.Status);
 
+  const specialReleaseTrigger = inferProjectSpecialReleaseTrigger_(row, fields);
+  if (specialReleaseTrigger) return specialReleaseTrigger;
+
   if (isProjectGateCleared_(row, oldState, fields)) {
     if (isProjectPrimaryTargetCleared_(row, oldState)) {
       return { candidate: 'Project primary target cleared', eventKey: 'project.completed' };
@@ -1261,6 +1264,29 @@ function inferProjectExportTrigger_(row, oldState, changes) {
   }
 
   return { candidate: 'Project changed', eventKey: '' };
+}
+
+function inferProjectSpecialReleaseTrigger_(row, fields) {
+  if (!isProjectSpecialReleaseGate_(row)) return null;
+
+  if (!stringifyAutomationValue_(row['Next Gate ETA'])) {
+    return { candidate: 'Special release missing schedule', eventKey: '' };
+  }
+
+  const signalFields = {
+    'Next Gate': true,
+    'Next Gate ETA': true,
+    Status: true,
+    'Primary Risk': true
+  };
+  const hasSignalChange = fields.some(field => signalFields[field]);
+  if (!hasSignalChange) return { candidate: 'Special release tracked', eventKey: '' };
+
+  return { candidate: 'Special release scheduled', eventKey: 'release.scheduled' };
+}
+
+function isProjectSpecialReleaseGate_(row) {
+  return automationTextMatches_(row['Next Gate'], 'Special Release');
 }
 
 function isProjectStatusCommunication_(oldStatus, newStatus, fields) {
@@ -1321,15 +1347,18 @@ function buildHubDraftFromExportChange_(row, trigger, changes, oldState, stateHa
   const recordType = normalizeAutomationRecordType_(row['Record Type']);
   const owner = row.Owner || 'TPM';
   const payload = buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owner);
+  const specialRelease = isSpecialReleaseScheduledTrigger_(row, trigger);
+  const flowId = specialRelease ? buildSpecialReleaseFlowId_(row) : row['Flow ID'];
+  const lane = specialRelease || recordType === 'Release' ? 'Production Release' : 'Project';
 
   return {
     'Queue ID': Utilities.getUuid(),
-    'Flow ID': row['Flow ID'],
+    'Flow ID': flowId,
     'Dedupe Key': dedupeKey || ('dashboard|' + row['Source Item ID'] + '|' + trigger.eventKey + '|' + stateHash),
     'Created At': automationNowIso_(),
     'Updated At': automationNowIso_(),
     Source: 'Automation Dashboard',
-    Lane: recordType === 'Release' ? 'Production Release' : 'Project',
+    Lane: lane,
     'Event Key': trigger.eventKey,
     Status: 'Draft',
     Priority: inferAutomationPriority_(trigger.eventKey, row),
@@ -1342,6 +1371,10 @@ function buildHubDraftFromExportChange_(row, trigger, changes, oldState, stateHa
 
 function buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owner) {
   const recordType = normalizeAutomationRecordType_(row['Record Type']);
+  if (isSpecialReleaseScheduledTrigger_(row, trigger)) {
+    return buildSpecialReleasePayloadFromProject_(row, trigger, changes, oldState, owner);
+  }
+
   const subject = row.Subject || row['Source Item ID'];
   const payload = {
     subject: subject,
@@ -1361,6 +1394,7 @@ function buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owne
     confidence: row.Confidence || '',
     primary_risk: row['Primary Risk'] || '',
     primary_target: row['Primary Target'] || '',
+    lead_pm: row['Lead PM'] || '',
     notes: row.Notes || ''
   };
 
@@ -1379,11 +1413,78 @@ function buildAutomationPayloadFromExport_(row, trigger, changes, oldState, owne
   return payload;
 }
 
+function buildSpecialReleasePayloadFromProject_(row, trigger, changes, oldState, owner) {
+  const project = row.Subject || row['Source Item ID'];
+  const releaseSubject = project + ' Special Release';
+  const flowId = buildSpecialReleaseFlowId_(row);
+  const leadPm = row['Lead PM'] || '';
+
+  return {
+    subject: releaseSubject,
+    owner: owner,
+    project: project,
+    project_flow_id: row['Flow ID'] || '',
+    event_key: trigger.eventKey,
+    source_item_id: row['Source Item ID'],
+    release_id: flowId,
+    release_name: releaseSubject,
+    release_date: row['Next Gate ETA'] || '',
+    release_status: 'Scheduled',
+    release_type: 'Special Release',
+    release_owner: owner,
+    lead_pm: leadPm,
+    what: buildSpecialReleaseWhat_(row, oldState || {}),
+    so_what: inferSpecialReleaseSoWhat_(row),
+    whats_next: inferSpecialReleaseWhatsNext_(row),
+    status: row.Status || '',
+    phase: row.Phase || '',
+    gate: row['Next Gate'] || '',
+    next_gate: row['Next Gate'] || '',
+    next_gate_eta: row['Next Gate ETA'] || '',
+    risk_level: row['Risk Level'] || '',
+    confidence: row.Confidence || '',
+    primary_risk: row['Primary Risk'] || '',
+    primary_target: row['Primary Target'] || '',
+    notes: row.Notes || '',
+    included_projects: project,
+    known_issues: row['Primary Risk'] || '',
+    decision_owner: owner,
+    go_no_go_required: 'TRUE'
+  };
+}
+
 function buildAutomationWhat_(recordType, row, trigger, changes, oldState) {
+  if (isSpecialReleaseScheduledTrigger_(row, trigger)) {
+    return buildSpecialReleaseWhat_(row, oldState || {});
+  }
   if (recordType === 'Project') {
     return buildProjectChangeSummary_(row, oldState || {}, changes, trigger);
   }
   return buildChangeSummary_(changes);
+}
+
+function buildSpecialReleaseWhat_(row, oldState) {
+  const project = row.Subject || row['Source Item ID'];
+  const releaseDate = row['Next Gate ETA'] || 'TBD';
+  const risk = row['Primary Risk'] || oldState['Primary Risk'] || '';
+  const readiness = risk ? ' Current readiness risk: ' + risk : '';
+  return 'Special release scheduled for ' + project + ' on ' + releaseDate + '.' + readiness;
+}
+
+function inferSpecialReleaseSoWhat_(row) {
+  const details = [];
+  if (row.Status) details.push('current project status is ' + row.Status);
+  if (row.Confidence) details.push('confidence is ' + row.Confidence);
+  if (row['Risk Level']) details.push('risk level is ' + row['Risk Level']);
+  const context = details.length ? ' Current readiness context: ' + details.join(', ') + '.' : '';
+  return 'Stakeholders should plan around a project-specific production release instead of the standard release train.' + context;
+}
+
+function inferSpecialReleaseWhatsNext_(row) {
+  const parts = ['Release owner should confirm readiness and the go / no-go path before the special release window.'];
+  if (row.Owner) parts.push('Release owner: ' + row.Owner + '.');
+  if (row['Lead PM']) parts.push('Lead PM: ' + row['Lead PM'] + '.');
+  return parts.join(' ');
 }
 
 function buildProjectChangeSummary_(row, oldState, changes, trigger) {
@@ -1461,6 +1562,10 @@ function summarizeAutomationState_(state) {
 }
 
 function inferAutomationSoWhat_(recordType, eventKey, trigger) {
+  if (trigger && trigger.candidate === 'Special release scheduled') {
+    return 'Stakeholders should plan around a project-specific production release instead of the standard release train.';
+  }
+
   if (recordType === 'Release') {
     if (eventKey === 'release.rolled_back') return 'Stakeholders need a clear production state and recovery expectation.';
     if (eventKey === 'release.delayed') return 'Stakeholders need to adjust release expectations, support readiness, and timing.';
@@ -1485,6 +1590,10 @@ function inferAutomationSoWhat_(recordType, eventKey, trigger) {
 }
 
 function inferAutomationWhatsNext_(recordType, eventKey, trigger) {
+  if (trigger && trigger.candidate === 'Special release scheduled') {
+    return 'Release owner should confirm readiness and the go / no-go path before the special release window.';
+  }
+
   if (recordType === 'Release') {
     if (eventKey === 'release.go_no_go') return 'Release owner should confirm readiness and the go / no-go decision.';
     if (eventKey === 'release.rolled_back') return 'Release owner should confirm recovery status and whether a postmortem is needed.';
@@ -1514,6 +1623,18 @@ function inferAutomationPriority_(eventKey, row) {
   if (String(row.Status || '').toUpperCase() === 'RED') return 'High';
   if (['HIGH', 'CRITICAL'].indexOf(normalizeRiskLevel_(row['Risk Level'])) >= 0) return 'High';
   return 'Medium';
+}
+
+function isSpecialReleaseScheduledTrigger_(row, trigger) {
+  return normalizeAutomationRecordType_(row['Record Type']) === 'Project' &&
+    trigger &&
+    trigger.eventKey === 'release.scheduled' &&
+    trigger.candidate === 'Special release scheduled';
+}
+
+function buildSpecialReleaseFlowId_(row) {
+  const source = row['Source Item ID'] || row['Flow ID'] || row.Subject || 'special-release';
+  return 'rel-special-' + normalizeAutomationSlug_(source);
 }
 
 function insertHubDraftFromAutomationAtTop_(hubId, draft) {
@@ -1767,6 +1888,11 @@ function automationTextMatches_(left, right) {
 
 function normalizeAutomationText_(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function normalizeAutomationSlug_(value) {
+  const slug = String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug || 'item';
 }
 
 function hashString_(text) {

@@ -51,6 +51,7 @@ Traceability is split by layer:
 - Automation `Dashboard_Changes`: field-level old/new evidence from the last handled observation.
 - Automation `Dashboard_Observations`: last successfully handled state per source item.
 - Automation `Trigger_Log`: why a draft was or was not created.
+- Automation special releases: project rows with `Next Gate = Special Release` create release-style `release.scheduled` flows while preserving source project context in payload memory.
 - Hub `Run_Log`: what the sender did, skipped, or failed.
 - Hub `Skill_Run_Log`: atomic skill-level runs, parent runs, input hashes, output summaries, errors, and durations.
 - Hub `History`: compact audit record with final status, identifiers, Slack pointers, and payload hash.

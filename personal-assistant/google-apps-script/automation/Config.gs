@@ -116,7 +116,8 @@ const AUTOMATION = {
     CONFIG: ['Key', 'Value']
   },
   OPTIONAL_EXPORT_HEADERS: [
-    'Primary Target'
+    'Primary Target',
+    'Lead PM'
   ],
   DATE_EXPORT_HEADERS: [
     'Next Gate ETA',

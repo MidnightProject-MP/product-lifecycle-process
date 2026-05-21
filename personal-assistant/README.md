@@ -35,7 +35,7 @@ PMs should use the Hub `Flow_Console` for manual lifecycle updates. They select 
 
 - Slack `/incident` for critical issue flow starts.
 - Future Slack `/update` for owner-provided raw status on an existing entity.
-- Automation Dashboard polling for project and release changes.
+- Automation Dashboard polling for project, release, and project-originated special release changes.
 - Manual review through the Hub `Review` sheet.
 
 ## Workflows
@@ -76,7 +76,7 @@ Apps Script validates and materializes Automation_Export
 Snapshots and observations compare current state to last handled state
         |
         v
-Trigger_Log records candidates and creates Hub drafts
+Trigger_Log records candidates and creates Hub drafts, including release-style special release drafts from project rows
         |
         v
 Reviewer approves in Review
