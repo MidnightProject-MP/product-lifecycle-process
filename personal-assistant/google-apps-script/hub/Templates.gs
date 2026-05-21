@@ -97,36 +97,104 @@ function renderFinalThreadReply_(item) {
 }
 
 function htmlToSlackText_(html) {
-  let text = String(html || '');
-  if (!text) return '';
+  const source = String(html || '')
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  if (!source) return '';
 
-  text = text
-    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-    .replace(/<\s*ol(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*ol\s*>/gi, (_, body) => {
-      let index = 0;
-      return String(body || '').replace(/<\s*li(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*li\s*>/gi, (_, item) => '\n' + (++index) + '. ' + item);
-    })
-    .replace(/<\s*ul(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*ul\s*>/gi, (_, body) =>
-      String(body || '').replace(/<\s*li(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*li\s*>/gi, (_, item) => '\n- ' + item)
-    )
-    .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\s*\/\s*p\s*>/gi, '\n\n')
-    .replace(/<\s*p(?:\s[^>]*)?>/gi, '')
-    .replace(/<\s*div(?:\s[^>]*)?>/gi, '')
-    .replace(/<\s*\/\s*div\s*>/gi, '\n')
-    .replace(/<\s*li(?:\s[^>]*)?>/gi, '\n- ')
-    .replace(/<\s*\/\s*li\s*>/gi, '')
-    .replace(/<\s*\/?\s*(ul|ol)(?:\s[^>]*)?>/gi, '\n')
-    .replace(/<\s*(strong|b)(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*\1\s*>/gi, '*$2*')
-    .replace(/<\s*(em|i)(?:\s[^>]*)?>([\s\S]*?)<\s*\/\s*\1\s*>/gi, '_$2_')
-    .replace(/<\s*a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\s*\/\s*a\s*>/gi, '<$1|$2>')
-    .replace(/<[^>]+>/g, '');
+  const listStack = [];
+  let output = '';
+  const tokens = source.match(/<[^>]+>|[^<]+/g) || [];
 
-  text = decodeHtmlEntities_(text);
-  return text
+  tokens.forEach(token => {
+    if (token.charAt(0) !== '<') {
+      output += decodeHtmlEntities_(token);
+      return;
+    }
+
+    const tagName = getHtmlTagName_(token);
+    if (!tagName) return;
+    const closing = /^<\s*\//.test(token);
+    const selfClosing = /\/\s*>$/.test(token);
+
+    if (tagName === 'br') {
+      output = appendSlackNewline_(output, 1);
+      return;
+    }
+
+    if (tagName === 'p' || tagName === 'div') {
+      if (closing) output = appendSlackNewline_(output, 2);
+      return;
+    }
+
+    if (tagName === 'ul' || tagName === 'ol') {
+      if (closing) {
+        listStack.pop();
+        output = appendSlackNewline_(output, listStack.length ? 1 : 2);
+      } else {
+        listStack.push({ type: tagName, count: 0 });
+        output = appendSlackNewline_(output, 1);
+      }
+      return;
+    }
+
+    if (tagName === 'li') {
+      if (closing) return;
+      output = appendSlackNewline_(output, 1);
+      output += buildSlackListPrefix_(listStack);
+      return;
+    }
+
+    if (tagName === 'strong' || tagName === 'b') {
+      output += '*';
+      return;
+    }
+
+    if (tagName === 'em' || tagName === 'i') {
+      output += '_';
+      return;
+    }
+
+    if (tagName === 'a') {
+      if (closing) {
+        output += '>';
+      } else {
+        output += '<' + decodeHtmlEntities_(getHtmlAttribute_(token, 'href')) + '|';
+        if (selfClosing) output += '>';
+      }
+    }
+  });
+
+  return output
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function appendSlackNewline_(text, count) {
+  const desired = count || 1;
+  const current = (String(text || '').match(/\n*$/) || [''])[0].length;
+  if (current >= desired) return text;
+  return text + new Array(desired - current + 1).join('\n');
+}
+
+function buildSlackListPrefix_(listStack) {
+  const depth = Math.max(0, listStack.length - 1);
+  const current = listStack.length ? listStack[listStack.length - 1] : null;
+  const indent = new Array(depth + 1).join('  ');
+  if (!current || current.type !== 'ol') return indent + '- ';
+  current.count += 1;
+  return indent + current.count + '. ';
+}
+
+function getHtmlTagName_(tag) {
+  const match = String(tag || '').match(/^<\s*\/?\s*([a-z0-9]+)/i);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function getHtmlAttribute_(tag, attributeName) {
+  const pattern = new RegExp(attributeName + "\\s*=\\s*(\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", 'i');
+  const match = String(tag || '').match(pattern);
+  return match ? (match[2] || match[3] || match[4] || '') : '';
 }
 
 function stripHtml_(html) {
