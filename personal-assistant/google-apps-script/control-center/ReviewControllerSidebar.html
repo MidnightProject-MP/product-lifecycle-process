@@ -153,6 +153,172 @@
       margin-top: 12px;
     }
 
+    .console-panel {
+      background: #f8fafd;
+      border: 1px solid #dfe5f2;
+      border-radius: 8px;
+      margin: 8px 0 14px;
+      padding: 10px;
+    }
+
+    .console-panel h2 {
+      color: #202124;
+      font-size: 14px;
+      line-height: 1.25;
+      margin: 0 0 8px;
+    }
+
+    .console-eyebrow {
+      color: #5f6368;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .panel-summary {
+      color: #3c4043;
+      font-size: 12px;
+      line-height: 1.4;
+      margin: -2px 0 10px;
+    }
+
+    .panel-alert {
+      background: #fce8e6;
+      border: 1px solid #fad2cf;
+      border-radius: 6px;
+      color: #a50e0e;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin: 8px 0 10px;
+      padding: 8px;
+    }
+
+    .context-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    body.wide .context-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .context-item {
+      min-width: 0;
+    }
+
+    .context-label {
+      color: #5f6368;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .context-value {
+      color: #202124;
+      line-height: 1.35;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .context-muted {
+      color: #5f6368;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 999px;
+      color: #3c4043;
+      display: inline-block;
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 4px 8px;
+    }
+
+    .route-grid {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    body.wide .route-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .route-card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 8px;
+    }
+
+    .route-title {
+      color: #3c4043;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .route-state {
+      color: #202124;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+
+    .route-meta {
+      color: #5f6368;
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .guidance {
+      border-left: 3px solid #1a73e8;
+      color: #3c4043;
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 12px;
+      padding-left: 9px;
+    }
+
+    .guidance ul {
+      margin: 6px 0 0 18px;
+      padding: 0;
+    }
+
+    .guidance li {
+      margin: 3px 0;
+    }
+
+    details.console-details {
+      margin-top: 8px;
+    }
+
+    details.console-details summary {
+      color: #5f6368;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .details-grid {
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
     .meta div {
       margin: 0 0 6px;
     }
@@ -174,6 +340,7 @@
     }
 
     .link-row {
+      display: none;
       margin-top: 10px;
     }
 
@@ -209,6 +376,8 @@
   </div>
   <div id="status" class="status">Loading communication console...</div>
   <div id="app" hidden>
+    <div id="contextPanel" class="console-panel"></div>
+
     <label for="communicationSelect">Communication</label>
     <select id="communicationSelect"></select>
 
@@ -252,6 +421,7 @@
       <button class="secondary" id="queueBtn" onclick="queueDraft()">Queue up Draft</button>
       <button class="primary" id="approveBtn" onclick="approveDraft()">Approve & Send</button>
     </div>
+    <div id="actionGuidance" class="guidance"></div>
   </div>
 
   <script>
@@ -351,8 +521,9 @@
       }
 
       const testAnchor = document.getElementById('testAnchor');
-      if (context.queue.testSlackUrl) {
-        testAnchor.href = context.queue.testSlackUrl;
+      const testAnchorUrl = context.queue.testSlackUrl || context.flow.testAnchorUrl || '';
+      if (testAnchorUrl) {
+        testAnchor.href = testAnchorUrl;
         testAnchor.hidden = false;
       } else {
         testAnchor.hidden = true;
@@ -369,13 +540,209 @@
         actionSelect.appendChild(option);
         actionDefaults[action.value] = action.defaults || {};
       });
-      actionSelect.onchange = applyActionDefaults;
+      actionSelect.onchange = function() {
+        applyActionDefaults();
+        renderContextPanel(currentContext);
+        renderActionGuidance(currentContext);
+      };
       if (formOverride) {
         applyFormOverride(formOverride);
       } else if ((context.mode === 'new' || context.mode === 'flow') && actionSelect.options.length) {
         applyActionDefaults();
       }
+      renderContextPanel(context);
+      renderActionGuidance(context);
       bindEditorEvents();
+    }
+
+    function renderContextPanel(context) {
+      const panel = document.getElementById('contextPanel');
+      const queue = context.queue || {};
+      const flow = context.flow || {};
+      const selection = context.selection || {};
+      const modeLabel = context.mode === 'new' ? 'New communication' :
+        context.mode === 'flow' ? 'Existing communication' :
+        'Queued draft';
+      const subject = queue.subject || flow.subject || 'No subject yet';
+      const eventName = (context.mode === 'new' || context.mode === 'flow') ?
+        getSelectedActionLabel() || queue.eventName || flow.currentState || 'Choose an action' :
+        queue.eventName || getSelectedActionLabel() || flow.currentState || 'Choose an action';
+      const owner = queue.owner || 'Owner not set';
+      const status = queue.status || flow.status || '';
+      const current = flow.exists ? flow.currentState : 'No parent thread yet';
+      const next = flow.exists ? flow.expectedNext : 'Choose an action to start the communication.';
+      const detours = flow.exists ? flow.availableDetours || 'No detours configured' : '';
+      const source = friendlySourceName(queue.source || selection.sourceSheet || 'Communication Console');
+      const liveUrl = queue.slackUrl || flow.anchorUrl || '';
+      const testUrl = queue.testSlackUrl || flow.testAnchorUrl || '';
+
+      const rows = [
+        contextItemHtml('Owner', owner),
+        contextItemHtml('Workflow status', status || modeLabel),
+        contextItemHtml('Selected action', eventName),
+        contextItemHtml('Current state', current),
+        contextItemHtml('Expected next', next)
+      ];
+      if (detours) rows.push(contextItemHtml('Available detours', detours));
+      if (queue.scheduledFor) rows.push(contextItemHtml('Scheduled for', formatDateTime(queue.scheduledFor)));
+      rows.push(contextItemHtml('Source', source));
+
+      const chips = [];
+      chips.push(chipHtml(modeLabel));
+      if (queue.lane) chips.push(chipHtml(queue.lane));
+      if (queue.sendRule) chips.push(chipHtml(queue.sendRule));
+      if (queue.error) chips.push(chipHtml('Needs attention'));
+
+      panel.innerHTML =
+        '<div class="console-eyebrow">' + escapeHtml(modeLabel) + '</div>' +
+        '<h2>' + escapeHtml(subject) + '</h2>' +
+        '<div class="panel-summary">' + escapeHtml(contextSummaryText(context, eventName)) + '</div>' +
+        (queue.error ? '<div class="panel-alert">' + escapeHtml(queue.error) + '</div>' : '') +
+        '<div class="context-grid">' + rows.join('') + '</div>' +
+        (chips.length ? '<div class="chips">' + chips.join('') + '</div>' : '') +
+        '<div class="route-grid">' +
+          routeCardHtml('Test Slack', testUrl ? 'Last test is available' : 'No test sent yet', testUrl, testRouteMeta(queue, flow)) +
+          routeCardHtml('Live Slack', liveUrl ? 'Live anchor is available' : 'Not sent live yet', liveUrl, liveRouteMeta(queue, flow)) +
+        '</div>' +
+        buildTechnicalDetailsHtml(context);
+    }
+
+    function contextSummaryText(context, eventName) {
+      if (!context || context.mode === 'new') {
+        return 'Start a new parent communication. Choose a type and action, then edit the final title and body.';
+      }
+      if (context.mode === 'flow') {
+        return 'Continue an existing parent communication with the chosen expected path or detour.';
+      }
+      const queue = context.queue || {};
+      if (queue.status === 'Scheduled') {
+        return 'This draft was queued by an automation or flow step and is waiting for review.';
+      }
+      if (queue.status === 'Error') {
+        return 'This draft needs attention before it can be sent.';
+      }
+      return 'Review the queued ' + (eventName || 'communication') + ' draft, send a test if needed, then approve the live send.';
+    }
+
+    function contextItemHtml(label, value) {
+      const safeValue = value ? escapeHtml(value) : '<span class="context-muted">Not set</span>';
+      return '<div class="context-item"><div class="context-label">' + escapeHtml(label) + '</div><div class="context-value">' + safeValue + '</div></div>';
+    }
+
+    function chipHtml(value) {
+      return '<span class="chip">' + escapeHtml(value) + '</span>';
+    }
+
+    function linkChipHtml(label, url) {
+      return '<a class="chip" href="' + escapeAttribute(url) + '" target="_blank">' + escapeHtml(label) + '</a>';
+    }
+
+    function routeCardHtml(label, state, url, meta) {
+      const stateHtml = url ?
+        '<a href="' + escapeAttribute(url) + '" target="_blank">' + escapeHtml(state) + '</a>' :
+        escapeHtml(state);
+      return '<div class="route-card">' +
+        '<div class="route-title">' + escapeHtml(label) + '</div>' +
+        '<div class="route-state">' + stateHtml + '</div>' +
+        (meta ? '<div class="route-meta">' + escapeHtml(meta) + '</div>' : '') +
+        '</div>';
+    }
+
+    function testRouteMeta(queue, flow) {
+      const parts = [];
+      if (queue.testSentAt) parts.push('Sent ' + formatDateTime(queue.testSentAt));
+      if (queue.testSlackChannel || flow.testSlackChannel) parts.push('Channel ' + (queue.testSlackChannel || flow.testSlackChannel));
+      if (queue.testSlackMessageTs || flow.testLatestReplyTs) parts.push('TS ' + (queue.testSlackMessageTs || flow.testLatestReplyTs));
+      return parts.join(' | ');
+    }
+
+    function liveRouteMeta(queue, flow) {
+      const parts = [];
+      if (flow.lastConfirmedAt) parts.push('Confirmed ' + formatDateTime(flow.lastConfirmedAt));
+      if (flow.slackChannel) parts.push('Channel ' + flow.slackChannel);
+      if (flow.latestReplyTs || flow.threadTs) parts.push('TS ' + (flow.latestReplyTs || flow.threadTs));
+      if (queue.channelOverride) parts.push('Override ' + queue.channelOverride);
+      return parts.join(' | ');
+    }
+
+    function buildTechnicalDetailsHtml(context) {
+      const queue = context.queue || {};
+      const flow = context.flow || {};
+      const selection = context.selection || {};
+      const details = [
+        ['Queue ID', queue.queueId || ''],
+        ['Flow ID', queue.flowId || flow.flowId || ''],
+        ['Event Key', queue.eventKey || ''],
+        ['Queue status', queue.status || ''],
+        ['Created at', queue.createdAt || ''],
+        ['Updated at', queue.updatedAt || flow.updatedAt || ''],
+        ['Source sheet', selection.sourceSheet || ''],
+        ['Source row', selection.row || selection.queueRow || '']
+      ].filter(row => row[1] !== '' && row[1] != null);
+      if (!details.length) return '';
+      return '<details class="console-details"><summary>Details</summary><div class="details-grid">' +
+        details.map(row => contextItemHtml(row[0], String(row[1]))).join('') +
+        '</div></details>';
+    }
+
+    function renderActionGuidance(context) {
+      const guidance = document.getElementById('actionGuidance');
+      if (!guidance) return;
+
+      if (!context || !context.ok) {
+        guidance.innerHTML = '';
+        return;
+      }
+
+      const actionLabel = getSelectedActionLabel();
+      const bullets = [];
+      if (context.mode === 'new') {
+        bullets.push('Choose the communication type and action that starts the parent thread.');
+        bullets.push('Edit the final Title and Body directly. Templates are only the starting scaffold.');
+        bullets.push('Send Test posts to the sandbox channel. Approve & Send posts to the live channel.');
+      } else if (context.mode === 'flow') {
+        bullets.push('Choose the next expected update or detour for this existing parent communication.');
+        bullets.push('Send Test checks the Slack formatting without closing the flow.');
+        bullets.push('Approve & Send posts live, updates the parent anchor when policy allows it, and records History.');
+      } else {
+        bullets.push('This draft is already queued. Editing here updates the saved final message.');
+        bullets.push('Send Test posts to the sandbox channel and keeps the draft active for live approval.');
+        bullets.push('Approve & Send posts live, advances the flow, and schedules the next expected draft when configured.');
+      }
+
+      guidance.innerHTML =
+        '<strong>Next action:</strong> ' + escapeHtml(actionLabel || 'Choose an action') +
+        '<ul>' + bullets.map(bullet => '<li>' + escapeHtml(bullet) + '</li>').join('') + '</ul>';
+    }
+
+    function getSelectedActionLabel() {
+      const actionSelect = document.getElementById('flowAction');
+      if (!actionSelect || actionSelect.selectedIndex < 0) return '';
+      const selected = actionSelect.options[actionSelect.selectedIndex];
+      return selected ? selected.textContent || '' : '';
+    }
+
+    function friendlySourceName(source) {
+      const value = String(source || '').trim();
+      if (!value) return 'Communication Console';
+      if (value === 'Flow_State') return 'Existing parent communication';
+      if (/dashboard/i.test(value)) return 'Dashboard sync';
+      if (/console/i.test(value)) return 'Communication Console';
+      return value;
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '';
+      const text = String(value);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+      const parsed = new Date(text);
+      if (isNaN(parsed.getTime())) return text;
+      return parsed.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
     }
 
     function applyFormOverride(form) {
@@ -539,6 +906,10 @@
       const scratch = document.createElement('div');
       scratch.textContent = value || '';
       return scratch.innerHTML;
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replace(/"/g, '&quot;');
     }
 
     function showValidationFailure(validation, form) {

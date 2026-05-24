@@ -616,6 +616,11 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
         status: item.Status || '',
         source: item.Source || '',
         priority: item.Priority || '',
+        createdAt: item['Created At'] || '',
+        updatedAt: item['Updated At'] || '',
+        scheduledFor: item['Scheduled For'] || '',
+        sendRule: item['Send Rule'] || '',
+        channelOverride: item['Channel Override'] || '',
         owner: item.Owner || payload.owner || '',
         subject: getReviewControllerSubject_(item, payload),
         messageTitle: finalMessage.title,
@@ -625,7 +630,12 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
         soWhat: payload.so_what || '',
         whatsNext: payload.whats_next || '',
         slackUrl: item['Slack Message URL'] || '',
-        testSlackUrl: item['Test Slack Message URL'] || ''
+        testSlackUrl: item['Test Slack Message URL'] || '',
+        testSlackChannel: item['Test Slack Channel'] || '',
+        testSlackThreadTs: item['Test Slack Thread TS'] || '',
+        testSlackMessageTs: item['Test Slack Message TS'] || '',
+        testSentAt: item['Test Sent At'] || '',
+        error: item.Error || ''
       },
       flow: buildReviewControllerFlowContext_(flow),
       actions: buildReviewControllerActions_(item, flow, { includeSelected: true }),
@@ -658,6 +668,11 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
       status: flow['Flow Status'] || '',
       source: 'Flow_State',
       priority: payload.priority || '',
+      createdAt: '',
+      updatedAt: flow['Updated At'] || '',
+      scheduledFor: '',
+      sendRule: '',
+      channelOverride: '',
       owner: flow.Owner || payload.owner || '',
       subject: flow.Subject || payload.subject || flowId,
       messageTitle: finalMessage.title,
@@ -667,7 +682,12 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
       soWhat: payload.so_what || '',
       whatsNext: payload.whats_next || '',
       slackUrl: flow['Anchor Message URL'] || '',
-      testSlackUrl: flow['Test Anchor Message URL'] || ''
+      testSlackUrl: flow['Test Anchor Message URL'] || '',
+      testSlackChannel: flow['Test Slack Channel'] || '',
+      testSlackThreadTs: flow['Test Thread TS'] || '',
+      testSlackMessageTs: flow['Test Latest Reply TS'] || '',
+      testSentAt: '',
+      error: ''
     },
     flow: buildReviewControllerFlowContext_(flow),
     actions: buildReviewControllerActions_(item, flow, { includeSelected: false }),
@@ -696,6 +716,11 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
       status: 'New',
       source: 'Communication Console',
       priority: '',
+      createdAt: '',
+      updatedAt: '',
+      scheduledFor: '',
+      sendRule: '',
+      channelOverride: '',
       owner: '',
       subject: '',
       messageTitle: '',
@@ -705,7 +730,12 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
       soWhat: '',
       whatsNext: '',
       slackUrl: '',
-      testSlackUrl: ''
+      testSlackUrl: '',
+      testSlackChannel: '',
+      testSlackThreadTs: '',
+      testSlackMessageTs: '',
+      testSentAt: '',
+      error: ''
     },
     flow: buildReviewControllerFlowContext_(null),
     actions: startEvents,
@@ -902,7 +932,17 @@ function buildReviewControllerFlowContext_(flow) {
       currentState: 'No active parent flow yet',
       expectedNext: '',
       availableDetours: '',
-      anchorUrl: ''
+      anchorUrl: '',
+      slackChannel: '',
+      threadTs: '',
+      latestReplyTs: '',
+      testAnchorUrl: '',
+      testSlackChannel: '',
+      testThreadTs: '',
+      testLatestReplyTs: '',
+      lastQueueId: '',
+      lastConfirmedAt: '',
+      updatedAt: ''
     };
   }
 
@@ -914,7 +954,17 @@ function buildReviewControllerFlowContext_(flow) {
     expectedNext: flow['Next Happy Event Key'] ? getReviewControllerEventDisplayName_(flow['Next Happy Event Key']) : 'No expected next step',
     availableDetours: describeReviewControllerEventKeyList_(getFlowAllowedDetourEventKeys_(flow)),
     anchorUrl: flow['Anchor Message URL'] || '',
-    status: flow['Flow Status'] || ''
+    status: flow['Flow Status'] || '',
+    slackChannel: flow['Slack Channel'] || '',
+    threadTs: flow['Thread TS'] || '',
+    latestReplyTs: flow['Latest Reply TS'] || '',
+    testAnchorUrl: flow['Test Anchor Message URL'] || '',
+    testSlackChannel: flow['Test Slack Channel'] || '',
+    testThreadTs: flow['Test Thread TS'] || '',
+    testLatestReplyTs: flow['Test Latest Reply TS'] || '',
+    lastQueueId: flow['Last Queue ID'] || '',
+    lastConfirmedAt: flow['Last Confirmed At'] || '',
+    updatedAt: flow['Updated At'] || ''
   };
 }
 
