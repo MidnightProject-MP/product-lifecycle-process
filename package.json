@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "validate:gas": "node scripts/validate-gas-folders.mjs",
-    "validate:gas:strict": "node scripts/validate-gas-folders.mjs --strict-script-ids"
+    "validate:gas:strict": "node scripts/validate-gas-folders.mjs --strict-script-ids",
+    "test:slack-formatting": "node scripts/test-slack-formatting.mjs",
+    "test:dashboard-rules": "node scripts/test-dashboard-trigger-rules.mjs",
+    "test:sync-endpoint": "node scripts/test-automation-sync-endpoint.mjs",
+    "test": "npm run test:slack-formatting && npm run test:dashboard-rules && npm run test:sync-endpoint"
   },
   "devDependencies": {
     "@google/clasp": "3.3.0"

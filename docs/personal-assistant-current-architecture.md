@@ -11,7 +11,7 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 | Layer | Owns | Does Not Own |
 | --- | --- | --- |
 | Personal Assistant Registry | Event catalog, templates, variables, routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
-| Personal Assistant Hub | Draft queue, PM review projection, send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
+| Personal Assistant Hub | Communication Console, draft queue, send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
 | Automation Dashboard | Owned source adapter, fast change index, values-only export, snapshots, observations, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
@@ -30,12 +30,18 @@ Hub v2 drafts stay compact. The Queue is an active-work table, not a send-histor
 
 Queue stores only workflow handles, routing override, send rule, payload, and current error state. Draft-specific details such as lane, priority, parent queue, expected previous event, path override, and schedule metadata live inside `Payload JSON`.
 
+## PM Front Door
+
+The Communication Console is the only intended PM-facing workflow. PMs start or continue communications, edit the final title/body, queue drafts, approve/send, and run `Sync Dashboard Now` from the Console.
+
+`Queue`, `Review`, and `Flow_Console` remain for compatibility, observability, and admin/debug recovery. They are internal sheets, hidden by default, and should not be part of normal PM operation.
+
 ## Hub Sheet Roles
 
 | Sheet | Role |
 | --- | --- |
 | `Queue` | Lean active work state for drafts awaiting review, approval, retry, or scheduled handling. |
-| `Review` | Readable PM-facing projection used by the Communication Console and manual review. |
+| `Review` | Internal readable projection used behind the Communication Console and for admin/debug recovery. |
 | `History` | Compact audit of completed, logged, sent, or discarded communication items. |
 | `Flow_State` | One live parent-flow row per project, incident, release, or story communication thread. |
 | `Graph_*` | Hidden long-term memory for entity/W-node continuity and audit events. |
@@ -92,6 +98,7 @@ The current implementation supports:
 - Registry-driven event, template, routing, send-rule, and required-variable lookup.
 - Hub queue review, approval, Slack send, History, and Run_Log.
 - Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
+- Manual dashboard sync from the Communication Console through a temporary token-protected Automation Web App endpoint.
 - Slack slash-command intake for `/incident` and `/release`.
 - Passive W-Graph memory behind the existing communication flow.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
@@ -112,7 +119,15 @@ The Hub records communication continuity in hidden graph sheets. `Flow ID` is th
 
 Approved sent or log-only communication is treated as verified memory. Drafts create lightweight pending graph events only. Discarded draft content is not promoted to verified memory.
 
+Graph expansion is paused until it powers a visible Console, review guidance, or reporting feature. For now it remains passive memory and must not add PM workflow steps.
+
 See [Passive Graph Memory](passive-graph-memory.md).
+
+## Cross-Spreadsheet Control
+
+The future cross-spreadsheet control path is a Communication Console Launcher Add-on. The add-on should open the same Console from any authorized spreadsheet, pass local spreadsheet context when useful, and write to the central Hub or future Control Center.
+
+Until the Control Center consolidation happens, the Hub Console can manually trigger the Automation Dashboard through a narrow token-protected sync endpoint. This bridge is temporary and should be retired once Hub and Automation live in the same script.
 
 ## Next Architecture Extension
 

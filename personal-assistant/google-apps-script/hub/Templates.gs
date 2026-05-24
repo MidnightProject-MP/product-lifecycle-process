@@ -102,6 +102,7 @@ function htmlToSlackText_(html) {
   if (!source) return '';
 
   const listStack = [];
+  const spanFormatStack = [];
   let output = '';
   const tokens = source.match(/<[^>]+>|[^<]+/g) || [];
 
@@ -121,8 +122,35 @@ function htmlToSlackText_(html) {
       return;
     }
 
+    if (tagName === 'img' && !closing) {
+      output += decodeHtmlEntities_(getHtmlAttribute_(token, 'alt') || getHtmlAttribute_(token, 'title'));
+      return;
+    }
+
     if (tagName === 'p' || tagName === 'div') {
       if (closing) output = appendSlackNewline_(output, 2);
+      return;
+    }
+
+    if (tagName === 'span') {
+      if (closing) {
+        output += spanFormatStack.pop() || '';
+      } else {
+        const style = getHtmlAttribute_(token, 'style').toLowerCase();
+        let opener = '';
+        let closer = '';
+        if (/font-weight\s*:\s*(bold|[6-9]00)/.test(style)) {
+          opener += '*';
+          closer = '*' + closer;
+        }
+        if (/font-style\s*:\s*italic/.test(style)) {
+          opener += '_';
+          closer = '_' + closer;
+        }
+        output += opener;
+        spanFormatStack.push(closer);
+        if (selfClosing) output += spanFormatStack.pop() || '';
+      }
       return;
     }
 

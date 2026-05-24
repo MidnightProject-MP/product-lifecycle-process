@@ -242,6 +242,7 @@
     </div>
 
     <div class="actions">
+      <button class="plain" id="syncBtn" onclick="syncDashboardNow()">Sync Dashboard Now</button>
       <button class="secondary" id="queueBtn" onclick="queueDraft()">Queue up Draft</button>
       <button class="primary" id="approveBtn" onclick="approveDraft()">Approve & Send</button>
     </div>
@@ -260,7 +261,7 @@
     }
 
     function setBusy(isBusy) {
-      ['communicationSelect', 'flowAction', 'messageTitle', 'messageBody', 'queueBtn', 'approveBtn', 'modeToggle'].forEach(id => {
+      ['communicationSelect', 'flowAction', 'messageTitle', 'messageBody', 'syncBtn', 'queueBtn', 'approveBtn', 'modeToggle'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         if (id === 'messageTitle' || id === 'messageBody') {
@@ -425,6 +426,16 @@
       runAction('Approving and sending...', 'approveReviewControllerSelection', form, afterTerminalAction);
     }
 
+    function syncDashboardNow() {
+      const form = currentContext && currentContext.ok ? collectForm() : {};
+      setBusy(true);
+      setStatus('Syncing dashboard...');
+      google.script.run
+        .withSuccessHandler(result => afterDashboardSync(result, form))
+        .withFailureHandler(showFailure)
+        .syncDashboardFromCommunicationConsole(form);
+    }
+
     function validateForm(form) {
       const missing = [];
       if (!form.eventKey) missing.push('action');
@@ -556,6 +567,12 @@
       setBusy(false);
       setStatus(result && result.message ? result.message : 'Done.', 'success');
       window.setTimeout(load, 700);
+    }
+
+    function afterDashboardSync(result, form) {
+      setBusy(false);
+      setStatus(result && result.message ? result.message : 'Dashboard sync complete.', 'success');
+      window.setTimeout(() => load(form && form.selection || '', form || null), 700);
     }
 
     function showFailure(error) {

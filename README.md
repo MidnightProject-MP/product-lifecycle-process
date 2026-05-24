@@ -21,7 +21,7 @@ Personal Assistant Registry resolves template, routing, and approval policy
 Personal Assistant Hub queues draft and records observability
         |
         v
-Reviewer approves
+PM approves in Communication Console
         |
         v
 Slack anchor and thread are updated
@@ -44,6 +44,7 @@ The current automation is designed to make strong PM behavior the default:
 - `docs/personal-assistant-current-architecture.md`: Current implementation boundaries and operating model.
 - `docs/personal-assistant-future-architecture.md`: Future suite roadmap and non-implemented architecture.
 - `docs/personal-assistant-skills.md`: Internal atomic skill catalog for callable Personal Assistant actions.
+- `docs/control-center-consolidation.md`: Future one-spreadsheet Control Center and launcher add-on plan.
 - `docs/passive-graph-memory.md`: Passive W-Graph memory layer under the current communication workflow.
 - `docs/principles.md`: Core PM operating principles.
 - `docs/lifecycle.md`: Lifecycle stages and stage gates.

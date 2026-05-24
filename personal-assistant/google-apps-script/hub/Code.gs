@@ -48,24 +48,26 @@ function seedHubPocData() {
 }
 
 function onOpen() {
-  SpreadsheetApp.getUi()
+  const ui = SpreadsheetApp.getUi();
+  ui
     .createMenu('Personal Assistant')
     .addItem('Open Communication Console', 'openReviewControllerSidebar')
     .addItem('Open Communication Console Wide', 'openReviewController')
     .addSeparator()
-    .addItem('Hide Internal Sheets', 'hideInternalHubSheets')
-    .addItem('Show Internal Sheets', 'showInternalHubSheets')
-    .addSeparator()
-    .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
-    .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
-    .addItem('Discard selected row(s)', 'discardSelectedQueueRows')
-    .addSeparator()
-    .addItem('Refresh Flow Console', 'refreshFlowConsole')
-    .addItem('Create draft from Flow Console', 'createDraftFromFlowConsole')
-    .addSeparator()
-    .addItem('Process approved rows', 'debugProcessApprovedQueueRows')
-    .addItem('Check Hub configuration', 'debugCheckHubConfiguration')
-    .addItem('Refresh Registry cache', 'clearHubRegistryCache')
+    .addSubMenu(ui.createMenu('Admin / Debug')
+      .addItem('Hide Internal Sheets', 'hideInternalHubSheets')
+      .addItem('Show Internal Sheets', 'showInternalHubSheets')
+      .addSeparator()
+      .addItem('Refresh Review sheet', 'syncReviewSheetFromQueue')
+      .addItem('Approve selected row(s)', 'approveSelectedQueueRows')
+      .addItem('Discard selected row(s)', 'discardSelectedQueueRows')
+      .addSeparator()
+      .addItem('Refresh Flow Console', 'refreshFlowConsole')
+      .addItem('Create draft from Flow Console', 'createDraftFromFlowConsole')
+      .addSeparator()
+      .addItem('Process approved rows', 'debugProcessApprovedQueueRows')
+      .addItem('Check Hub configuration', 'debugCheckHubConfiguration')
+      .addItem('Refresh Registry cache', 'clearHubRegistryCache'))
     .addToUi();
 }
 

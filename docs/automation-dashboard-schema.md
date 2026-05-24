@@ -185,6 +185,8 @@ The Automation Dashboard Apps Script adds a `Communication Automation` menu:
 
 Use the menu for real-data sandbox acceptance testing. It does not create synthetic data or bypass manual Communication Console approval.
 
+The Hub Communication Console can also trigger the same sync through the Automation Dashboard Web App endpoint. That endpoint is internal, token-protected with `AUTOMATION_SYNC_TOKEN`, and exists only until Hub and Automation are consolidated into a single Control Center script.
+
 ## Retention
 
 The script tracks `POLL_COUNT` and `LAST_GC_AT` in `Config`.

@@ -4,6 +4,8 @@ Personal Assistant now keeps a passive W-Graph under the existing communication 
 
 The graph is not a presentation layer. It does not change Queue, Review, Flow Console, Registry, Slack templates, Slack anchors, or approval rules. It records long-term continuity behind the scenes.
 
+Graph expansion is paused for now. New graph behavior should only be added when it powers a visible Communication Console, review guidance, reporting, or memory export feature.
+
 ## Operational Store
 
 The Hub owns four hidden graph sheets:

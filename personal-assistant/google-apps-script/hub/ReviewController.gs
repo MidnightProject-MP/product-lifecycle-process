@@ -212,6 +212,21 @@ function discardReviewControllerDraft(form) {
   };
 }
 
+function syncDashboardFromCommunicationConsole(form) {
+  logReviewControllerEvent_('manual_dashboard_sync_started', form || {}, {});
+  const result = callAutomationDashboardSyncEndpoint_();
+  const message = buildCommunicationConsoleSyncMessage_(result);
+  logReviewControllerEvent_('manual_dashboard_sync_completed', form || {}, {
+    mode: result.syncMode || '',
+    error: result.ok === false ? result.message || 'Dashboard sync failed.' : ''
+  });
+  return {
+    ok: result.ok !== false,
+    message: message,
+    result: result
+  };
+}
+
 function createReviewControllerFlowActionDraft(form) {
   const parsed = parseReviewControllerSelection_(form && form.selection);
   const useFlowOnlyContext = parsed.mode === 'flow' || (form && form.flowId && !form.selection);
@@ -265,6 +280,51 @@ function previewReviewControllerMessage(form) {
       message: error.message || String(error)
     };
   }
+}
+
+function callAutomationDashboardSyncEndpoint_() {
+  const url = getScriptProperty_('AUTOMATION_SYNC_WEB_APP_URL');
+  const token = getScriptProperty_('AUTOMATION_SYNC_TOKEN');
+  if (!url || !token) {
+    throw new Error('Manual dashboard sync is not configured. Add AUTOMATION_SYNC_WEB_APP_URL and AUTOMATION_SYNC_TOKEN to Hub Script Properties.');
+  }
+
+  const response = UrlFetchApp.fetch(url, {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      action: 'sync_dashboard',
+      token: token,
+      source: 'Communication Console'
+    }),
+    muteHttpExceptions: true
+  });
+  const status = response.getResponseCode();
+  const body = response.getContentText() || '{}';
+  let result = {};
+
+  try {
+    result = JSON.parse(body);
+  } catch (error) {
+    throw new Error('Dashboard sync returned an unreadable response.');
+  }
+
+  if (status < 200 || status >= 300 || result.ok === false) {
+    throw new Error(result.message || result.error || 'Dashboard sync failed.');
+  }
+
+  return result;
+}
+
+function buildCommunicationConsoleSyncMessage_(result) {
+  const parts = [];
+  parts.push('Dashboard sync: ' + (result.syncMode || 'Complete'));
+  if (result.changedRows != null) parts.push('changed ' + result.changedRows);
+  if (result.hubDraftsCreated != null) parts.push('drafts ' + result.hubDraftsCreated);
+  if (result.pendingEvaluations != null) parts.push('pending ' + result.pendingEvaluations);
+  if (result.skippedRows != null) parts.push('skipped ' + result.skippedRows);
+  if (result.errors != null) parts.push('errors ' + result.errors);
+  return parts.join(' | ');
 }
 
 function buildReviewControllerFinalMessage_(item) {

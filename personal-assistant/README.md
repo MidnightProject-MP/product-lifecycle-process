@@ -9,7 +9,7 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 | Component | Purpose |
 | --- | --- |
 | Personal Assistant Registry | Central event catalog, templates, variables, approval rules, message behavior, and Slack channel defaults. |
-| Personal Assistant Hub | Lean active Queue, Communication Console/Review projection, outbound Slack sender, compact history, flow state, and run log. |
+| Personal Assistant Hub | Communication Console, lean active Queue, outbound Slack sender, compact history, flow state, and run log. |
 | Automation Dashboard | Owned adapter with raw formula tabs, hidden fast change index, values-only export, circuit breaker, snapshots, observations, trigger logs, dedupe, and Hub draft creation. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |
@@ -29,14 +29,14 @@ The Registry resolves the event key into the template, channel type, post mode, 
 
 Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates reply in the same thread and update the anchor message with the latest executive summary.
 
-PMs should use the Hub `Flow_Console` for manual lifecycle updates. They select the flow, choose a plain-language action such as `Continue expected path` or `Report delay`, answer the three communication prompts, and create a draft for Review.
+PMs should use the Communication Console for manual lifecycle updates. They select an existing communication or start a new one, choose the next action, edit the final title/body, queue a draft, and approve/send from the same sidebar.
 
 ## Inputs
 
 - Slack `/incident` for critical issue flow starts.
 - Future Slack `/update` for owner-provided raw status on an existing entity.
 - Automation Dashboard polling for project, release, and project-originated special release changes.
-- Manual review through the Hub `Review` sheet.
+- Manual review and send through the Hub Communication Console.
 
 ## Workflows
 
@@ -49,7 +49,7 @@ PMs should use the Hub `Flow_Console` for manual lifecycle updates. They select 
 Hub web app creates Draft with incident.critical.identified
         |
         v
-Reviewer approves in Review
+Reviewer approves in the Communication Console
         |
         v
 Hub resolves template and channel settings from Registry
@@ -79,7 +79,7 @@ Snapshots and observations compare current state to last handled state
 Trigger_Log records candidates and creates Hub drafts, including release-style special release drafts from project rows
         |
         v
-Reviewer approves in Review
+Reviewer approves in the Communication Console
         |
         v
 Slack message sends using Registry rules

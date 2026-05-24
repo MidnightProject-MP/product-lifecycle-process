@@ -101,6 +101,8 @@ Script Properties required:
 | `SLACK_BOT_TOKEN` | Slack bot token beginning with `xoxb-`. |
 | `REGISTRY_SPREADSHEET_ID` | Spreadsheet ID of the Personal Assistant Registry. |
 | `SLACK_VERIFICATION_TOKEN` | Optional Slack slash-command verification token. |
+| `AUTOMATION_SYNC_WEB_APP_URL` | Optional Automation Dashboard Web App URL used by Communication Console `Sync Dashboard Now`. |
+| `AUTOMATION_SYNC_TOKEN` | Optional shared token for Console-triggered dashboard sync. Must match the Automation Script Property. |
 
 Optional properties:
 
@@ -134,7 +136,7 @@ This creates or repairs:
 - `Run_Log`
 - `Skill_Run_Log`
 
-The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the primary PM UX for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, and approving a draft. `Review` remains the readable PM projection behind that console. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
+The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the only PM-facing workflow for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, syncing dashboard changes on demand, and approving a draft. `Queue`, `Review`, and `Flow_Console` are internal/admin surfaces and can stay hidden during normal use. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
 
 The graph sheets are hidden by default. They are the passive long-term memory layer for Personal Assistant and should not be used as a manual review surface.
 
@@ -190,6 +192,14 @@ Create these files and paste the matching code:
 
 - `automation/Code.gs`
 - `automation/Config.gs`
+- `automation/AutomationEndpoint.gs`
+- `automation/AutomationUi.gs`
+- `automation/AutomationSetup.gs`
+- `automation/AutomationExport.gs`
+- `automation/AutomationObservation.gs`
+- `automation/AutomationRules.gs`
+- `automation/AutomationDrafts.gs`
+- `automation/AutomationMaintenance.gs`
 
 Run:
 
@@ -228,6 +238,19 @@ In the Automation Dashboard `Config` tab, set:
 | `LAST_CHANGE_INDEX_AT` | Maintained by the script after successful full sync. |
 | `LAST_FAST_CHECK_AT` | Maintained by the script after no-change fast skips. |
 | `LAST_SYNC_MODE` | Maintained by the script as `Full`, `Fast Skip`, or circuit-breaker state. |
+
+Optional Automation Script Properties:
+
+| Property | Purpose |
+| --- | --- |
+| `AUTOMATION_SYNC_TOKEN` | Shared token required by the internal manual-sync Web App endpoint. Must match the Hub property. |
+
+To enable `Sync Dashboard Now` from the Hub Communication Console, deploy the Automation Dashboard script as a Web App:
+
+- Execute as: Me
+- Who has access: Anyone with the link
+
+Copy that Web App URL into Hub Script Properties as `AUTOMATION_SYNC_WEB_APP_URL`. The endpoint only accepts the `sync_dashboard` action and rejects requests without the shared `AUTOMATION_SYNC_TOKEN`.
 
 Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Executive_Releases`, then map them into `Automation_Export_Source` using the exact export headers. Run:
 
@@ -339,21 +362,15 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 ### Manual Hub Test
 
-For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, queue a draft, approve/send, and show the rendered Slack message preview.
+For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, edit the final title/body, queue a draft, approve/send, and run `Sync Dashboard Now` when a PM wants dashboard changes picked up before the next scheduled poll.
 
 The menu appears after reloading the Hub spreadsheet:
 
 - `Open Communication Console`
 - `Open Communication Console Wide`
-- `Hide Internal Sheets`
-- `Show Internal Sheets`
-- `Refresh Flow Console`
-- `Create draft from Flow Console`
-- `Approve selected row(s)`
-- `Discard selected row(s)`
-- `Refresh Review sheet`
-- `Process approved rows`
-- `Check Hub configuration`
+- `Admin / Debug`
+
+The `Admin / Debug` submenu keeps direct sheet operations available for technical troubleshooting, but PMs should not need to use it during normal work.
 
 The Communication Console is the PM front door. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use.
 
