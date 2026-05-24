@@ -8,9 +8,8 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 
 | Component | Purpose |
 | --- | --- |
-| Personal Assistant Registry | Central event catalog, scaffold templates, variables, approval rules, message behavior, and live/test Slack channel defaults. |
-| Personal Assistant Hub | Communication Console, lean active Queue, outbound live/test Slack sender, compact history, flow state, and run log. |
-| Automation Dashboard | Owned adapter with raw formula tabs, hidden fast change index, values-only export, circuit breaker, snapshots, observations, trigger logs, dedupe, and Hub draft creation. |
+| Personal Assistant Control Center | Consolidated spreadsheet and Apps Script project with the Communication Console, local Registry tabs, Automation adapter, Queue, History, Flow_State, live/test Slack sender, and observability. |
+| Legacy split projects | Existing Hub, Registry, Automation Dashboard, and dashboard adapter remain available as fallback during cutover. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |
 | Flow State | Parent state database for live Slack anchors, test Slack anchors, thread timestamps, and next expected lifecycle events. |
@@ -35,8 +34,8 @@ PMs should use the Communication Console for manual lifecycle updates. They sele
 
 - Slack `/incident` for critical issue flow starts.
 - Future Slack `/update` for owner-provided raw status on an existing entity.
-- Automation Dashboard polling for project, release, and project-originated special release changes.
-- Manual review and send through the Hub Communication Console.
+- Control Center polling for project, release, and project-originated special release changes.
+- Manual review, test send, and live send through the Communication Console.
 
 ## Workflows
 
@@ -88,9 +87,10 @@ Slack message sends using Registry rules
 ## Files
 
 - `schemas/`: CSV headers and starter rows for the spreadsheets.
-- `google-apps-script/registry/`: Apps Script files for the central Registry.
-- `google-apps-script/hub/`: Apps Script files for the Personal Assistant Hub.
-- `google-apps-script/automation/`: Apps Script files for export validation, shadow polling, evidence, retention, and Hub draft creation.
+- `google-apps-script/control-center/`: New consolidated Apps Script project for fresh Control Center deployments.
+- `google-apps-script/registry/`: Legacy split Apps Script files for the central Registry.
+- `google-apps-script/hub/`: Legacy split Apps Script files for the Personal Assistant Hub.
+- `google-apps-script/automation/`: Legacy split Apps Script files for export validation, shadow polling, evidence, retention, and Hub draft creation.
 - `google-apps-script/dashboard/`: Optional standalone direct on-edit adapter that reads the Executive Dashboard by spreadsheet ID.
 - Each Apps Script folder includes `.clasp.json` and `appsscript.json` for clasp deployment.
 - `schemas/graph-entities.csv`, `schemas/graph-w-nodes.csv`, `schemas/graph-edges.csv`, and `schemas/graph-events.csv`: Passive graph memory schemas.

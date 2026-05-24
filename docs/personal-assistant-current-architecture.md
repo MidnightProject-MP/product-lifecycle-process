@@ -10,12 +10,11 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 
 | Layer | Owns | Does Not Own |
 | --- | --- | --- |
-| Personal Assistant Registry | Event catalog, scaffold templates, variables, live/test routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
-| Personal Assistant Hub | Communication Console, draft queue, test send execution, live send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
-| Automation Dashboard | Owned source adapter, fast change index, values-only export, snapshots, observations, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
+| Personal Assistant Control Center | Communication Console, local Registry tabs, dashboard adapter, draft queue, test send execution, live send execution, compact history, flow state, and run logs. | Stakeholder-facing presentation. |
+| Legacy split projects | Existing Hub, Registry, Automation Dashboard, and direct dashboard adapter during fallback. | New PM workflow ownership after Control Center verification. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
-The Executive Dashboard should not contain our automation code. Owned scripts should live in the Automation Dashboard, Hub, Registry, or optional standalone dashboard adapter, then read the Executive Dashboard by spreadsheet ID.
+The Executive Dashboard should not contain our automation code. New owned code should live in the Control Center, then read or import the Executive Dashboard through controlled adapter tabs.
 
 ## Draft Contract
 
@@ -98,7 +97,7 @@ The current implementation supports:
 - Registry-driven event, template, routing, send-rule, and required-variable lookup.
 - Hub queue review, automatic/manual test Slack send, approval, live Slack send, History, and Run_Log.
 - Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
-- Manual dashboard sync from the Communication Console through a temporary token-protected Automation Web App endpoint.
+- Manual dashboard sync from the Communication Console by directly calling the local dashboard sync function in the Control Center.
 - Slack slash-command intake for `/incident` and `/release`.
 - Optional passive W-Graph memory behind the existing communication flow, disabled by default until it powers a visible feature.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
@@ -127,7 +126,7 @@ See [Passive Graph Memory](passive-graph-memory.md).
 
 The future cross-spreadsheet control path is a Communication Console Launcher Add-on. The add-on should open the same Console from any authorized spreadsheet, pass local spreadsheet context when useful, and write to the central Hub or future Control Center.
 
-Until the Control Center consolidation happens, the Hub Console can manually trigger the Automation Dashboard through a narrow token-protected sync endpoint. This bridge is temporary and should be retired once Hub and Automation live in the same script.
+In the consolidated Control Center, the Console directly triggers the local dashboard sync. The old token-protected Automation Web App endpoint remains only for the legacy split deployment.
 
 ## Next Architecture Extension
 

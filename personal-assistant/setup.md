@@ -1,13 +1,65 @@
 # Personal Assistant Setup
 
-This version uses a cleaner split:
+New deployments should use the consolidated **Personal Assistant Control Center**. The older split-project setup remains below as fallback while the Control Center is verified.
+
+The Control Center contains:
+
+- local Registry tabs for settings, event catalog, scaffold templates, transitions, and approval rules
+- local Hub tabs for Queue, History, Flow_State, the Communication Console, and Slack send metadata
+- local Automation tabs for raw dashboard input, values-only export, change index, observations, changes, trigger log, and config
+
+The old split version uses:
 
 - `Personal Assistant Registry`: central settings, template, event, variable, and approval manager.
 - `Personal Assistant Hub`: queue, history, run log, review, approval, and Slack sending.
 - `Automation Dashboard`: polling and normalization layer between the leadership dashboard and the Hub.
 - `Executive Dashboard`: stakeholder-friendly source dashboard.
 
-Only bootstrap IDs and secrets live in Script Properties. Message policy, templates, channel defaults, variables, and event definitions live in the Registry.
+Only secrets and external source IDs live in Script Properties. Message policy, templates, channel defaults, variables, and event definitions live in local Control Center tabs.
+
+## 0. Recommended Clean Control Center Setup
+
+1. Create a new spreadsheet named `Personal Assistant Control Center`.
+2. Open Extensions > Apps Script and copy the script ID into `personal-assistant/google-apps-script/control-center/.clasp.json`.
+3. Deploy through the normal GitHub Actions clasp workflow, or push the `control-center` folder with clasp manually while bootstrapping.
+4. In the Control Center Apps Script editor, run:
+
+```text
+setupControlCenter
+```
+
+For a clean dev reset with no old data migration, run:
+
+```text
+resetControlCenterForDev
+```
+
+Required Control Center Script Properties:
+
+| Property | Purpose |
+| --- | --- |
+| `SLACK_BOT_TOKEN` | Slack bot token beginning with `xoxb-`. |
+| `SLACK_VERIFICATION_TOKEN` | Optional Slack slash-command verification token. |
+
+Optional Control Center Script Properties:
+
+| Property | Purpose |
+| --- | --- |
+| `DASHBOARD_SPREADSHEET_ID` | Optional source for the legacy weekly digest helper. |
+| `AUTO_SEND_TEST_ON_QUEUE` | Defaults to `TRUE`. Automatically sends queued drafts to the configured test Slack channel while keeping the draft active for real approval/send. |
+
+The Control Center no longer needs `REGISTRY_SPREADSHEET_ID`, `HUB_SPREADSHEET_ID`, `AUTOMATION_SYNC_WEB_APP_URL`, or the Console-to-Automation `AUTOMATION_SYNC_TOKEN`.
+
+After setup:
+
+1. Fill `Settings` with `DEFAULT_*_CHANNEL` and `TEST_*_CHANNEL` values.
+2. Add formulas or direct connections into `Raw_Executive_Projects` and `Raw_Executive_Releases`.
+3. Map those raw tabs into `Automation_Export_Source`.
+4. Run `debugValidateAutomationExport`.
+5. Run `syncLeadershipDashboardToAutomation`.
+6. Use `Personal Assistant > Open Communication Console` for PM review, test sends, queueing, manual sync, and live approval.
+
+Graph memory is intentionally omitted from Control Center v1. The old Hub graph code remains only in the legacy split project.
 
 ## 1. Create or Identify the Spreadsheets
 
@@ -313,6 +365,7 @@ This validates the expected source tabs and creates an installable `onDashboardE
 
 Each Apps Script folder has a committed `.clasp.json` placeholder and `appsscript.json` manifest:
 
+- `personal-assistant/google-apps-script/control-center`
 - `personal-assistant/google-apps-script/hub`
 - `personal-assistant/google-apps-script/registry`
 - `personal-assistant/google-apps-script/automation`
@@ -322,6 +375,7 @@ Before GitHub Actions can deploy, replace each placeholder `scriptId` with the m
 
 | Folder | Placeholder |
 | --- | --- |
+| `control-center` | `REPLACE_WITH_CONTROL_CENTER_SCRIPT_ID` |
 | `hub` | `REPLACE_WITH_HUB_SCRIPT_ID` |
 | `registry` | `REPLACE_WITH_REGISTRY_SCRIPT_ID` |
 | `automation` | `REPLACE_WITH_AUTOMATION_SCRIPT_ID` |

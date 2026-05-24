@@ -2,7 +2,7 @@
 
 Personal Assistant is a product workspace for turning operational noise into clear, executive-ready communication.
 
-The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, test-sends, sends, and traces project, incident, release, and intake updates.
+The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, test-sends, sends, and traces project, incident, release, and intake updates. New deployments should use the consolidated **Personal Assistant Control Center** spreadsheet; the older split Hub, Registry, and Automation Dashboard projects remain in the repo as fallback.
 
 The broader AI-first personal app suite is documented as future architecture only. This repo does not yet implement a React app, Google Drive BYOS storage, active graph/RAG tooling, BYOK settings, proactive workers, or an LLM gateway.
 
@@ -12,13 +12,13 @@ The broader AI-first personal app suite is documented as future architecture onl
 Source update or Slack command
         |
         v
-Automation validates a values-only dashboard export and compares state
+Control Center validates a values-only dashboard export and compares state
         |
         v
-Personal Assistant Registry resolves template, routing, and approval policy
+Local Registry tabs resolve template, routing, and approval policy
         |
         v
-Personal Assistant Hub queues draft and records observability
+Control Center queues draft and records observability
         |
         v
 PM tests or approves in Communication Console
@@ -44,7 +44,7 @@ The current automation is designed to make strong PM behavior the default:
 - `docs/personal-assistant-current-architecture.md`: Current implementation boundaries and operating model.
 - `docs/personal-assistant-future-architecture.md`: Future suite roadmap and non-implemented architecture.
 - `docs/personal-assistant-skills.md`: Internal atomic skill catalog for callable Personal Assistant actions.
-- `docs/control-center-consolidation.md`: Future one-spreadsheet Control Center and launcher add-on plan.
+- `docs/control-center-consolidation.md`: Consolidated one-spreadsheet Control Center setup and cutover model.
 - `docs/passive-graph-memory.md`: Passive W-Graph memory layer under the current communication workflow.
 - `docs/principles.md`: Core PM operating principles.
 - `docs/lifecycle.md`: Lifecycle stages and stage gates.

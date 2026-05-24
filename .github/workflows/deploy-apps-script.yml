@@ -53,6 +53,7 @@ jobs:
           set -euo pipefail
 
           folders=(
+            "personal-assistant/google-apps-script/control-center"
             "personal-assistant/google-apps-script/hub"
             "personal-assistant/google-apps-script/registry"
             "personal-assistant/google-apps-script/automation"

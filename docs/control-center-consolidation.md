@@ -1,10 +1,10 @@
 # Personal Assistant Control Center Consolidation
 
-## Target Shape
+## Current Target Shape
 
-The future owned operating surface should be one **Personal Assistant Control Center** spreadsheet.
+The owned operating surface for new deployments is one **Personal Assistant Control Center** spreadsheet.
 
-The external Executive Dashboard remains externally owned and presentation-focused. The Control Center owns the automation adapter, Registry, Communication Console state, History, Flow_State, logs, and passive graph memory.
+The external Executive Dashboard remains externally owned and presentation-focused. The Control Center owns the automation adapter, Registry, Communication Console state, History, Flow_State, logs, and live/test Slack metadata.
 
 ## Why Consolidate
 
@@ -20,17 +20,18 @@ One owned Control Center would remove most bootstrap pointers and make the PM wo
 | Registry | `Settings`, `Event_Catalog`, `Templates`, `Template_Variables`, `Event_Transitions`, `Approval_Rules` |
 | Automation adapter | `Raw_Executive_Projects`, `Raw_Executive_Releases`, `Automation_Export_Source`, `Automation_Change_Index`, `Automation_Export`, `Dashboard_Observations`, `Dashboard_Changes`, `Dashboard_Snapshots`, `Trigger_Log`, `Config` |
 | Observability | `Run_Log`, `Skill_Run_Log` |
-| Passive memory | `Graph_Entities`, `Graph_W_Nodes`, `Graph_Edges`, `Graph_Events` |
 | Admin/debug only | `Review`, `Flow_Console` during compatibility window |
 
 ## Migration Plan
 
-1. Keep the current multi-spreadsheet deployment stable while the Communication Console becomes the only PM workflow.
-2. Create a new Control Center spreadsheet from setup functions, with all sheet groups present.
-3. Move Registry seed/setup into the Control Center script or make the Control Center script able to repair Registry sheets locally.
-4. Move Automation polling into the Control Center script so `Sync Dashboard Now` can call `syncLeadershipDashboardToAutomation` directly.
-5. Retire `REGISTRY_SPREADSHEET_ID`, `HUB_SPREADSHEET_ID`, `AUTOMATION_SYNC_WEB_APP_URL`, and the temporary endpoint after cutover.
-6. Keep old spreadsheets read-only for one compatibility window, then archive them.
+1. Create a new Control Center spreadsheet and bound Apps Script project.
+2. Fill `control-center/.clasp.json` with the new script ID.
+3. Deploy the new `control-center` project while keeping the old split projects available.
+4. Run `setupControlCenter` or `resetControlCenterForDev`.
+5. Configure local `Settings`, raw dashboard formulas, and scheduled polling.
+6. Run one sandbox acceptance test, then archive or make the old split spreadsheets read-only.
+
+The new Control Center retires `REGISTRY_SPREADSHEET_ID`, `HUB_SPREADSHEET_ID`, `AUTOMATION_SYNC_WEB_APP_URL`, and the Console-to-Automation `AUTOMATION_SYNC_TOKEN`.
 
 ## Launcher Add-on Path
 
@@ -44,10 +45,9 @@ A future Communication Console Launcher Add-on can open the same Console from an
 
 The add-on should write all communication drafts to the Control Center, not to the local spreadsheet.
 
-## Out of Scope For Current Phase
+## Out of Scope For Control Center v1
 
-- No live spreadsheet merge.
-- No Script ID replacement.
-- No clasp project merge.
+- No old data migration.
 - No add-on implementation.
 - No change to the external Executive Dashboard.
+- No graph memory sheets or graph recording.

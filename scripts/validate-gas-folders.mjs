@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const strictScriptIds = process.argv.includes('--strict-script-ids');
 const folders = [
+  'personal-assistant/google-apps-script/control-center',
   'personal-assistant/google-apps-script/hub',
   'personal-assistant/google-apps-script/registry',
   'personal-assistant/google-apps-script/automation',
