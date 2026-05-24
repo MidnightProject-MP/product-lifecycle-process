@@ -49,6 +49,11 @@ const SKILL_CATALOG = {
     'Post a message to Slack.',
     handlePostSlackMessageSkill_
   ),
+  send_test_slack_message: skillContract_(
+    'send_test_slack_message',
+    'Post a draft to the test Slack channel without consuming the Queue row.',
+    handleSendTestSlackMessageSkill_
+  ),
   update_slack_anchor: skillContract_(
     'update_slack_anchor',
     'Update an existing Slack anchor message when policy allows.',
@@ -413,6 +418,15 @@ function handlePostSlackMessageSkill_(input) {
   return result;
 }
 
+function handleSendTestSlackMessageSkill_(input, context) {
+  const queueId = input.queueId || input['Queue ID'] || '';
+  if (!queueId) throw new Error('Missing queueId for test Slack send.');
+  return sendQueueDraftTestToSlack_(queueId, {
+    source: input.source || 'skill',
+    parentRunId: context.runId
+  });
+}
+
 function handleUpdateSlackAnchorSkill_(input) {
   return updateSlackAnchorIfNeeded_(input.flow || null, input.text || '', input.item || {}, input.template || {}) || {};
 }
@@ -444,6 +458,15 @@ function handleScheduleNextFlowDraftSkill_(input) {
 
 function handleRecordGraphMemorySkill_(input) {
   const action = input.action || 'draft_recorded';
+  if (!isGraphMemoryEnabled_()) {
+    return {
+      recorded: false,
+      skipped: true,
+      action: action,
+      reason: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.'
+    };
+  }
+
   if (action === 'verified' || action === 'sent_verified' || action === 'logged_verified') {
     graphRecordVerifiedQueueItemSafe_(input.item || {}, action);
   } else if (action === 'discarded' || action === 'discard_recorded') {
@@ -464,6 +487,19 @@ function handleExportGraphMemorySnapshotSkill_() {
 }
 
 function handleResolveGraphContextSkill_(input) {
+  if (!isGraphMemoryEnabled_()) {
+    return {
+      flowId: input.flowId || (input.item && input.item['Flow ID']) || '',
+      entityId: '',
+      entity: null,
+      wNodes: [],
+      edges: [],
+      events: [],
+      skipped: true,
+      reason: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.'
+    };
+  }
+
   const flowId = input.flowId || (input.item && input.item['Flow ID']) || '';
   if (!flowId) throw new Error('Missing flowId.');
   const entityId = graphBuildEntityId_(flowId);
@@ -537,6 +573,19 @@ function handleBuildReviewGuidanceSkill_(input) {
 }
 
 function handleCheckGraphHealthSkill_() {
+  if (!isGraphMemoryEnabled_()) {
+    return {
+      ok: true,
+      enabled: false,
+      entityCount: 0,
+      wNodeCount: 0,
+      edgeCount: 0,
+      orphanWNodeCount: 0,
+      incompleteEntityCount: 0,
+      orphanEdgeCount: 0
+    };
+  }
+
   const entities = getGraphObjects_(HUB.SHEETS.GRAPH_ENTITIES);
   const wNodes = getGraphObjects_(HUB.SHEETS.GRAPH_W_NODES);
   const edges = getGraphObjects_(HUB.SHEETS.GRAPH_EDGES);
@@ -566,6 +615,15 @@ function handleCheckGraphHealthSkill_() {
 }
 
 function handleBackfillGraphFromHistorySkill_() {
+  if (!isGraphMemoryEnabled_()) {
+    return {
+      skipped: true,
+      historyRowsProcessed: 0,
+      flowRowsProcessed: 0,
+      reason: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.'
+    };
+  }
+
   const history = SpreadsheetApp.getActive().getSheetByName(HUB.SHEETS.HISTORY);
   const flowState = SpreadsheetApp.getActive().getSheetByName(HUB.SHEETS.FLOW_STATE);
   let historyCount = 0;

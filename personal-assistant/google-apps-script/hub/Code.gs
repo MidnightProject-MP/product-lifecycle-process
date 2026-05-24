@@ -29,6 +29,7 @@ function resetHubForV2Dev() {
   Object.keys(HUB.HEADERS).forEach(key => {
     const sheetName = HUB.SHEETS[key];
     if (!sheetName) return;
+    if (isGraphHubSheet_(sheetName) && !isGraphMemoryEnabled_()) return;
     resetSheetToHeaders_(ss, sheetName, HUB.HEADERS[key]);
   });
   resetSheetToHeaders_(ss, HUB.SHEETS.RUN_LOG_RAW, HUB.HEADERS.RUN_LOG);
@@ -110,11 +111,29 @@ function hideInternalHubSheets_() {
 }
 
 function getInternalHubSheetNames_() {
-  return [
+  const names = [
     HUB.SHEETS.QUEUE,
     HUB.SHEETS.REVIEW,
     HUB.SHEETS.FLOW_CONSOLE
   ];
+  if (isGraphMemoryEnabled_()) {
+    names.push(
+      HUB.SHEETS.GRAPH_ENTITIES,
+      HUB.SHEETS.GRAPH_W_NODES,
+      HUB.SHEETS.GRAPH_EDGES,
+      HUB.SHEETS.GRAPH_EVENTS
+    );
+  }
+  return names;
+}
+
+function isGraphHubSheet_(sheetName) {
+  return [
+    HUB.SHEETS.GRAPH_ENTITIES,
+    HUB.SHEETS.GRAPH_W_NODES,
+    HUB.SHEETS.GRAPH_EDGES,
+    HUB.SHEETS.GRAPH_EVENTS
+  ].indexOf(sheetName) >= 0;
 }
 
 function onHubEdit(e) {
@@ -844,6 +863,11 @@ function shouldPreserveHubCellAsText_(header) {
     'Slack Thread ID',
     'Slack Thread TS',
     'Slack Message TS',
+    'Test Slack Thread TS',
+    'Test Slack Message TS',
+    'Test Anchor Message TS',
+    'Test Thread TS',
+    'Test Latest Reply TS',
     'Anchor Message TS',
     'Thread TS',
     'Latest Reply TS',

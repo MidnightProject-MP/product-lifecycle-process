@@ -1,1 +1,1 @@
-History ID,Queue ID,Flow ID,Event Key,Final Status,Subject,Owner,Completed At,Slack Channel,Slack Thread TS,Slack Message TS,Slack Message URL,Payload Hash,Error
+History ID,Queue ID,Flow ID,Event Key,Final Status,Subject,Owner,Completed At,Slack Channel,Slack Thread TS,Slack Message TS,Slack Message URL,Test Slack Channel,Test Slack Thread TS,Test Slack Message TS,Test Slack Message URL,Last Test Sent At,Payload Hash,Error

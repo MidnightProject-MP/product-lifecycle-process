@@ -32,4 +32,9 @@ assert.equal(
   '🟢 Back on track'
 );
 
+assert.equal(
+  render('<ul><li><b>Status:</b> <img data-emoji="🟡" src="status.png"> delayed</li><li><strong>Owner:</strong> Philippe</li></ul>'),
+  '- *Status:* 🟡 delayed\n- *Owner:* Philippe'
+);
+
 console.log('Slack formatting tests passed.');

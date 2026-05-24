@@ -46,6 +46,7 @@ function insertQueueDraftAtTop_(draft) {
     eventKey: rowObject['Event Key'],
     dedupeKey: rowObject['Dedupe Key']
   });
+  autoSendQueueDraftTestSafe_(rowObject['Queue ID'], rowObject);
   syncReviewSheetFromQueueSafe_();
   return rowObject['Queue ID'];
 }
@@ -348,6 +349,11 @@ function buildCompletedCommunicationItem_(item, completion) {
   if (completion && completion.slackChannel) merged['Slack Channel'] = completion.slackChannel;
   if (completion && completion.slackMessageTs) merged['Slack Message TS'] = completion.slackMessageTs;
   if (completion && completion.slackMessageUrl) merged['Slack Message URL'] = completion.slackMessageUrl;
+  if (completion && completion.testSlackChannel) merged['Test Slack Channel'] = completion.testSlackChannel;
+  if (completion && completion.testSlackThreadTs) merged['Test Slack Thread TS'] = completion.testSlackThreadTs;
+  if (completion && completion.testSlackMessageTs) merged['Test Slack Message TS'] = completion.testSlackMessageTs;
+  if (completion && completion.testSlackMessageUrl) merged['Test Slack Message URL'] = completion.testSlackMessageUrl;
+  if (completion && completion.testSentAt) merged['Test Sent At'] = completion.testSentAt;
   if (!merged.Owner && payload.owner) merged.Owner = payload.owner;
   if (!merged.Lane && payload.lane) merged.Lane = payload.lane;
   if (!merged.Priority && payload.priority) merged.Priority = payload.priority;
@@ -364,7 +370,9 @@ function buildHistoryRowFromCommunicationItem_(item) {
     payload.release_id ||
     item['Flow ID'] ||
     '';
-  const payloadText = item['Payload JSON'] || stringifyJson_(payload);
+  const payloadForHash = Object.assign({}, payload);
+  delete payloadForHash.last_test_send;
+  const payloadText = stringifyJson_(payloadForHash);
   return {
     'History ID': uuid_(),
     'Queue ID': item['Queue ID'] || '',
@@ -378,6 +386,11 @@ function buildHistoryRowFromCommunicationItem_(item) {
     'Slack Thread TS': item['Slack Thread TS'] || item['Slack Thread ID'] || '',
     'Slack Message TS': item['Slack Message TS'] || '',
     'Slack Message URL': item['Slack Message URL'] || '',
+    'Test Slack Channel': item['Test Slack Channel'] || '',
+    'Test Slack Thread TS': item['Test Slack Thread TS'] || '',
+    'Test Slack Message TS': item['Test Slack Message TS'] || '',
+    'Test Slack Message URL': item['Test Slack Message URL'] || '',
+    'Last Test Sent At': item['Test Sent At'] || '',
     'Payload Hash': graphHashString_(payloadText),
     Error: item.Error || ''
   };

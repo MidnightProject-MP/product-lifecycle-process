@@ -123,7 +123,13 @@ function htmlToSlackText_(html) {
     }
 
     if (tagName === 'img' && !closing) {
-      output += decodeHtmlEntities_(getHtmlAttribute_(token, 'alt') || getHtmlAttribute_(token, 'title'));
+      output += decodeHtmlEntities_(
+        getHtmlAttribute_(token, 'alt') ||
+        getHtmlAttribute_(token, 'title') ||
+        getHtmlAttribute_(token, 'aria-label') ||
+        getHtmlAttribute_(token, 'data-emoji') ||
+        getHtmlAttribute_(token, 'data-alt')
+      );
       return;
     }
 
@@ -336,9 +342,27 @@ function resolveDefaultChannel_(channelType) {
   throw new Error('No Slack channel configured in Registry Settings for Channel Type: ' + channelType + ' (expected setting: ' + settingKey + ')');
 }
 
+function resolveTestChannel_(channelType) {
+  const settingKey = buildChannelSettingKeyWithPrefix_(channelType, 'TEST');
+  const registryChannel = getRegistrySetting_(settingKey);
+  if (registryChannel) {
+    logHub_('INFO', 'resolveTestChannel_', '', 'Resolved test Slack channel from Registry Settings.', {
+      channelType: channelType,
+      settingKey: settingKey
+    });
+    return registryChannel;
+  }
+
+  return resolveDefaultChannel_(channelType);
+}
+
 function buildChannelSettingKey_(channelType) {
+  return buildChannelSettingKeyWithPrefix_(channelType, 'DEFAULT');
+}
+
+function buildChannelSettingKeyWithPrefix_(channelType, prefix) {
   const normalized = String(channelType || 'PROJECT').toUpperCase().replace(/[^A-Z0-9]+/g, '_');
-  return 'DEFAULT_' + normalized + '_CHANNEL';
+  return String(prefix || 'DEFAULT').toUpperCase() + '_' + normalized + '_CHANNEL';
 }
 
 function findRegistryRow_(sheetName, keyField, keyValue) {

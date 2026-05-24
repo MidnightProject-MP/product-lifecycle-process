@@ -197,6 +197,26 @@ function approveReviewControllerSelection(form) {
   return approveReviewControllerDraft(form || {});
 }
 
+function sendReviewControllerTest(form) {
+  logReviewControllerEvent_('send_test', form || {}, {});
+  const queueForm = Object.assign({}, form || {}, {
+    suppressAutoTestSend: 'TRUE'
+  });
+  const queued = queueReviewControllerDraft(queueForm);
+  if (!queued || !queued.ok || !queued.queue || !queued.queue.queueId) {
+    throw new Error('Unable to queue or save the selected draft before test send.');
+  }
+
+  const result = runSkillOrThrow_('send_test_slack_message', {
+    queueId: queued.queue.queueId,
+    source: 'Communication Console'
+  });
+  const context = getReviewControllerContextForQueueId_(queued.queue.queueId);
+  context.message = 'Test sent to Slack. Queue ID: ' + queued.queue.queueId;
+  context.testSend = result;
+  return context;
+}
+
 function discardReviewControllerDraft(form) {
   logReviewControllerEvent_('discard_draft', form || {}, {});
   const reason = form && form.discardReason ? String(form.discardReason) : 'Discarded from Communication Console.';
@@ -508,6 +528,7 @@ function createReviewControllerFlowActionDraftForFlow_(form, flow, selectedItem)
     'Parent Queue ID': flow['Last Queue ID'] || selectedItem && selectedItem['Queue ID'] || '',
     'Expected Previous Event Key': flow['Current Event Key'] || '',
     'Path Override': action === HUB.FLOW_ACTION.CONTINUE ? 'Happy Path' : 'Sad Path',
+    'Suppress Auto Test Send': String(form && form.suppressAutoTestSend || '').toUpperCase() === 'TRUE' ? 'TRUE' : '',
     'Payload JSON': stringifyJson_(payload)
   };
 
@@ -559,6 +580,7 @@ function createReviewControllerNewCommunicationDraft(form) {
     Status: HUB.STATUS.DRAFT,
     Priority: payload.priority,
     Owner: payload.owner,
+    'Suppress Auto Test Send': String(form && form.suppressAutoTestSend || '').toUpperCase() === 'TRUE' ? 'TRUE' : '',
     'Payload JSON': stringifyJson_(payload)
   };
   draft['Flow ID'] = buildFlowId_(draft);
@@ -628,7 +650,8 @@ function buildReviewControllerQueueContext_(queueId, communicationOptions, selec
         what: payload.what || '',
         soWhat: payload.so_what || '',
         whatsNext: payload.whats_next || '',
-        slackUrl: item['Slack Message URL'] || ''
+        slackUrl: item['Slack Message URL'] || '',
+        testSlackUrl: item['Test Slack Message URL'] || ''
       },
       flow: buildReviewControllerFlowContext_(flow),
       actions: buildReviewControllerActions_(item, flow, { includeSelected: true }),
@@ -669,7 +692,8 @@ function buildReviewControllerFlowOnlyContext_(flowId, communicationOptions, sel
       what: payload.what || '',
       soWhat: payload.so_what || '',
       whatsNext: payload.whats_next || '',
-      slackUrl: flow['Anchor Message URL'] || ''
+      slackUrl: flow['Anchor Message URL'] || '',
+      testSlackUrl: flow['Test Anchor Message URL'] || ''
     },
     flow: buildReviewControllerFlowContext_(flow),
     actions: buildReviewControllerActions_(item, flow, { includeSelected: false }),
@@ -706,7 +730,8 @@ function buildReviewControllerNewContext_(communicationOptions, selectedValue) {
       what: '',
       soWhat: '',
       whatsNext: '',
-      slackUrl: ''
+      slackUrl: '',
+      testSlackUrl: ''
     },
     flow: buildReviewControllerFlowContext_(null),
     actions: startEvents,
@@ -760,7 +785,7 @@ function shouldShowReviewControllerFlowOption_(flow, activeFlowIds) {
   if (activeFlowIds && activeFlowIds[flowId]) return false;
 
   const status = String(flow['Flow Status'] || '').trim().toLowerCase();
-  if (status === 'completed' || status === 'discarded') return false;
+  if (status === 'completed' || status === 'discarded' || status === 'test only') return false;
 
   const subject = String(flow.Subject || '');
   if (flowId.indexOf('debug-') === 0 || subject.toLowerCase().indexOf('smoke test') >= 0) return false;

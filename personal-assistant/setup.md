@@ -69,8 +69,15 @@ In `Settings`, fill the Slack channel ID values for the active communication typ
 | `DEFAULT_RELEASE_CHANNEL` | Production release updates. |
 | `DEFAULT_STRAY_STORY_CHANNEL` | Prioritization / intake updates if enabled. |
 | `DEFAULT_LEADERSHIP_CHANNEL` | Executive escalations and postmortems. |
+| `TEST_PROJECT_CHANNEL` | Optional sandbox channel for project test sends. Falls back to `DEFAULT_PROJECT_CHANNEL`. |
+| `TEST_INCIDENT_CHANNEL` | Optional sandbox channel for incident test sends. Falls back to `DEFAULT_INCIDENT_CHANNEL`. |
+| `TEST_RELEASE_CHANNEL` | Optional sandbox channel for release test sends. Falls back to `DEFAULT_RELEASE_CHANNEL`. |
+| `TEST_STRAY_STORY_CHANNEL` | Optional sandbox channel for stray story test sends. Falls back to `DEFAULT_STRAY_STORY_CHANNEL`. |
+| `TEST_LEADERSHIP_CHANNEL` | Optional sandbox channel for leadership test sends. Falls back to `DEFAULT_LEADERSHIP_CHANNEL`. |
 
 If an older Registry still has a `Routing` tab, `setupRegistrySheets` copies any existing channel IDs into these `Settings` rows and hides the legacy tab.
+
+Run `refreshTemplateScaffolds` if you want to overwrite existing template rows with the current scaffold-style templates. Templates are first-draft structure only; PM-edited title/body content in the Communication Console is the final message source.
 
 Do not put Slack tokens, signing secrets, or passwords in the Registry.
 
@@ -91,6 +98,7 @@ Create these files and paste the matching code:
 - `hub/ReviewControllerSidebar.html`
 - `hub/SkillKernel.gs`
 - `hub/Templates.gs`
+- `hub/TestSlack.gs`
 - `hub/Slack.gs`
 - `hub/Webhook.gs`
 
@@ -109,6 +117,8 @@ Optional properties:
 | Property | Purpose |
 | --- | --- |
 | `DASHBOARD_SPREADSHEET_ID` | Optional source for the legacy weekly digest helper. |
+| `AUTO_SEND_TEST_ON_QUEUE` | Defaults to `TRUE`. Automatically sends newly queued drafts to the configured test Slack channel while keeping the draft active for real approval/send. Set to `FALSE` to disable. |
+| `ENABLE_PASSIVE_GRAPH_MEMORY` | Defaults to disabled. Set to `TRUE` only if you want the passive graph sheets and graph writes active. |
 
 Run:
 
@@ -128,17 +138,15 @@ This creates or repairs:
 - `Review`
 - `Flow_Console`
 - `Flow_State`
-- `Graph_Entities`
-- `Graph_W_Nodes`
-- `Graph_Edges`
-- `Graph_Events`
 - `History`
 - `Run_Log`
 - `Skill_Run_Log`
 
-The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the only PM-facing workflow for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, syncing dashboard changes on demand, and approving a draft. `Queue`, `Review`, and `Flow_Console` are internal/admin surfaces and can stay hidden during normal use. `Flow_State` stores one parent record per incident, release, project, or other communication flow. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
+If `ENABLE_PASSIVE_GRAPH_MEMORY` is `TRUE`, setup also creates hidden graph sheets: `Graph_Entities`, `Graph_W_Nodes`, `Graph_Edges`, and `Graph_Events`.
 
-The graph sheets are hidden by default. They are the passive long-term memory layer for Personal Assistant and should not be used as a manual review surface.
+The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the only PM-facing workflow for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, syncing dashboard changes on demand, sending a test to Slack, and approving a draft. `Queue`, `Review`, and `Flow_Console` are internal/admin surfaces and can stay hidden during normal use. `Flow_State` stores one parent record per incident, release, project, or other communication flow. It also keeps parallel test Slack timestamps separate from the live Slack anchor/thread timestamps. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
+
+Graph memory is paused by default. It remains available for the broader Personal Assistant roadmap, but it should stay off for the communication workflow until it powers a visible Console, reporting, or guidance feature.
 
 `Skill_Run_Log` is hidden by default. It records atomic skill runs, parent run IDs, input hashes, output summaries, errors, and durations so the Hub workflow can be traced below the normal `Run_Log` level.
 
@@ -157,7 +165,7 @@ Optional graph export property:
 | --- | --- |
 | `GRAPH_EXPORT_FOLDER_ID` | Optional Drive folder ID for manual `graph_data.json` and `calibration_log.json` export. |
 
-Run `exportGraphMemoryToDrive` manually from Apps Script when you want to refresh the JSON memory snapshot. If `GRAPH_EXPORT_FOLDER_ID` is not set, the function logs a skip notice and leaves the hidden graph sheets untouched.
+Run `exportGraphMemoryToDrive` manually from Apps Script when you want to refresh the JSON memory snapshot. If `ENABLE_PASSIVE_GRAPH_MEMORY` or `GRAPH_EXPORT_FOLDER_ID` is not set, the function logs a skip notice.
 
 Create an installable trigger:
 
@@ -362,7 +370,7 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 ### Manual Hub Test
 
-For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, edit the final title/body, queue a draft, approve/send, and run `Sync Dashboard Now` when a PM wants dashboard changes picked up before the next scheduled poll.
+For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, edit the final title/body, queue a draft, send a test to Slack, approve/send, and run `Sync Dashboard Now` when a PM wants dashboard changes picked up before the next scheduled poll.
 
 The menu appears after reloading the Hub spreadsheet:
 
@@ -372,7 +380,7 @@ The menu appears after reloading the Hub spreadsheet:
 
 The `Admin / Debug` submenu keeps direct sheet operations available for technical troubleshooting, but PMs should not need to use it during normal work.
 
-The Communication Console is the PM front door. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use.
+The Communication Console is the PM front door. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use. Test sends use `TEST_*_CHANNEL` when configured and fall back to the current `DEFAULT_*_CHANNEL`, which lets the current sandbox channel remain the test destination until live channel IDs are added. Test Slack timestamps are stored separately from live Slack timestamps in `Queue`, `History`, and `Flow_State`.
 
 For direct technical testing, add a `Queue` row with:
 

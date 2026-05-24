@@ -1,6 +1,16 @@
 const GRAPH_W_DIMENSIONS = ['Who', 'What', 'Where', 'When', 'Why'];
 
+function isGraphMemoryEnabled_() {
+  const raw = String(getScriptProperty_('ENABLE_PASSIVE_GRAPH_MEMORY') || '').trim().toUpperCase();
+  return ['TRUE', 'YES', '1', 'ON', 'ENABLED'].indexOf(raw) >= 0;
+}
+
 function setupGraphSheets_() {
+  if (!isGraphMemoryEnabled_()) {
+    logHub_('INFO', 'setupGraphSheets_', '', 'Skipped graph sheet setup because ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.', {});
+    return;
+  }
+
   const ss = SpreadsheetApp.getActive();
   const sheets = [
     ensureSheet_(ss, HUB.SHEETS.GRAPH_ENTITIES, HUB.HEADERS.GRAPH_ENTITIES),
@@ -51,6 +61,15 @@ function graphSyncFlowStateSafe_(flowState) {
 }
 
 function exportGraphMemoryToDrive() {
+  if (!isGraphMemoryEnabled_()) {
+    logHub_('INFO', 'exportGraphMemoryToDrive', '', 'Skipped graph memory export because ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.', {});
+    return {
+      ok: true,
+      skipped: true,
+      message: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.'
+    };
+  }
+
   const folderId = getScriptProperty_('GRAPH_EXPORT_FOLDER_ID');
   if (!folderId) {
     logHub_('INFO', 'exportGraphMemoryToDrive', '', 'Skipped graph memory export because GRAPH_EXPORT_FOLDER_ID is not configured.', {});

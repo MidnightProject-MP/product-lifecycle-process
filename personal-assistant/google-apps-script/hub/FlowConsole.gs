@@ -249,7 +249,7 @@ function getActiveFlowIds_() {
   if (!sheet || sheet.getLastRow() < 2) return [];
 
   return getObjects_(sheet)
-    .filter(row => String(row['Flow Status'] || '').toLowerCase() !== 'completed')
+    .filter(row => ['completed', 'discarded', 'test only'].indexOf(String(row['Flow Status'] || '').toLowerCase()) < 0)
     .map(row => row['Flow ID'])
     .filter((flowId, index, flowIds) => flowId && flowIds.indexOf(flowId) === index);
 }

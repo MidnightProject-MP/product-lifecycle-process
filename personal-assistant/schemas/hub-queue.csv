@@ -1,1 +1,1 @@
-Queue ID,Flow ID,Event Key,Status,Source,Owner,Created At,Updated At,Scheduled For,Dedupe Key,Channel Override,Send Rule,Payload JSON,Error
+Queue ID,Flow ID,Event Key,Status,Source,Owner,Created At,Updated At,Scheduled For,Dedupe Key,Channel Override,Send Rule,Test Slack Channel,Test Slack Thread TS,Test Slack Message TS,Test Slack Message URL,Test Sent At,Payload JSON,Error

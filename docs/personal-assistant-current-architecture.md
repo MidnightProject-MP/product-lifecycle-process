@@ -10,8 +10,8 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 
 | Layer | Owns | Does Not Own |
 | --- | --- | --- |
-| Personal Assistant Registry | Event catalog, templates, variables, routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
-| Personal Assistant Hub | Communication Console, draft queue, send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
+| Personal Assistant Registry | Event catalog, scaffold templates, variables, live/test routing, approval rules, non-secret message policy. | Secrets, queue state, Slack send history. |
+| Personal Assistant Hub | Communication Console, draft queue, test send execution, live send execution, compact history, flow state, run log. | Template text, event definitions, channel policy. |
 | Automation Dashboard | Owned source adapter, fast change index, values-only export, snapshots, observations, trigger candidates, dedupe, Hub draft creation attempts. | Stakeholder-facing presentation, message copy. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
@@ -26,13 +26,13 @@ Hub v2 drafts stay compact. The Queue is an active-work table, not a send-histor
 | `Event Key` | Stable key into the Registry event catalog. |
 | `Flow ID` | Stable thread / lifecycle identity for project, incident, release, or story. |
 | `Dedupe Key` | Prevents duplicate active drafts for the same observed change. |
-| `Payload JSON` | Variables used by the selected template. |
+| `Payload JSON` | Variables used by the selected template plus the PM-edited final title/body. |
 
-Queue stores only workflow handles, routing override, send rule, payload, and current error state. Draft-specific details such as lane, priority, parent queue, expected previous event, path override, and schedule metadata live inside `Payload JSON`.
+Queue stores only workflow handles, routing override, send rule, test Slack pointers, payload, and current error state. Draft-specific details such as lane, priority, parent queue, expected previous event, path override, and schedule metadata live inside `Payload JSON`.
 
 ## PM Front Door
 
-The Communication Console is the only intended PM-facing workflow. PMs start or continue communications, edit the final title/body, queue drafts, approve/send, and run `Sync Dashboard Now` from the Console.
+The Communication Console is the only intended PM-facing workflow. PMs start or continue communications, edit the final title/body, send tests to the sandbox Slack channel, queue drafts, approve/send, and run `Sync Dashboard Now` from the Console.
 
 `Queue`, `Review`, and `Flow_Console` remain for compatibility, observability, and admin/debug recovery. They are internal sheets, hidden by default, and should not be part of normal PM operation.
 
@@ -43,8 +43,8 @@ The Communication Console is the only intended PM-facing workflow. PMs start or 
 | `Queue` | Lean active work state for drafts awaiting review, approval, retry, or scheduled handling. |
 | `Review` | Internal readable projection used behind the Communication Console and for admin/debug recovery. |
 | `History` | Compact audit of completed, logged, sent, or discarded communication items. |
-| `Flow_State` | One live parent-flow row per project, incident, release, or story communication thread. |
-| `Graph_*` | Hidden long-term memory for entity/W-node continuity and audit events. |
+| `Flow_State` | One parent-flow row per project, incident, release, or story communication thread, with live Slack pointers and parallel test Slack pointers. |
+| `Graph_*` | Optional hidden long-term memory for entity/W-node continuity and audit events. Disabled by default. |
 | `Run_Log` / `Skill_Run_Log` | Observability only; noisy details are summarized. |
 
 ## Observability
@@ -60,9 +60,9 @@ Traceability is split by layer:
 - Automation special releases: project rows with `Next Gate = Special Release` create release-style `release.scheduled` flows while preserving source project context in payload memory.
 - Hub `Run_Log`: what the sender did, skipped, or failed.
 - Hub `Skill_Run_Log`: atomic skill-level runs, parent runs, input hashes, output summaries, errors, and durations.
-- Hub `History`: compact audit record with final status, identifiers, Slack pointers, and payload hash.
-- Hub graph sheets: passive long-term entity, W-node, edge, and graph-event memory.
-- Slack metadata: channel, message timestamp, thread ID, and permalink.
+- Hub `History`: compact audit record with final status, identifiers, live Slack pointers, test Slack pointers, and payload hash.
+- Hub graph sheets: optional passive long-term entity, W-node, edge, and graph-event memory.
+- Slack metadata: live channel/message/thread/permalink plus separate test channel/message/thread/permalink.
 
 ## Spreadsheet Write Convention
 
@@ -83,7 +83,7 @@ Use Script Properties only for:
 Use the Registry for:
 
 - Slack channel routing.
-- Template copy.
+- Scaffold template structure for first drafts.
 - Required variables.
 - Event-to-template mapping.
 - Post mode and send rule.
@@ -96,11 +96,11 @@ Use Automation `Config` only for source adapter settings, such as export validat
 The current implementation supports:
 
 - Registry-driven event, template, routing, send-rule, and required-variable lookup.
-- Hub queue review, approval, Slack send, History, and Run_Log.
+- Hub queue review, automatic/manual test Slack send, approval, live Slack send, History, and Run_Log.
 - Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
 - Manual dashboard sync from the Communication Console through a temporary token-protected Automation Web App endpoint.
 - Slack slash-command intake for `/incident` and `/release`.
-- Passive W-Graph memory behind the existing communication flow.
+- Optional passive W-Graph memory behind the existing communication flow, disabled by default until it powers a visible feature.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
 
 See [Personal Assistant Skills](personal-assistant-skills.md).
@@ -115,7 +115,7 @@ See [Hub Flow State](hub-flow-state.md).
 
 ## Passive Graph Memory
 
-The Hub records communication continuity in hidden graph sheets. `Flow ID` is the v1 graph entity identity. The graph stores entity state, W-node memory, graph edges, and graph events without changing the visible Review, approval, or Slack workflow.
+The Hub can record communication continuity in hidden graph sheets when `ENABLE_PASSIVE_GRAPH_MEMORY` is set to `TRUE`. `Flow ID` is the v1 graph entity identity. The graph stores entity state, W-node memory, graph edges, and graph events without changing the visible Console, approval, or Slack workflow.
 
 Approved sent or log-only communication is treated as verified memory. Drafts create lightweight pending graph events only. Discarded draft content is not promoted to verified memory.
 

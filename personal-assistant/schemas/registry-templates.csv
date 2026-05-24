@@ -1,16 +1,77 @@
 Template Key,Version,Template Name,Active,Anchor Text,Reply Text
-project-status-update,1,Project status update,TRUE,"*{{subject}}* update\n*What:* {{what}}\n*So what:* {{so_what}}\n*What's next:* {{whats_next}}\nOwner: {{owner}}","*Project update: {{subject}}*\n*Key update:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-project-risk-update,1,Project risk update,TRUE,"*{{subject}} status changed*\n*What changed:* {{what}}\n*So what:* {{so_what}}\n*Next:* {{whats_next}}\nOwner: {{owner}}","*Project status change: {{subject}}*\n*Key update:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-project-gate-update,1,Project gate update,TRUE,"*{{subject}} gate update*\n*Gate:* {{gate}}\n*What:* {{what}}\n*So what:* {{so_what}}\n*What's next:* {{whats_next}}\nOwner: {{owner}}","*Gate update: {{subject}}*\n*Gate:* {{gate}}\n*Key update:* {{what}}\n*Next:* {{whats_next}}"
-project-escalation,1,Project escalation,TRUE,"*{{subject}} needs attention*\n*What happened:* {{what}}\n*So what:* {{so_what}}\n*Recovery / next decision:* {{whats_next}}\nOwner: {{owner}}","*Project exception: {{subject}}*\n*What happened:* {{what}}\n*Impact:* {{so_what}}\n*Next decision:* {{whats_next}}"
-critical-bug-leadership,1,Critical bug leadership update,TRUE,"*Critical issue: {{subject}}*\n*What we know:* {{what}}\n*So what:* {{so_what}}\n*Next update / action:* {{whats_next}}\nOwner: {{owner}}","*Critical issue update: {{subject}}*\n*Key update:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-release-scheduled,1,Release scheduled,TRUE,"*[{{subject}}] Release scheduled*\n*Current status:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Next checkpoint:* {{whats_next}}\n*Owner:* {{owner}}","*Release scheduled: {{subject}}*\n*Status:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-release-go-no-go,1,Release go no-go,TRUE,"*[{{subject}}] Go / no-go approaching*\n*Readiness status:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Decision path:* {{whats_next}}\n*Owner:* {{owner}}","*Go / no-go approaching: {{subject}}*\n*Readiness:* {{what}}\n*Impact:* {{so_what}}\n*Decision path:* {{whats_next}}"
-release-started,1,Release started,TRUE,"*[{{subject}}] Release in progress*\n*Execution status:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Next checkpoint:* {{whats_next}}\n*Owner:* {{owner}}","*Release started: {{subject}}*\n*Execution status:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-release-completed,1,Release completed,TRUE,"*[{{subject}}] Release completed*\n*Result:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Next:* {{whats_next}}\n*Owner:* {{owner}}","*Release completed: {{subject}}*\n*Result:* {{what}}\n*Impact:* {{so_what}}\n*Next:* {{whats_next}}"
-release-delayed,1,Release delayed,TRUE,"*[{{subject}}] Release delayed*\n*What changed:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Revised path:* {{whats_next}}\n*Owner:* {{owner}}","*Release delayed: {{subject}}*\n*What changed:* {{what}}\n*Impact:* {{so_what}}\n*Revised path:* {{whats_next}}"
-release-rollback-evaluating,1,Rollback being evaluated,TRUE,"*[{{subject}}] Rollback being evaluated*\n*Concern:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Decision ETA / next step:* {{whats_next}}\n*Owner:* {{owner}}","*Rollback being evaluated: {{subject}}*\n*Concern:* {{what}}\n*Impact:* {{so_what}}\n*Decision ETA / next step:* {{whats_next}}"
-release-rollback-decision,1,Rollback decision made,TRUE,"*[{{subject}}] Rollback decision made*\n*Decision:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Execution path:* {{whats_next}}\n*Owner:* {{owner}}","*Rollback decision made: {{subject}}*\n*Decision:* {{what}}\n*Impact:* {{so_what}}\n*Execution path:* {{whats_next}}"
-release-rolled-back,1,Release rolled back,TRUE,"*[{{subject}}] Release rolled back*\n*Rollback status:* {{what}}\n*Production impact:* {{so_what}}\n*Recovery path:* {{whats_next}}\n*Owner:* {{owner}}","*Release rolled back: {{subject}}*\n*Rollback status:* {{what}}\n*Impact:* {{so_what}}\n*Recovery path:* {{whats_next}}"
-release-postmortem-needed,1,Postmortem required,TRUE,"*[{{subject}}] Postmortem required*\n*Trigger:* {{what}}\n*Stakeholder impact:* {{so_what}}\n*Follow-up:* {{whats_next}}\n*Owner:* {{owner}}","*Postmortem required: {{subject}}*\n*Trigger:* {{what}}\n*Impact:* {{so_what}}\n*Follow-up:* {{whats_next}}"
-stray-story-disposition,1,Stray story disposition,TRUE,"*Stray story update: {{subject}}*\n*Disposition:* {{destination}}\n*Reason:* {{reason}}\n*What's next:* {{whats_next}}\nOwner: {{owner}}","*Stray story update: {{subject}}*\n*Disposition:* {{destination}}\n*Reason:* {{reason}}\n*Next:* {{whats_next}}"
+project-status-update,1,Project status update scaffold,TRUE,"*[{{subject}}] Add concise project status headline*
+*Current status:* Add the decision-ready update. Source note: {{what}}
+*Why it matters:* Add stakeholder impact, scope, or expectation change. Source note: {{so_what}}
+*Next step:* Add owner, date, and next checkpoint. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Project update: {{subject}}*
+project-risk-update,1,Project risk update scaffold,TRUE,"*[{{subject}}] Add project risk/status headline*
+*What changed:* State the exact change, old/new value if relevant, and reason. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and confidence/risk implications. Source note: {{so_what}}
+*Next step:* Add recovery path, owner, and timing. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Project risk/status update: {{subject}}*
+project-gate-update,1,Project gate update scaffold,TRUE,"*[{{subject}}] Add gate update headline*
+*Gate:* {{gate}}
+*What changed:* Add gate status, decision, or readiness detail. Source note: {{what}}
+*Why it matters:* Add stakeholder impact. Source note: {{so_what}}
+*Next step:* Add owner, date, and checkpoint. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Gate update: {{subject}}*
+project-escalation,1,Project escalation scaffold,TRUE,"*[{{subject}}] Add escalation headline*
+*What happened:* Add the blocker, miss, or exception. Source note: {{what}}
+*Why it matters:* Add business/stakeholder impact. Source note: {{so_what}}
+*Recovery / decision:* Add decision owner, date, and recovery path. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Project escalation: {{subject}}*
+critical-bug-leadership,1,Critical bug leadership scaffold,TRUE,"*[{{subject}}] Add critical issue headline*
+*What we know:* Add confirmed facts and current state. Source note: {{what}}
+*Why it matters:* Add customer, operational, or leadership impact. Source note: {{so_what}}
+*Next update / action:* Add owner, ETA, and next decision. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Critical issue update: {{subject}}*
+release-scheduled,1,Release scheduled scaffold,TRUE,"*[{{subject}}] Add release schedule headline*
+*Schedule / scope:* Add date, scope, release type, and readiness notes. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and support expectations. Source note: {{so_what}}
+*Next checkpoint:* Add go/no-go owner, timing, and required decision. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Release scheduled: {{subject}}*
+release-go-no-go,1,Release go/no-go scaffold,TRUE,"*[{{subject}}] Add go/no-go headline*
+*Readiness:* Add current readiness, open risks, and decision context. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and operating expectation. Source note: {{so_what}}
+*Decision path:* Add owner, decision time, and next update. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Go / no-go: {{subject}}*
+release-started,1,Release started scaffold,TRUE,"*[{{subject}}] Add release execution headline*
+*Execution status:* Add what started, scope, and current confidence. Source note: {{what}}
+*Why it matters:* Add expected stakeholder impact during the window. Source note: {{so_what}}
+*Next checkpoint:* Add timing and next confirmation. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Release started: {{subject}}*
+release-completed,1,Release completed scaffold,TRUE,"*[{{subject}}] Add release completion headline*
+*Result:* Add completion state, scope, and known exceptions. Source note: {{what}}
+*Why it matters:* Add production/customer impact and readiness for normal operation. Source note: {{so_what}}
+*Next step:* Add follow-up, monitoring, or post-release owner. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Release completed: {{subject}}*
+release-delayed,1,Release delayed scaffold,TRUE,"*[{{subject}}] Add release delay headline*
+*What changed:* Add original plan, revised plan, and reason. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and support expectations. Source note: {{so_what}}
+*Revised path:* Add new timing, owner, and next decision/update. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Release delayed: {{subject}}*
+release-rollback-evaluating,1,Rollback being evaluated scaffold,TRUE,"*[{{subject}}] Add rollback-evaluation headline*
+*Concern:* Add issue, severity, and decision criteria. Source note: {{what}}
+*Why it matters:* Add production/customer impact and interim expectation. Source note: {{so_what}}
+*Decision ETA / next step:* Add owner and decision time. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Rollback being evaluated: {{subject}}*
+release-rollback-decision,1,Rollback decision scaffold,TRUE,"*[{{subject}}] Add rollback decision headline*
+*Decision:* Add continue/pause/delay/rollback decision and reason. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and operational expectation. Source note: {{so_what}}
+*Execution path:* Add owner, timing, and next update. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Rollback decision: {{subject}}*
+release-rolled-back,1,Release rolled back scaffold,TRUE,"*[{{subject}}] Add rollback completion headline*
+*Rollback status:* Add what was rolled back, production state, and remaining risk. Source note: {{what}}
+*Why it matters:* Add stakeholder/customer impact. Source note: {{so_what}}
+*Recovery path:* Add next recovery/postmortem step, owner, and timing. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Release rolled back: {{subject}}*
+release-postmortem-needed,1,Postmortem required scaffold,TRUE,"*[{{subject}}] Add postmortem headline*
+*Trigger:* Add why postmortem is required and what event caused it. Source note: {{what}}
+*Why it matters:* Add stakeholder impact and learning objective. Source note: {{so_what}}
+*Follow-up:* Add owner, timing, and expected output. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Postmortem required: {{subject}}*
+stray-story-disposition,1,Stray story disposition scaffold,TRUE,"*[{{subject}}] Add intake/disposition headline*
+*Disposition:* {{destination}}
+*Reason:* Add rationale and context. Source note: {{reason}}
+*Next step:* Add owner and next action. Source note: {{whats_next}}
+*Owner:* {{owner}}",*Stray story update: {{subject}}*

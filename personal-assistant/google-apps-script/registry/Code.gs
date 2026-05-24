@@ -115,6 +115,15 @@ function refreshReleaseRegistryDefaults() {
   );
 }
 
+function refreshTemplateScaffolds() {
+  const ss = SpreadsheetApp.getActive();
+  upsertRegistryRows_(
+    ensureRegistrySheet_(ss, REGISTRY.SHEETS.TEMPLATES, REGISTRY.HEADERS.TEMPLATES),
+    'Template Key',
+    REGISTRY.SEED.TEMPLATES
+  );
+}
+
 function getReleaseSeedRows_(rows, keyField) {
   return rows.filter(row => String(row[keyField] || '').indexOf('release.') === 0);
 }

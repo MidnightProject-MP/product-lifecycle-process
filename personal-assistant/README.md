@@ -8,13 +8,13 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 
 | Component | Purpose |
 | --- | --- |
-| Personal Assistant Registry | Central event catalog, templates, variables, approval rules, message behavior, and Slack channel defaults. |
-| Personal Assistant Hub | Communication Console, lean active Queue, outbound Slack sender, compact history, flow state, and run log. |
+| Personal Assistant Registry | Central event catalog, scaffold templates, variables, approval rules, message behavior, and live/test Slack channel defaults. |
+| Personal Assistant Hub | Communication Console, lean active Queue, outbound live/test Slack sender, compact history, flow state, and run log. |
 | Automation Dashboard | Owned adapter with raw formula tabs, hidden fast change index, values-only export, circuit breaker, snapshots, observations, trigger logs, dedupe, and Hub draft creation. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |
-| Flow State | Parent state database for Slack anchors, thread timestamps, and next expected lifecycle events. |
-| Passive Graph Memory | Hidden W-Graph memory for long-term entity continuity. |
+| Flow State | Parent state database for live Slack anchors, test Slack anchors, thread timestamps, and next expected lifecycle events. |
+| Passive Graph Memory | Optional hidden W-Graph memory for long-term entity continuity. Disabled by default for the communication workflow. |
 | Skill Kernel | Internal atomic skill runner and trace log for independently callable workflow actions. |
 
 ## Contract
@@ -25,11 +25,11 @@ Every communication draft is reduced to:
 Event Key + Flow ID + Dedupe Key + Payload JSON
 ```
 
-The Registry resolves the event key into the template, channel type, post mode, send rule, required variables, and approval expectations.
+The Registry resolves the event key into the scaffold template, channel type, post mode, send rule, required variables, and approval expectations. Templates generate an editable first draft only; PM-edited title/body fields in the Communication Console become the final Slack message.
 
 Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates reply in the same thread and update the anchor message with the latest executive summary.
 
-PMs should use the Communication Console for manual lifecycle updates. They select an existing communication or start a new one, choose the next action, edit the final title/body, queue a draft, and approve/send from the same sidebar.
+PMs should use the Communication Console for manual lifecycle updates. They select an existing communication or start a new one, choose the next action, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send from the same sidebar.
 
 ## Inputs
 

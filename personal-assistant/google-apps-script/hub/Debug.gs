@@ -78,8 +78,10 @@ function debugRunKernelSmokeTestLogOnly_() {
     flowStatus: flow['Flow Status']
   });
 
-  const graphSummary = buildKernelSmokeGraphSummary_(draft['Flow ID'], queueId);
-  if (!graphSummary.entityFound || graphSummary.wNodeCount < GRAPH_W_DIMENSIONS.length || graphSummary.eventCount < 1) {
+  const graphSummary = isGraphMemoryEnabled_() ?
+    buildKernelSmokeGraphSummary_(draft['Flow ID'], queueId) :
+    { skipped: true, reason: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.' };
+  if (isGraphMemoryEnabled_() && (!graphSummary.entityFound || graphSummary.wNodeCount < GRAPH_W_DIMENSIONS.length || graphSummary.eventCount < 1)) {
     throw new Error('Kernel smoke test did not record expected graph memory: ' + JSON.stringify(graphSummary));
   }
   debugKernelSmokeCheckpoint_(queueId, 'Graph verification passed.', graphSummary);
@@ -194,18 +196,28 @@ function debugValidateHubSchemaV2() {
     History: ['Dedupe Key', 'Created At', 'Updated At', 'Source', 'Lane', 'Status', 'Priority', 'Channel Override', 'Send Rule', 'Payload JSON', 'Reviewer', 'Approver', 'Approved At', 'Sent At', 'Parent Queue ID', 'Expected Previous Event Key', 'Path Override', 'Scheduled For'],
     Flow_State: ['Current Path', 'Allowed Sad Path Event Keys', 'Last Sent At', 'Payload JSON']
   };
-  const hiddenSheets = [
-    HUB.SHEETS.SKILL_RUN_LOG,
-    HUB.SHEETS.GRAPH_ENTITIES,
-    HUB.SHEETS.GRAPH_W_NODES,
-    HUB.SHEETS.GRAPH_EDGES,
-    HUB.SHEETS.GRAPH_EVENTS
-  ];
+  const hiddenSheets = [HUB.SHEETS.SKILL_RUN_LOG];
+  if (isGraphMemoryEnabled_()) {
+    hiddenSheets.push(
+      HUB.SHEETS.GRAPH_ENTITIES,
+      HUB.SHEETS.GRAPH_W_NODES,
+      HUB.SHEETS.GRAPH_EDGES,
+      HUB.SHEETS.GRAPH_EVENTS
+    );
+  }
   let ok = true;
 
   Object.keys(HUB.HEADERS).forEach(key => {
     const sheetName = HUB.SHEETS[key];
     if (!sheetName) return;
+    if (isGraphHubSheet_(sheetName) && !isGraphMemoryEnabled_()) {
+      results[sheetName] = {
+        exists: Boolean(ss.getSheetByName(sheetName)),
+        skipped: true,
+        reason: 'ENABLE_PASSIVE_GRAPH_MEMORY is not enabled.'
+      };
+      return;
+    }
     const sheet = ss.getSheetByName(sheetName);
     const expected = HUB.HEADERS[key];
     const actual = sheet ? getHeaders_(sheet) : [];

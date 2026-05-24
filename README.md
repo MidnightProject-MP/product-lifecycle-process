@@ -2,9 +2,9 @@
 
 Personal Assistant is a product workspace for turning operational noise into clear, executive-ready communication.
 
-The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, sends, traces, and remembers project, incident, release, and intake updates.
+The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, test-sends, sends, and traces project, incident, release, and intake updates.
 
-The broader AI-first personal app suite is documented as future architecture only. This repo does not yet implement a React app, Google Drive BYOS storage, graph/RAG tooling, BYOK settings, proactive workers, or an LLM gateway.
+The broader AI-first personal app suite is documented as future architecture only. This repo does not yet implement a React app, Google Drive BYOS storage, active graph/RAG tooling, BYOK settings, proactive workers, or an LLM gateway.
 
 ## Current Capability
 
@@ -21,7 +21,7 @@ Personal Assistant Registry resolves template, routing, and approval policy
 Personal Assistant Hub queues draft and records observability
         |
         v
-PM approves in Communication Console
+PM tests or approves in Communication Console
         |
         v
 Slack anchor and thread are updated
