@@ -337,10 +337,6 @@
       border-left-color: var(--amber);
     }
 
-    .work-card.signal {
-      cursor: default;
-    }
-
     .card-top {
       align-items: center;
       display: flex;
@@ -743,6 +739,7 @@
     let isBusy = false;
     let aiDraftAttempts = {};
     let aiMetadata = {};
+    let cardDetailMap = {};
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -850,6 +847,7 @@
     }
 
     function renderInbox() {
+      cardDetailMap = {};
       const groups = appContext.actionInbox && appContext.actionInbox.groups || [];
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Inbox', (appContext.actionInbox && appContext.actionInbox.summary.total || 0) + ' actions') +
@@ -865,8 +863,10 @@
     }
 
     function renderActionCard(item) {
-      const clickable = item.selection ? ' onclick="openDetail(' + quote(item.selection) + ')"' : '';
-      const selected = selectedSelection === item.selection ? ' selected' : '';
+      const cardKey = item.selection || buildCardKey(item);
+      cardDetailMap[cardKey] = item;
+      const clickable = ' onclick="openActionCard(' + quote(cardKey) + ')"';
+      const selected = selectedSelection === cardKey ? ' selected' : '';
       const classes = ['work-card', item.decisionState || '', item.kind === 'signal' ? 'signal' : '', selected].filter(Boolean).join(' ');
       const routeChips = item.kind === 'draft' ?
         ((item.hasTest ? pillHtml('Test sent', 'ok') : pillHtml('No test yet', '')) +
@@ -880,6 +880,29 @@
         '<div class="card-why">' + escapeHtml(item.why || '') + '</div>' +
         '<div class="pill-row">' + routeChips + pillHtml(item.lane || item.recordType || 'No lane') + '</div>' +
         '</div>';
+    }
+
+    function buildCardKey(item) {
+      return [
+        'card',
+        item.kind || '',
+        item.sourceItemId || '',
+        item.flowId || '',
+        item.eventKey || '',
+        item.subject || ''
+      ].join(':');
+    }
+
+    function openActionCard(cardKey) {
+      const item = cardDetailMap[cardKey];
+      if (!item) return;
+      if (item.selection) {
+        openDetail(item.selection);
+        return;
+      }
+      selectedSelection = cardKey;
+      renderContent();
+      renderSignalDetail(item);
     }
 
     function renderActive() {
@@ -915,6 +938,7 @@
     }
 
     function renderSignals() {
+      cardDetailMap = {};
       const pending = appContext.dashboard.pending || [];
       const triggers = appContext.dashboard.recentTriggers || [];
       document.getElementById('content').innerHTML =
@@ -926,7 +950,17 @@
     }
 
     function renderSignalCard(item) {
-      return '<div class="work-card stabilizing signal">' +
+      const cardKey = buildCardKey(Object.assign({ kind: 'signal' }, item));
+      cardDetailMap[cardKey] = Object.assign({
+        kind: 'signal',
+        source: 'Dashboard sync',
+        decisionState: item.status === 'Error' ? 'failed' : 'stabilizing',
+        decisionLabel: item.status || 'Pending Evaluation',
+        nextAction: item.status === 'Needs Reason' ? 'Add source context' : 'Wait for stable polls',
+        why: item.triggerCandidate || item.eventName || 'Dashboard change under evaluation'
+      }, item);
+      const selected = selectedSelection === cardKey ? ' selected' : '';
+      return '<div class="work-card stabilizing signal' + selected + '" onclick="openActionCard(' + quote(cardKey) + ')">' +
         '<div class="card-top">' + pillHtml(item.status || 'Pending Evaluation', item.status === 'Needs Reason' ? 'warn' : 'info') +
         '<strong class="small">' + escapeHtml(item.stablePolls ? 'Stable polls ' + item.stablePolls : 'Watching') + '</strong></div>' +
         '<div class="card-title">' + escapeHtml(item.subject || item.flowId) + '</div>' +
@@ -936,7 +970,19 @@
     }
 
     function renderTriggerCard(item) {
-      return '<div class="work-card">' +
+      const selection = item.queueId ? 'queue:' + item.queueId : '';
+      const cardKey = selection || buildCardKey(Object.assign({ kind: 'trigger' }, item));
+      cardDetailMap[cardKey] = Object.assign({
+        kind: 'signal',
+        source: 'Dashboard sync',
+        sourceItemId: item.sourceItemId,
+        decisionState: item.error ? 'failed' : 'needs_review',
+        decisionLabel: item.status || 'Logged',
+        why: item.candidate || item.eventName || 'Automation decision',
+        selection: selection
+      }, item);
+      const selected = selectedSelection === cardKey ? ' selected' : '';
+      return '<div class="work-card' + selected + '" onclick="openActionCard(' + quote(cardKey) + ')">' +
         '<div class="card-top">' + pillHtml(item.status || 'Logged', item.error ? 'error' : item.queueId ? 'ok' : '') +
         '<span class="small">' + escapeHtml(formatDateTime(item.createdAt)) + '</span></div>' +
         '<div class="card-title">' + escapeHtml(item.subject || item.candidate || item.flowId) + '</div>' +
@@ -979,6 +1025,44 @@
     function renderDetailEmpty() {
       document.getElementById('detail').innerHTML =
         '<div class="empty-state"><strong>Select an action.</strong><br>Open a draft, flow, or new communication type to see the editor, readiness checklist, routing state, and source evidence.</div>';
+    }
+
+    function renderSignalDetail(item) {
+      currentDetail = null;
+      setStatus('Dashboard signal selected.', 'success');
+      document.getElementById('detail').innerHTML =
+        '<div class="object-view">' +
+          '<div class="object-main">' +
+            '<div class="object-header">' +
+              '<div class="object-kicker">' + pillHtml(item.decisionLabel || item.status || 'Dashboard signal', stateMode(item.decisionState)) +
+              pillHtml(item.recordType || item.source || 'Dashboard sync') + '</div>' +
+              '<div class="object-title">' + escapeHtml(item.subject || item.flowId || item.sourceItemId || 'Dashboard signal') + '</div>' +
+              '<div class="object-summary">' + escapeHtml(item.why || 'This signal is still being evaluated before a draft is created.') + '</div>' +
+            '</div>' +
+            '<div class="empty-state" style="text-align:left">' +
+              '<strong>Not a draft yet.</strong><br>' +
+              'This card is dashboard evidence, not an editable Queue item. If it stabilizes and passes the trigger rules, it will create a draft here automatically. Use Sync Dashboard Now if you just updated the source dashboard.' +
+            '</div>' +
+            '<div class="action-row">' +
+              '<button class="btn-secondary" onclick="syncDashboard()">Sync Dashboard Now</button>' +
+              '<button class="btn-muted" onclick="loadApp(true)">Refresh</button>' +
+            '</div>' +
+          '</div>' +
+          '<aside class="rail">' +
+            '<div class="rail-card"><div class="rail-title">Signal state</div><div class="kv-list">' +
+              kvHtml('Status', item.status || item.decisionLabel || 'Pending Evaluation') +
+              kvHtml('Candidate', item.triggerCandidate || item.candidate || item.eventName || item.eventKey || 'No candidate yet') +
+              kvHtml('Stable polls', item.stablePolls || 'Waiting') +
+              kvHtml('Last seen', item.lastSeenAt ? formatDateTime(item.lastSeenAt) : 'Not available') +
+              (item.error ? kvHtml('Error', item.error) : '') +
+            '</div></div>' +
+            '<div class="rail-card"><div class="rail-title">Source</div><div class="kv-list">' +
+              kvHtml('Flow ID', item.flowId || 'Not available') +
+              kvHtml('Source item', item.sourceItemId || 'Not available') +
+              kvHtml('Record type', item.recordType || 'Dashboard') +
+            '</div></div>' +
+          '</aside>' +
+        '</div>';
     }
 
     function renderDetail() {
