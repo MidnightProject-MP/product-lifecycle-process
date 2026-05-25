@@ -10,7 +10,7 @@ Inputs create event-keyed drafts. The Registry decides how those drafts communic
 
 | Layer | Owns | Does Not Own |
 | --- | --- | --- |
-| Personal Assistant Control Center | Communication Console, local Registry tabs, dashboard adapter, draft queue, test send execution, live send execution, compact history, flow state, and run logs. | Stakeholder-facing presentation. |
+| Personal Assistant Control Center | Communication App web front door, local Registry tabs, dashboard adapter, draft queue, test send execution, live send execution, compact history, flow state, and run logs. | Stakeholder-facing presentation. |
 | Legacy split projects | Existing Hub, Registry, Automation Dashboard, and direct dashboard adapter during fallback. | New PM workflow ownership after Control Center verification. |
 | Executive Dashboard | Leadership-friendly presentation. | Automation-friendly schema, communication rules, or bound Apps Script code. |
 
@@ -31,9 +31,9 @@ Queue stores only workflow handles, routing override, send rule, test Slack poin
 
 ## PM Front Door
 
-The Communication Console is the only intended PM-facing workflow. PMs start or continue communications, edit the final title/body, send tests to the sandbox Slack channel, queue drafts, approve/send, and run `Sync Dashboard Now` from the Console.
+The GAS-hosted Communication App is the intended PM-facing workflow. PMs start or continue communications, edit the final title/body, send tests to the sandbox Slack channel, queue drafts, approve/send, inspect dashboard signals and history, and run `Sync Dashboard Now` from the app.
 
-`Queue`, `Review`, and `Flow_Console` remain for compatibility, observability, and admin/debug recovery. They are internal sheets, hidden by default, and should not be part of normal PM operation.
+`Queue`, `Review`, `Flow_Console`, and the older sidebar/modal Communication Console remain for compatibility, observability, and admin/debug recovery. They are hidden or moved under `Admin / Debug` and should not be part of normal PM operation.
 
 ## Hub Sheet Roles
 
@@ -97,9 +97,9 @@ The current implementation supports:
 - Registry-driven event, template, routing, send-rule, and required-variable lookup.
 - Hub queue review, automatic/manual test Slack send, approval, live Slack send, History, and Run_Log.
 - Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
-- Manual dashboard sync from the Communication Console by directly calling the local dashboard sync function in the Control Center.
+- Manual dashboard sync from the Communication App by directly calling the local dashboard sync function in the Control Center.
 - Slack slash-command intake for `/incident` and `/release`.
-- Optional passive W-Graph memory behind the existing communication flow, disabled by default until it powers a visible feature.
+- Legacy optional passive W-Graph memory behind the split Hub flow, disabled by default until it powers a visible feature. The consolidated Control Center v1 omits graph sheets.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
 
 See [Personal Assistant Skills](personal-assistant-skills.md).
@@ -114,19 +114,19 @@ See [Hub Flow State](hub-flow-state.md).
 
 ## Passive Graph Memory
 
-The Hub can record communication continuity in hidden graph sheets when `ENABLE_PASSIVE_GRAPH_MEMORY` is set to `TRUE`. `Flow ID` is the v1 graph entity identity. The graph stores entity state, W-node memory, graph edges, and graph events without changing the visible Console, approval, or Slack workflow.
+The legacy split Hub can record communication continuity in hidden graph sheets when `ENABLE_PASSIVE_GRAPH_MEMORY` is set to `TRUE`. `Flow ID` is the v1 graph entity identity. The graph stores entity state, W-node memory, graph edges, and graph events without changing the visible Console, approval, or Slack workflow.
 
 Approved sent or log-only communication is treated as verified memory. Drafts create lightweight pending graph events only. Discarded draft content is not promoted to verified memory.
 
-Graph expansion is paused until it powers a visible Console, review guidance, or reporting feature. For now it remains passive memory and must not add PM workflow steps.
+Graph expansion is paused until it powers a visible app feature, review guidance, or reporting feature. The consolidated Control Center v1 intentionally omits graph sheets and graph writes.
 
 See [Passive Graph Memory](passive-graph-memory.md).
 
 ## Cross-Spreadsheet Control
 
-The future cross-spreadsheet control path is a Communication Console Launcher Add-on. The add-on should open the same Console from any authorized spreadsheet, pass local spreadsheet context when useful, and write to the central Hub or future Control Center.
+The future cross-spreadsheet control path is a lightweight launcher or Workspace Add-on. It should open the same Communication App from any authorized spreadsheet, pass local spreadsheet context when useful, and write to the central Control Center.
 
-In the consolidated Control Center, the Console directly triggers the local dashboard sync. The old token-protected Automation Web App endpoint remains only for the legacy split deployment.
+In the consolidated Control Center, the Communication App directly triggers the local dashboard sync. The old token-protected Automation Web App endpoint remains only for the legacy split deployment.
 
 ## Next Architecture Extension
 

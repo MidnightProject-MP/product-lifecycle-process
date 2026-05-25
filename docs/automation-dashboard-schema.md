@@ -183,9 +183,9 @@ The Automation Dashboard Apps Script adds a `Communication Automation` menu:
 - `Validate export`: runs the source validation circuit breaker check.
 - `Run dashboard sync`: runs the fast preflight, then materializes and processes changes only when needed.
 
-Use the menu for real-data sandbox acceptance testing. It does not create synthetic data or bypass manual Communication Console approval.
+Use the menu for real-data sandbox acceptance testing. It does not create synthetic data or bypass manual Communication App approval.
 
-The Hub Communication Console can also trigger the same sync through the Automation Dashboard Web App endpoint. That endpoint is internal, token-protected with `AUTOMATION_SYNC_TOKEN`, and exists only until Hub and Automation are consolidated into a single Control Center script.
+In the consolidated Control Center, the Communication App calls the same sync directly in the local script. The old Hub Communication Console can trigger sync through the Automation Dashboard Web App endpoint only in the legacy split deployment. That endpoint is internal, token-protected with `AUTOMATION_SYNC_TOKEN`, and should not be used by new Control Center installs.
 
 ## Retention
 

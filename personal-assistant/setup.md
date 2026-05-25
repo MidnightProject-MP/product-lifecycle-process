@@ -5,8 +5,9 @@ New deployments should use the consolidated **Personal Assistant Control Center*
 The Control Center contains:
 
 - local Registry tabs for settings, event catalog, scaffold templates, transitions, and approval rules
-- local Hub tabs for Queue, History, Flow_State, the Communication Console, and Slack send metadata
+- local Hub tabs for Queue, History, Flow_State, fallback Console state, and Slack send metadata
 - local Automation tabs for raw dashboard input, values-only export, change index, observations, changes, trigger log, and config
+- a GAS-hosted Communication App web page for the PM workflow
 
 The old split version uses:
 
@@ -40,6 +41,7 @@ Required Control Center Script Properties:
 | --- | --- |
 | `SLACK_BOT_TOKEN` | Slack bot token beginning with `xoxb-`. |
 | `SLACK_VERIFICATION_TOKEN` | Optional Slack slash-command verification token. |
+| `CONTROL_CENTER_SPREADSHEET_ID` | Spreadsheet ID for the Control Center. Recommended for Web App execution; bound spreadsheet fallback is still supported. |
 
 Optional Control Center Script Properties:
 
@@ -47,6 +49,8 @@ Optional Control Center Script Properties:
 | --- | --- |
 | `DASHBOARD_SPREADSHEET_ID` | Optional source for the legacy weekly digest helper. |
 | `AUTO_SEND_TEST_ON_QUEUE` | Defaults to `TRUE`. Automatically sends queued drafts to the configured test Slack channel while keeping the draft active for real approval/send. |
+| `COMMUNICATION_APP_URL` | Optional Web App URL shown by the spreadsheet menu. If omitted, the script attempts to resolve the current deployment URL. |
+| `WEB_APP_ALLOWED_EMAILS` | Optional comma-separated email allowlist for the Communication App. If omitted, access is controlled by the Web App deployment settings. |
 
 The Control Center no longer needs `REGISTRY_SPREADSHEET_ID`, `HUB_SPREADSHEET_ID`, `AUTOMATION_SYNC_WEB_APP_URL`, or the Console-to-Automation `AUTOMATION_SYNC_TOKEN`.
 
@@ -57,7 +61,13 @@ After setup:
 3. Map those raw tabs into `Automation_Export_Source`.
 4. Run `debugValidateAutomationExport`.
 5. Run `syncLeadershipDashboardToAutomation`.
-6. Use `Personal Assistant > Open Communication Console` for PM review, test sends, queueing, manual sync, and live approval.
+6. Deploy the Control Center script as a Web App:
+   - Execute as: `Me`
+   - Access: your Workspace/domain, or the narrowest access level that works for your PMs
+   - Copy the Web App URL into `COMMUNICATION_APP_URL` if the menu cannot resolve it automatically.
+7. Use the Web App URL, or `Personal Assistant > Open Communication App`, for PM review, test sends, queueing, manual sync, and live approval.
+
+The old sidebar/modal Communication Console remains under `Personal Assistant > Admin / Debug` as a fallback. It is no longer the preferred PM workflow.
 
 Graph memory is intentionally omitted from Control Center v1. The old Hub graph code remains only in the legacy split project.
 
@@ -129,7 +139,7 @@ In `Settings`, fill the Slack channel ID values for the active communication typ
 
 If an older Registry still has a `Routing` tab, `setupRegistrySheets` copies any existing channel IDs into these `Settings` rows and hides the legacy tab.
 
-Run `refreshTemplateScaffolds` if you want to overwrite existing template rows with the current scaffold-style templates. Templates are first-draft structure only; PM-edited title/body content in the Communication Console is the final message source.
+Run `refreshTemplateScaffolds` if you want to overwrite existing template rows with the current scaffold-style templates. Templates are first-draft structure only; PM-edited title/body content in the Communication App is the final message source.
 
 Do not put Slack tokens, signing secrets, or passwords in the Registry.
 
@@ -196,7 +206,7 @@ This creates or repairs:
 
 If `ENABLE_PASSIVE_GRAPH_MEMORY` is `TRUE`, setup also creates hidden graph sheets: `Graph_Entities`, `Graph_W_Nodes`, `Graph_Edges`, and `Graph_Events`.
 
-The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. The Communication Console is the only PM-facing workflow for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, syncing dashboard changes on demand, sending a test to Slack, and approving a draft. `Queue`, `Review`, and `Flow_Console` are internal/admin surfaces and can stay hidden during normal use. `Flow_State` stores one parent record per incident, release, project, or other communication flow. It also keeps parallel test Slack timestamps separate from the live Slack anchor/thread timestamps. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
+The `Queue` is now a lean active-work table. Draft details that do not need first-class operational columns live in `Payload JSON`. In the legacy split Hub, the Communication Console is the PM-facing fallback for starting a new communication, selecting an existing communication flow, queueing the next expected update or detour, syncing dashboard changes on demand, sending a test to Slack, and approving a draft. New Control Center deployments should use the Web App Communication App instead. `Queue`, `Review`, and `Flow_Console` are internal/admin surfaces and can stay hidden during normal use. `Flow_State` stores one parent record per incident, release, project, or other communication flow. It also keeps parallel test Slack timestamps separate from the live Slack anchor/thread timestamps. `Flow_Console` and `Review` are script-written, so keep them untyped. Completed rows are copied into compact `History` audit rows and removed from `Queue`.
 
 Graph memory is paused by default. It remains available for the broader Personal Assistant roadmap, but it should stay off for the communication workflow until it powers a visible Console, reporting, or guidance feature.
 
@@ -388,7 +398,7 @@ The GitHub workflow expects one clasp auth repository secret:
 | `CLASPRC_JSON` | Preferred name. Full clasp auth JSON written to `~/.clasprc.json` during deployment. |
 | `CLASP_TOKEN` | Accepted fallback name for the same full clasp auth JSON. |
 
-The deployment workflow runs `clasp push --force` only. It does not create Apps Script versions or redeploy web apps.
+The deployment workflow runs `clasp push --force` only. It does not create Apps Script versions or redeploy web apps. After changing `doGet`, `CommunicationApp.html`, or any server function used by the Web App, manually update the Apps Script Web App deployment to make those changes live at the `/exec` URL.
 
 Folders with placeholder script IDs are skipped so the workflow can exist before every Google-side script ID is known.
 
@@ -405,7 +415,7 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 
 1. Run `/incident api outage affecting centers` in Slack.
 2. Confirm a `Draft` row appears in Hub `Queue` with `Event Key = incident.critical.identified`.
-3. Approve the draft from `Review` or the Communication Console.
+3. Approve the draft from the Communication App, or from `Review` only during technical fallback testing.
 4. Confirm Slack receives the message.
 5. Confirm compact Slack metadata appears in `History` and parent state appears in `Flow_State`.
 
@@ -422,19 +432,19 @@ Folders with placeholder script IDs are skipped so the workflow can exist before
 9. Set `CREATE_HUB_DRAFTS = TRUE`, repeat a new material change, then confirm a Hub `Queue` draft appears.
 10. Approve the Hub row and confirm Slack receives the message.
 
-### Manual Hub Test
+### Communication App Test
 
-For manual review, use `Personal Assistant` > `Open Communication Console`. The console opens as a sidebar so the spreadsheet remains visible. It can start a new communication, continue an existing flow, edit the final title/body, queue a draft, send a test to Slack, approve/send, and run `Sync Dashboard Now` when a PM wants dashboard changes picked up before the next scheduled poll.
+For manual review, use the Web App URL or `Personal Assistant` > `Open Communication App`. The Communication App is the PM front door. It can start a new communication, continue an existing flow, edit the final title/body, queue a draft, send a test to Slack, approve/send, discard a draft, review dashboard signals, inspect recent history, and run `Sync Dashboard Now` when a PM wants dashboard changes picked up before the next scheduled poll.
 
-The menu appears after reloading the Hub spreadsheet:
+The menu appears after reloading the Control Center spreadsheet:
 
-- `Open Communication Console`
-- `Open Communication Console Wide`
+- `Open Communication App`
+- `Sync Dashboard Now`
 - `Admin / Debug`
 
 The `Admin / Debug` submenu keeps direct sheet operations available for technical troubleshooting, but PMs should not need to use it during normal work.
 
-The Communication Console is the PM front door. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use. Test sends use `TEST_*_CHANNEL` when configured and fall back to the current `DEFAULT_*_CHANNEL`, which lets the current sandbox channel remain the test destination until live channel IDs are added. Test Slack timestamps are stored separately from live Slack timestamps in `Queue`, `History`, and `Flow_State`.
+The fallback sidebar and wide Communication Console remain under `Admin / Debug`. `Queue`, `Review`, and `Flow_Console` are internal operating tabs and can stay hidden during normal use. Test sends use `TEST_*_CHANNEL` when configured and fall back to the current `DEFAULT_*_CHANNEL`, which lets the current sandbox channel remain the test destination until live channel IDs are added. Test Slack timestamps are stored separately from live Slack timestamps in `Queue`, `History`, and `Flow_State`.
 
 For direct technical testing, add a `Queue` row with:
 

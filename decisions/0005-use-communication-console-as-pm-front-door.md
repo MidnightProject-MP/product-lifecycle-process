@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted, superseded by [Decision 0008](0008-use-gas-web-app-as-pm-front-door.md) for new Control Center deployments.
 
 ## Context
 

@@ -100,13 +100,15 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui
     .createMenu('Personal Assistant')
-    .addItem('Open Communication Console', 'openReviewControllerSidebar')
-    .addItem('Open Communication Console Wide', 'openReviewController')
+    .addItem('Open Communication App', 'openCommunicationApp')
     .addItem('Sync Dashboard Now', 'showAutomationSyncResult')
     .addSeparator()
     .addSubMenu(ui.createMenu('Admin / Debug')
       .addItem('Setup Control Center', 'setupControlCenter')
       .addItem('Reset Control Center for Dev', 'resetControlCenterForDev')
+      .addSeparator()
+      .addItem('Open fallback sidebar console', 'openReviewControllerSidebar')
+      .addItem('Open fallback wide console', 'openReviewController')
       .addSeparator()
       .addItem('Hide Internal Sheets', 'hideInternalHubSheets')
       .addItem('Show Internal Sheets', 'showInternalHubSheets')
@@ -205,7 +207,7 @@ function isGraphHubSheet_(sheetName) {
 function ensureControlCenterHomeSheet_(ss) {
   const sheet = ss.getSheetByName('Control Center') || ss.insertSheet('Control Center', 0);
   sheet.getRange(1, 1).setValue('Personal Assistant Control Center');
-  sheet.getRange(2, 1).setValue('Use Personal Assistant > Open Communication Console to manage communications.');
+  sheet.getRange(2, 1).setValue('Use Personal Assistant > Open Communication App to manage communications.');
   return sheet;
 }
 

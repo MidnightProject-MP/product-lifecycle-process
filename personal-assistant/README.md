@@ -8,7 +8,7 @@ The implementation uses Google Sheets as the operating UI, Apps Script as the or
 
 | Component | Purpose |
 | --- | --- |
-| Personal Assistant Control Center | Consolidated spreadsheet and Apps Script project with the Communication Console, local Registry tabs, Automation adapter, Queue, History, Flow_State, live/test Slack sender, and observability. |
+| Personal Assistant Control Center | Consolidated spreadsheet and Apps Script project with the Communication App web front door, local Registry tabs, Automation adapter, Queue, History, Flow_State, live/test Slack sender, and observability. |
 | Legacy split projects | Existing Hub, Registry, Automation Dashboard, and dashboard adapter remain available as fallback during cutover. |
 | Executive Dashboard | Presentation-friendly leadership source view, with no bound automation code required. |
 | Slack App | Slash command intake and bot-token message delivery. |
@@ -24,18 +24,18 @@ Every communication draft is reduced to:
 Event Key + Flow ID + Dedupe Key + Payload JSON
 ```
 
-The Registry resolves the event key into the scaffold template, channel type, post mode, send rule, required variables, and approval expectations. Templates generate an editable first draft only; PM-edited title/body fields in the Communication Console become the final Slack message.
+The Registry resolves the event key into the scaffold template, channel type, post mode, send rule, required variables, and approval expectations. Templates generate an editable first draft only; PM-edited title/body fields in the Communication App become the final Slack message.
 
 Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates reply in the same thread and update the anchor message with the latest executive summary.
 
-PMs should use the Communication Console for manual lifecycle updates. They select an existing communication or start a new one, choose the next action, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send from the same sidebar.
+PMs should use the GAS-hosted Communication App for normal work. The spreadsheet remains the backend/control layer. From the app, PMs can open the Action Inbox, review dashboard signals, select an existing communication or start a new one, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send without working directly in spreadsheet tabs.
 
 ## Inputs
 
 - Slack `/incident` for critical issue flow starts.
 - Future Slack `/update` for owner-provided raw status on an existing entity.
 - Control Center polling for project, release, and project-originated special release changes.
-- Manual review, test send, and live send through the Communication Console.
+- Manual review, test send, and live send through the Communication App.
 
 ## Workflows
 
@@ -48,7 +48,7 @@ PMs should use the Communication Console for manual lifecycle updates. They sele
 Hub web app creates Draft with incident.critical.identified
         |
         v
-Reviewer approves in the Communication Console
+Reviewer approves in the Communication App
         |
         v
 Hub resolves template and channel settings from Registry
@@ -78,7 +78,7 @@ Snapshots and observations compare current state to last handled state
 Trigger_Log records candidates and creates Hub drafts, including release-style special release drafts from project rows
         |
         v
-Reviewer approves in the Communication Console
+Reviewer approves in the Communication App
         |
         v
 Slack message sends using Registry rules

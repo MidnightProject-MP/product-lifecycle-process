@@ -2,7 +2,7 @@
 
 Personal Assistant treats each meaningful action as an independently callable skill.
 
-In this phase, skills are internal Apps Script calls only. There is no public skill endpoint. Existing presentation layers remain stable: Hub sheets, Communication Console, Registry, Slack anchors, Slack threads, slash commands, and triggers continue to behave as before.
+In this phase, skills are internal Apps Script calls only. There is no public skill endpoint. Existing behavior remains stable: Control Center sheets, Communication App, fallback Communication Console, Registry tabs, Slack anchors, Slack threads, slash commands, and triggers continue to behave as before.
 
 ## Skill Kernel
 

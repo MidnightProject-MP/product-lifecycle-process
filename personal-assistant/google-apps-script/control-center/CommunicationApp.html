@@ -1,0 +1,1095 @@
+<!doctype html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --panel: #fff;
+      --line: #dfe3ea;
+      --muted: #5f6368;
+      --text: #202124;
+      --blue: #1a73e8;
+      --blue-soft: #e8f0fe;
+      --green: #137333;
+      --green-soft: #e6f4ea;
+      --red: #a50e0e;
+      --red-soft: #fce8e6;
+      --yellow: #b06000;
+      --yellow-soft: #fef7e0;
+      --shadow: 0 10px 30px rgba(60, 64, 67, .12);
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 9px 11px;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: .6;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 236px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: #111827;
+      color: #f8fafc;
+      padding: 18px 14px;
+    }
+
+    .brand {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .brand-subtitle {
+      color: #cbd5e1;
+      font-size: 12px;
+      line-height: 1.35;
+      margin-bottom: 20px;
+    }
+
+    .nav-button {
+      align-items: center;
+      background: transparent;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+      padding: 10px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .nav-button.active,
+    .nav-button:hover {
+      background: rgba(255, 255, 255, .12);
+    }
+
+    .nav-count {
+      background: rgba(255, 255, 255, .14);
+      border-radius: 999px;
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 7px;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 22px;
+    }
+
+    .topbar {
+      align-items: flex-start;
+      display: flex;
+      gap: 14px;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 24px;
+      line-height: 1.15;
+      margin: 0 0 4px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .primary {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .secondary {
+      background: var(--blue-soft);
+      color: #174ea6;
+    }
+
+    .plain {
+      background: #eef1f5;
+      color: var(--text);
+    }
+
+    .danger {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .status-line {
+      color: var(--muted);
+      min-height: 20px;
+      margin-bottom: 12px;
+    }
+
+    .status-line.error {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .status-line.success {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .stats {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: minmax(0, 1.05fr) minmax(420px, .95fr);
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+      padding: 14px;
+    }
+
+    .panel-header {
+      align-items: baseline;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      font-size: 17px;
+      margin: 0;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .small {
+      font-size: 12px;
+    }
+
+    .card-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .item-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 4px solid #9aa0a6;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 11px;
+    }
+
+    .item-card:hover,
+    .item-card.selected {
+      border-color: #b8c7f4;
+      border-left-color: var(--blue);
+      box-shadow: 0 4px 12px rgba(26, 115, 232, .12);
+    }
+
+    .item-card.error {
+      border-left-color: var(--red);
+    }
+
+    .item-card.scheduled {
+      border-left-color: var(--yellow);
+    }
+
+    .item-card.sent {
+      border-left-color: var(--green);
+    }
+
+    .item-title {
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      background: #f1f3f4;
+      border: 1px solid #e0e0e0;
+      border-radius: 999px;
+      color: #3c4043;
+      font-size: 11px;
+      padding: 3px 7px;
+    }
+
+    .chip.error {
+      background: var(--red-soft);
+      border-color: #fad2cf;
+      color: var(--red);
+    }
+
+    .chip.ok {
+      background: var(--green-soft);
+      border-color: #ceead6;
+      color: var(--green);
+    }
+
+    .chip.warn {
+      background: var(--yellow-soft);
+      border-color: #fdd663;
+      color: var(--yellow);
+    }
+
+    .detail-empty {
+      color: var(--muted);
+      line-height: 1.45;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .detail-title {
+      font-size: 19px;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 3px;
+    }
+
+    .detail-summary {
+      color: var(--muted);
+      line-height: 1.35;
+      margin-bottom: 12px;
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-bottom: 12px;
+    }
+
+    .info-box {
+      background: #f8fafd;
+      border: 1px solid #dfe5f2;
+      border-radius: 8px;
+      padding: 9px;
+    }
+
+    .info-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .info-value {
+      line-height: 1.35;
+      margin-top: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    label {
+      color: #3c4043;
+      display: block;
+      font-weight: 800;
+      margin: 10px 0 4px;
+    }
+
+    input,
+    select,
+    .html-editor {
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      color: var(--text);
+      padding: 8px;
+      width: 100%;
+    }
+
+    .editor-toolbar {
+      align-items: center;
+      background: #f8fafd;
+      border: 1px solid #dadce0;
+      border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 5px;
+    }
+
+    .editor-toolbar button {
+      background: transparent;
+      color: #3c4043;
+      min-width: 30px;
+      padding: 5px 7px;
+    }
+
+    .editor-toolbar button:hover,
+    .editor-toolbar button:focus {
+      background: var(--blue-soft);
+      outline: none;
+    }
+
+    .separator {
+      background: #dadce0;
+      height: 22px;
+      margin: 0 2px;
+      width: 1px;
+    }
+
+    .html-editor {
+      line-height: 1.45;
+      min-height: 250px;
+      outline: none;
+      overflow: auto;
+    }
+
+    .title-editor {
+      min-height: 38px;
+    }
+
+    .with-toolbar {
+      border-radius: 0 0 6px 6px;
+    }
+
+    .detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .route-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 10px 0 12px;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .history-row {
+      border-top: 1px solid var(--line);
+      padding-top: 7px;
+    }
+
+    .empty {
+      border: 1px dashed #c8ced6;
+      border-radius: 8px;
+      color: var(--muted);
+      padding: 18px;
+      text-align: center;
+    }
+
+    @media (max-width: 1120px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+
+      .main {
+        padding: 14px;
+      }
+
+      .topbar,
+      .panel-header {
+        display: block;
+      }
+
+      .top-actions {
+        justify-content: flex-start;
+        margin-top: 10px;
+      }
+
+      .detail-grid,
+      .route-grid,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">Personal Assistant</div>
+      <div class="brand-subtitle">Communication Console</div>
+      <button class="nav-button active" data-view="inbox" onclick="setView('inbox')"><span>Inbox</span><span id="navInbox" class="nav-count">0</span></button>
+      <button class="nav-button" data-view="active" onclick="setView('active')"><span>Active Communications</span><span id="navActive" class="nav-count">0</span></button>
+      <button class="nav-button" data-view="new" onclick="setView('new')"><span>New Communication</span></button>
+      <button class="nav-button" data-view="signals" onclick="setView('signals')"><span>Dashboard Signals</span><span id="navSignals" class="nav-count">0</span></button>
+      <button class="nav-button" data-view="history" onclick="setView('history')"><span>History</span></button>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h1 id="viewTitle">Action Inbox</h1>
+          <div id="viewSubtitle" class="subtitle">Loading Personal Assistant...</div>
+        </div>
+        <div class="top-actions">
+          <button class="secondary" onclick="syncDashboard()">Sync Dashboard Now</button>
+          <button class="plain" onclick="loadApp(true)">Refresh</button>
+        </div>
+      </div>
+
+      <div id="status" class="status-line"></div>
+      <section id="stats" class="stats"></section>
+
+      <div class="workspace">
+        <section id="content" class="panel"></section>
+        <section id="detail" class="panel"></section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let appContext = null;
+    let currentView = 'inbox';
+    let currentDetail = null;
+    let selectedSelection = '';
+    let actionDefaults = {};
+    let savedEditorRanges = {};
+    let isBusy = false;
+
+    function setStatus(message, mode) {
+      const el = document.getElementById('status');
+      el.textContent = message || '';
+      el.className = 'status-line ' + (mode || '');
+    }
+
+    function setBusy(value) {
+      isBusy = Boolean(value);
+      Array.from(document.querySelectorAll('button, input, select')).forEach(el => {
+        el.disabled = isBusy;
+      });
+      ['messageTitle', 'messageBody'].forEach(id => {
+        const editor = document.getElementById(id);
+        if (editor) editor.contentEditable = isBusy ? 'false' : 'true';
+      });
+    }
+
+    function serverCall(fnName, args, onSuccess) {
+      setBusy(true);
+      const runner = google.script.run
+        .withSuccessHandler(result => {
+          setBusy(false);
+          if (onSuccess) onSuccess(result);
+        })
+        .withFailureHandler(error => {
+          setBusy(false);
+          setStatus(error && error.message ? error.message : String(error), 'error');
+        });
+      runner[fnName].apply(runner, args || []);
+    }
+
+    function loadApp(keepDetail) {
+      setStatus('Loading communication app...');
+      serverCall('getCommunicationAppContext', [], context => {
+        appContext = context;
+        setStatus('Ready.', 'success');
+        renderShell();
+        if (keepDetail && selectedSelection) {
+          openDetail(selectedSelection);
+        } else if (!currentDetail) {
+          renderDetailEmpty();
+        }
+      });
+    }
+
+    function setView(view) {
+      currentView = view;
+      currentDetail = null;
+      selectedSelection = '';
+      renderShell();
+      renderDetailEmpty();
+    }
+
+    function renderShell() {
+      if (!appContext) return;
+      renderNav();
+      renderStats();
+      renderContent();
+    }
+
+    function renderNav() {
+      document.querySelectorAll('.nav-button').forEach(button => {
+        button.classList.toggle('active', button.dataset.view === currentView);
+      });
+      document.getElementById('navInbox').textContent = appContext.stats.inbox || 0;
+      document.getElementById('navActive').textContent = appContext.stats.activeCommunications || 0;
+      document.getElementById('navSignals').textContent = appContext.stats.pendingSignals || 0;
+    }
+
+    function renderStats() {
+      const sync = appContext.dashboard.config || {};
+      const cards = [
+        ['Needs review', appContext.stats.inbox || 0],
+        ['Errors', appContext.stats.errors || 0],
+        ['Scheduled', appContext.stats.scheduled || 0],
+        ['Pending signals', appContext.stats.pendingSignals || 0],
+        ['Last sync', sync.lastSyncMode || 'Unknown']
+      ];
+      document.getElementById('stats').innerHTML = cards.map(card =>
+        '<div class="stat-card"><div class="stat-value">' + escapeHtml(card[1]) + '</div><div class="stat-label">' + escapeHtml(card[0]) + '</div></div>'
+      ).join('');
+    }
+
+    function renderContent() {
+      const title = {
+        inbox: 'Action Inbox',
+        active: 'Active Communications',
+        new: 'New Communication',
+        signals: 'Dashboard Signals',
+        history: 'History'
+      }[currentView] || 'Action Inbox';
+      const subtitle = {
+        inbox: 'Drafts and issues that need PM attention.',
+        active: 'Parent communications with their current state, next expected step, and Slack anchors.',
+        new: 'Start a fresh communication from the same templates and flow rules.',
+        signals: 'Dashboard changes, pending evaluations, and recent automation decisions.',
+        history: 'Recently completed communication events.'
+      }[currentView] || '';
+      document.getElementById('viewTitle').textContent = title;
+      document.getElementById('viewSubtitle').textContent = subtitle;
+
+      if (currentView === 'inbox') renderInbox();
+      if (currentView === 'active') renderActive();
+      if (currentView === 'new') renderNew();
+      if (currentView === 'signals') renderSignals();
+      if (currentView === 'history') renderHistory();
+    }
+
+    function renderInbox() {
+      const items = appContext.inbox.items || [];
+      document.getElementById('content').innerHTML =
+        panelHeaderHtml('Drafts needing attention', items.length + ' active') +
+        (items.length ? '<div class="card-list">' + items.map(renderDraftCard).join('') + '</div>' : emptyHtml('No queued drafts need attention.'));
+    }
+
+    function renderActive() {
+      const items = appContext.activeCommunications || [];
+      document.getElementById('content').innerHTML =
+        panelHeaderHtml('Active communications', items.length + ' flows') +
+        (items.length ? '<div class="card-list">' + items.map(renderFlowCard).join('') + '</div>' : emptyHtml('No active communications yet.'));
+    }
+
+    function renderNew() {
+      const options = appContext.newCommunicationOptions || [];
+      document.getElementById('content').innerHTML =
+        panelHeaderHtml('Start a communication', 'Choose the lane first') +
+        '<div class="card-list">' + options.map(option =>
+          '<div class="item-card" onclick="openDetail(' + quote(option.value) + ')">' +
+          '<div class="item-title">' + escapeHtml(option.label) + '</div>' +
+          '<div class="item-meta">Creates a draft using the matching start event and template scaffold.</div>' +
+          '</div>'
+        ).join('') + '</div>';
+    }
+
+    function renderSignals() {
+      const pending = appContext.dashboard.pending || [];
+      const triggers = appContext.dashboard.recentTriggers || [];
+      document.getElementById('content').innerHTML =
+        panelHeaderHtml('Pending dashboard signals', pending.length + ' pending') +
+        (pending.length ? '<div class="card-list">' + pending.map(renderSignalCard).join('') + '</div>' : emptyHtml('No pending dashboard signals.')) +
+        '<div style="height:14px"></div>' +
+        panelHeaderHtml('Recent automation decisions', triggers.length + ' recent') +
+        (triggers.length ? '<div class="card-list">' + triggers.map(renderTriggerCard).join('') + '</div>' : emptyHtml('No trigger log rows yet.'));
+    }
+
+    function renderHistory() {
+      const items = appContext.history || [];
+      document.getElementById('content').innerHTML =
+        panelHeaderHtml('Recent history', items.length + ' events') +
+        (items.length ? '<div class="card-list">' + items.map(renderHistoryCard).join('') + '</div>' : emptyHtml('No history recorded yet.'));
+    }
+
+    function panelHeaderHtml(title, meta) {
+      return '<div class="panel-header"><h2>' + escapeHtml(title) + '</h2><span class="muted small">' + escapeHtml(meta || '') + '</span></div>';
+    }
+
+    function renderDraftCard(item) {
+      const classes = ['item-card'];
+      if (item.status === 'Error') classes.push('error');
+      if (item.status === 'Scheduled') classes.push('scheduled');
+      const selected = selectedSelection === item.selection ? ' selected' : '';
+      return '<div class="' + classes.join(' ') + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
+        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="item-meta">' + escapeHtml(item.eventName) + ' | ' + escapeHtml(item.owner || 'Owner not set') + ' | ' + escapeHtml(item.source) + '</div>' +
+        '<div class="chips">' +
+        chipHtml(item.status, item.status === 'Error' ? 'error' : item.status === 'Scheduled' ? 'warn' : '') +
+        chipHtml(item.lane || 'No lane') +
+        (item.hasTest ? chipHtml('Test sent', 'ok') : chipHtml('No test yet')) +
+        (item.error ? chipHtml('Needs attention', 'error') : '') +
+        '</div></div>';
+    }
+
+    function renderFlowCard(item) {
+      const selected = selectedSelection === item.selection ? ' selected' : '';
+      return '<div class="item-card sent' + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
+        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="item-meta">Current: ' + escapeHtml(item.currentState) + ' | Next: ' + escapeHtml(item.expectedNext) + '</div>' +
+        '<div class="chips">' + chipHtml(item.status || 'Active', 'ok') + chipHtml(item.lane || 'No lane') +
+        (item.liveSlackUrl ? chipHtml('Live anchor', 'ok') : chipHtml('No live anchor')) +
+        (item.testSlackUrl ? chipHtml('Test anchor', 'ok') : '') +
+        '</div></div>';
+    }
+
+    function renderSignalCard(item) {
+      return '<div class="item-card scheduled">' +
+        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="item-meta">' + escapeHtml(item.triggerCandidate || item.eventName || 'Dashboard signal') + '</div>' +
+        '<div class="chips">' + chipHtml(item.status || 'Pending Evaluation', item.status === 'Needs Reason' ? 'warn' : '') +
+        (item.stablePolls ? chipHtml('Stable polls ' + item.stablePolls) : '') +
+        (item.error ? chipHtml(item.error, 'error') : '') +
+        '</div></div>';
+    }
+
+    function renderTriggerCard(item) {
+      return '<div class="item-card">' +
+        '<div class="item-title">' + escapeHtml(item.subject || item.candidate || item.flowId) + '</div>' +
+        '<div class="item-meta">' + escapeHtml(item.status) + ' | ' + escapeHtml(item.eventName || item.eventKey || 'No event') + ' | ' + formatDateTime(item.createdAt) + '</div>' +
+        '<div class="chips">' + (item.queueId ? chipHtml('Draft ' + item.queueId, 'ok') : chipHtml('No draft')) +
+        (item.error ? chipHtml(item.error, 'error') : '') + '</div></div>';
+    }
+
+    function renderHistoryCard(item) {
+      return '<div class="item-card sent">' +
+        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="item-meta">' + escapeHtml(item.eventName) + ' | ' + escapeHtml(item.status) + ' | ' + formatDateTime(item.completedAt) + '</div>' +
+        '<div class="chips">' + (item.liveSlackUrl ? linkChipHtml('Live Slack', item.liveSlackUrl, 'ok') : chipHtml('No live link')) +
+        (item.testSlackUrl ? linkChipHtml('Test Slack', item.testSlackUrl, 'ok') : '') +
+        '</div></div>';
+    }
+
+    function openDetail(selection) {
+      selectedSelection = selection || '';
+      setStatus('Loading communication detail...');
+      serverCall('getCommunicationDetail', [selectedSelection], detail => {
+        currentDetail = detail;
+        if (!detail || !detail.ok) {
+          setStatus(detail && detail.message ? detail.message : 'Unable to load detail.', 'error');
+          return;
+        }
+        setStatus('Ready.', 'success');
+        renderShell();
+        renderDetail();
+      });
+    }
+
+    function renderDetailEmpty() {
+      document.getElementById('detail').innerHTML = '<div class="detail-empty">Select a draft, active communication, dashboard signal, or new communication type to work on it here.</div>';
+    }
+
+    function renderDetail() {
+      const detail = currentDetail;
+      if (!detail || !detail.ok) return renderDetailEmpty();
+
+      const queue = detail.queue || {};
+      const flow = detail.flow || {};
+      const subject = queue.subject || flow.subject || 'New communication';
+      const actionOptions = (detail.actions || []).map(action =>
+        '<option value="' + escapeAttr(action.value) + '" data-event-key="' + escapeAttr(action.eventKey || '') + '">' + escapeHtml(action.label) + '</option>'
+      ).join('');
+      actionDefaults = {};
+      (detail.actions || []).forEach(action => {
+        actionDefaults[action.value] = action.defaults || {};
+      });
+
+      document.getElementById('detail').innerHTML =
+        '<div class="detail-title">' + escapeHtml(subject) + '</div>' +
+        '<div class="detail-summary">' + escapeHtml(buildDetailSummary(detail)) + '</div>' +
+        '<div class="detail-grid">' +
+          infoBoxHtml('Current state', flow.currentState || 'No parent thread yet') +
+          infoBoxHtml('Expected next', flow.expectedNext || 'Choose an action') +
+          infoBoxHtml('Owner', queue.owner || 'Not set') +
+          infoBoxHtml('Source', friendlySource(queue.source || 'Communication Console')) +
+        '</div>' +
+        '<div class="route-grid">' +
+          routeBoxHtml('Test Slack', queue.testSlackUrl || flow.testAnchorUrl, queue.testSentAt || '') +
+          routeBoxHtml('Live Slack', queue.slackUrl || flow.anchorUrl, flow.lastConfirmedAt || '') +
+        '</div>' +
+        '<label for="flowAction">Action</label><select id="flowAction" onchange="applyActionDefaults()">' + actionOptions + '</select>' +
+        '<label for="subjectInput">Subject</label><input id="subjectInput" value="' + escapeAttr(subject) + '">' +
+        '<label for="ownerInput">Owner</label><input id="ownerInput" value="' + escapeAttr(queue.owner || '') + '">' +
+        '<label for="messageTitle">Title</label>' +
+        toolbarHtml('messageTitle', false) +
+        '<div id="messageTitle" class="html-editor title-editor with-toolbar" contenteditable="true"></div>' +
+        '<label for="messageBody">Body</label>' +
+        toolbarHtml('messageBody', true) +
+        '<div id="messageBody" class="html-editor with-toolbar" contenteditable="true"></div>' +
+        '<div class="detail-actions">' +
+          '<button class="secondary" onclick="saveDraft()">' + escapeHtml(detail.mode === 'queue' ? 'Save' : 'Queue Draft') + '</button>' +
+          '<button class="secondary" onclick="sendTest()">Send Test</button>' +
+          '<button class="primary" onclick="approveLive()">Approve & Send</button>' +
+          (detail.mode === 'queue' ? '<button class="danger" onclick="discardDraft()">Discard</button>' : '') +
+        '</div>' +
+        renderDetailHistory(detail.history || []);
+
+      const actionSelect = document.getElementById('flowAction');
+      if (actionSelect && detail.actions && detail.actions.length) {
+        actionSelect.value = detail.actions[0].value;
+      }
+      document.getElementById('messageTitle').innerHTML = queue.messageTitleHtml || escapeHtml(queue.messageTitle || queue.subject || '');
+      document.getElementById('messageBody').innerHTML = queue.messageBodyHtml || '';
+      if ((detail.mode === 'new' || detail.mode === 'flow') && actionSelect && actionSelect.value) {
+        applyActionDefaults();
+      }
+      bindEditors();
+    }
+
+    function buildDetailSummary(detail) {
+      if (detail.mode === 'new') return 'Start a new parent communication from the selected lane.';
+      if (detail.mode === 'flow') return 'Continue this parent communication with the next expected update or a detour.';
+      if (detail.queue && detail.queue.error) return 'This draft needs attention before live send: ' + detail.queue.error;
+      if (detail.queue && detail.queue.status === 'Scheduled') return 'This draft was scheduled by the flow or dashboard and is waiting for review.';
+      return 'Edit the final message, test it in Slack, then approve the live send.';
+    }
+
+    function infoBoxHtml(label, value) {
+      return '<div class="info-box"><div class="info-label">' + escapeHtml(label) + '</div><div class="info-value">' + escapeHtml(value || 'Not set') + '</div></div>';
+    }
+
+    function routeBoxHtml(label, url, date) {
+      const state = url ? '<a href="' + escapeAttr(url) + '" target="_blank">Open message</a>' : 'Not posted yet';
+      return '<div class="info-box"><div class="info-label">' + escapeHtml(label) + '</div><div class="info-value">' + state + '</div>' +
+        (date ? '<div class="item-meta">' + formatDateTime(date) + '</div>' : '') + '</div>';
+    }
+
+    function renderDetailHistory(history) {
+      if (!history.length) return '<div class="history-list">' + emptyHtml('No history for this communication yet.') + '</div>';
+      return '<div class="history-list"><strong>Flow history</strong>' + history.slice(0, 8).map(item =>
+        '<div class="history-row"><div><strong>' + escapeHtml(item.eventName) + '</strong></div>' +
+        '<div class="item-meta">' + escapeHtml(item.status) + ' | ' + formatDateTime(item.completedAt) + '</div>' +
+        '<div class="chips">' + (item.liveSlackUrl ? linkChipHtml('Live', item.liveSlackUrl, 'ok') : '') +
+        (item.testSlackUrl ? linkChipHtml('Test', item.testSlackUrl, 'ok') : '') + '</div></div>'
+      ).join('') + '</div>';
+    }
+
+    function toolbarHtml(editorId, allowLists) {
+      return '<div class="editor-toolbar">' +
+        '<button type="button" title="Bold" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('bold') + ')"><strong>B</strong></button>' +
+        '<button type="button" title="Italic" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('italic') + ')"><em>I</em></button>' +
+        '<span class="separator"></span>' +
+        (allowLists ?
+          '<button type="button" title="Bullet list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertUnorderedList') + ')">Bullets</button>' +
+          '<button type="button" title="Numbered list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertOrderedList') + ')">1.</button>' +
+          '<button type="button" title="Decrease list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('outdent') + ')">Out</button>' +
+          '<button type="button" title="Increase list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('indent') + ')">In</button>' +
+          '<span class="separator"></span>' : '') +
+        '<button type="button" title="Add link" onmousedown="addLink(event, ' + quote(editorId) + ')">Link</button>' +
+        '<button type="button" title="Remove link" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('unlink') + ')">Unlink</button>' +
+      '</div>';
+    }
+
+    function applyActionDefaults() {
+      const select = document.getElementById('flowAction');
+      if (!select) return;
+      const defaults = actionDefaults[select.value];
+      if (!defaults) return;
+      document.getElementById('messageTitle').innerHTML = defaults.messageTitleHtml || escapeHtml(defaults.messageTitle || '');
+      document.getElementById('messageBody').innerHTML = defaults.messageBodyHtml || '';
+    }
+
+    function collectForm() {
+      const action = document.getElementById('flowAction');
+      const selected = action && action.options[action.selectedIndex];
+      const titleEditor = document.getElementById('messageTitle');
+      const bodyEditor = document.getElementById('messageBody');
+      const queue = currentDetail && currentDetail.queue || {};
+      return {
+        selection: selectedSelection,
+        queueId: queue.queueId || '',
+        flowId: queue.flowId || '',
+        flowAction: action ? action.value : '',
+        eventKey: selected ? selected.dataset.eventKey || '' : '',
+        subject: document.getElementById('subjectInput') ? document.getElementById('subjectInput').value : '',
+        owner: document.getElementById('ownerInput') ? document.getElementById('ownerInput').value : '',
+        priority: queue.priority || '',
+        messageTitle: titleEditor ? titleEditor.textContent || '' : '',
+        messageTitleHtml: titleEditor ? titleEditor.innerHTML || '' : '',
+        messageBodyHtml: bodyEditor ? bodyEditor.innerHTML || '' : ''
+      };
+    }
+
+    function validateForm(form) {
+      const missing = [];
+      if (!form.eventKey) missing.push('action');
+      if (!hasVisibleText(form.messageTitleHtml)) missing.push('title');
+      if (!hasVisibleText(form.messageBodyHtml)) missing.push('body');
+      if (missing.length) {
+        setStatus('Add ' + missing.join(', ') + ' before continuing.', 'error');
+        return false;
+      }
+      return true;
+    }
+
+    function saveDraft() {
+      const form = collectForm();
+      if (!validateForm(form)) return;
+      const fn = currentDetail && currentDetail.mode === 'queue' ? 'saveCommunicationDraft' : 'createCommunication';
+      setStatus(fn === 'saveCommunicationDraft' ? 'Saving draft...' : 'Queueing draft...');
+      serverCall(fn, [form], result => afterAction(result, 'Draft saved.'));
+    }
+
+    function sendTest() {
+      const form = collectForm();
+      if (!validateForm(form)) return;
+      setStatus('Sending test to Slack...');
+      serverCall('sendCommunicationTest', [form], result => afterAction(result, 'Test sent to Slack.'));
+    }
+
+    function approveLive() {
+      const form = collectForm();
+      if (!validateForm(form)) return;
+      setStatus('Approving and sending live...');
+      serverCall('approveCommunication', [form], result => {
+        setStatus(result && result.message ? result.message : 'Approved and sent.', 'success');
+        currentDetail = null;
+        selectedSelection = '';
+        loadApp(false);
+      });
+    }
+
+    function discardDraft() {
+      const form = collectForm();
+      if (!form.queueId) return setStatus('Only queued drafts can be discarded.', 'error');
+      setStatus('Discarding draft...');
+      serverCall('discardCommunication', [form], result => {
+        setStatus(result && result.message ? result.message : 'Draft discarded.', 'success');
+        currentDetail = null;
+        selectedSelection = '';
+        loadApp(false);
+      });
+    }
+
+    function syncDashboard() {
+      setStatus('Syncing dashboard...');
+      serverCall('syncDashboardFromWebApp', [], result => {
+        setStatus(result && result.message ? result.message : 'Dashboard sync complete.', 'success');
+        loadApp(false);
+      });
+    }
+
+    function afterAction(result, fallbackMessage) {
+      setStatus(result && result.message ? result.message : fallbackMessage, 'success');
+      const queueId = result && result.queue && result.queue.queueId || result && result.queueId || currentDetail && currentDetail.queue && currentDetail.queue.queueId || '';
+      selectedSelection = queueId ? 'queue:' + queueId : selectedSelection;
+      currentDetail = result && result.ok ? result : currentDetail;
+      loadApp(true);
+    }
+
+    function bindEditors() {
+      ['messageTitle', 'messageBody'].forEach(id => {
+        const editor = document.getElementById(id);
+        if (!editor) return;
+        editor.onkeyup = () => saveEditorSelection(id);
+        editor.onmouseup = () => saveEditorSelection(id);
+        editor.onfocus = () => saveEditorSelection(id);
+        editor.onkeydown = event => handleEditorKeydown(event, id);
+      });
+    }
+
+    function saveEditorSelection(editorId) {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      const editor = document.getElementById(editorId);
+      const range = selection.getRangeAt(0);
+      if (editor && editor.contains(range.commonAncestorContainer)) {
+        savedEditorRanges[editorId] = range.cloneRange();
+      }
+    }
+
+    function restoreEditorSelection(editorId) {
+      const editor = document.getElementById(editorId);
+      if (!editor) return;
+      editor.focus();
+      const range = savedEditorRanges[editorId];
+      if (!range) return;
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    function formatEditor(event, editorId, command) {
+      event.preventDefault();
+      restoreEditorSelection(editorId);
+      document.execCommand(command, false, null);
+      saveEditorSelection(editorId);
+    }
+
+    function addLink(event, editorId) {
+      event.preventDefault();
+      restoreEditorSelection(editorId);
+      const url = window.prompt('Link URL');
+      if (!url) return;
+      document.execCommand('createLink', false, url);
+      saveEditorSelection(editorId);
+    }
+
+    function handleEditorKeydown(event, editorId) {
+      saveEditorSelection(editorId);
+      if (editorId === 'messageTitle' && event.key === 'Enter') {
+        event.preventDefault();
+        return;
+      }
+      if (editorId !== 'messageBody' || event.key !== 'Tab') return;
+      event.preventDefault();
+      document.execCommand(event.shiftKey ? 'outdent' : 'indent', false, null);
+      saveEditorSelection(editorId);
+    }
+
+    function hasVisibleText(html) {
+      const scratch = document.createElement('div');
+      scratch.innerHTML = html || '';
+      return Boolean(String(scratch.textContent || '').trim());
+    }
+
+    function chipHtml(text, mode) {
+      return '<span class="chip ' + escapeAttr(mode || '') + '">' + escapeHtml(text || '') + '</span>';
+    }
+
+    function linkChipHtml(text, url, mode) {
+      return '<a class="chip ' + escapeAttr(mode || '') + '" href="' + escapeAttr(url) + '" target="_blank">' + escapeHtml(text) + '</a>';
+    }
+
+    function emptyHtml(text) {
+      return '<div class="empty">' + escapeHtml(text) + '</div>';
+    }
+
+    function friendlySource(value) {
+      const text = String(value || '');
+      if (/dashboard/i.test(text)) return 'Dashboard sync';
+      if (/console/i.test(text)) return 'Communication Console';
+      if (/flow/i.test(text)) return 'Flow step';
+      return text || 'Communication Console';
+    }
+
+    function formatDateTime(value) {
+      if (!value) return '';
+      const text = String(value);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+      const parsed = new Date(text);
+      if (isNaN(parsed.getTime())) return text;
+      return parsed.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function quote(value) {
+      return JSON.stringify(String(value || ''));
+    }
+
+    function escapeHtml(value) {
+      const scratch = document.createElement('div');
+      scratch.textContent = value == null ? '' : String(value);
+      return scratch.innerHTML;
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/"/g, '&quot;');
+    }
+
+    renderDetailEmpty();
+    loadApp(false);
+  </script>
+</body>
+</html>
