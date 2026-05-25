@@ -11,7 +11,7 @@ function doGet(e) {
     page: e && e.parameter && e.parameter.page || ''
   });
   return HtmlService
-    .createHtmlOutputFromFile('CommunicationApp')
+    .createHtmlOutputFromFile('CommunicationAppPage')
     .setTitle('Personal Assistant Communication Console')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

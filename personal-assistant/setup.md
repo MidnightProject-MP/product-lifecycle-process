@@ -398,7 +398,7 @@ The GitHub workflow expects one clasp auth repository secret:
 | `CLASPRC_JSON` | Preferred name. Full clasp auth JSON written to `~/.clasprc.json` during deployment. |
 | `CLASP_TOKEN` | Accepted fallback name for the same full clasp auth JSON. |
 
-The deployment workflow runs `clasp push --force` only. It does not create Apps Script versions or redeploy web apps. After changing `doGet`, `CommunicationApp.html`, or any server function used by the Web App, manually update the Apps Script Web App deployment to make those changes live at the `/exec` URL.
+The deployment workflow runs `clasp push --force` only. It does not create Apps Script versions or redeploy web apps. After changing `doGet`, `CommunicationAppPage.html`, or any server function used by the Web App, manually update the Apps Script Web App deployment to make those changes live at the `/exec` URL.
 
 Folders with placeholder script IDs are skipped so the workflow can exist before every Google-side script ID is known.
 

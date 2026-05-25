@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const htmlFiles = [
-  'personal-assistant/google-apps-script/control-center/CommunicationApp.html',
+  'personal-assistant/google-apps-script/control-center/CommunicationAppPage.html',
   'personal-assistant/google-apps-script/control-center/ReviewControllerSidebar.html'
 ];
 
