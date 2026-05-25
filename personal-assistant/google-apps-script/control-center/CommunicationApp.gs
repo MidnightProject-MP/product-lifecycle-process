@@ -18,14 +18,35 @@ function doGet(e) {
 
 function openCommunicationApp() {
   const url = getCommunicationAppUrl_();
-  const body = url ?
-    '<p>Open the Personal Assistant Communication App:</p><p><a href="' + escapeReviewControllerHtml_(url) + '" target="_blank">Open Communication App</a></p>' :
-    '<p>The Communication App web deployment is not available yet.</p><p>Deploy the Control Center script as a Web App, then set COMMUNICATION_APP_URL if the script cannot resolve it automatically.</p>';
+  const body = url ? buildCommunicationAppLauncherHtml_(url) :
+    '<div style="font-family:Arial,sans-serif;font-size:13px;padding:12px">' +
+    '<p>The Communication App web deployment is not available yet.</p>' +
+    '<p>Deploy the Control Center script as a Web App, then set COMMUNICATION_APP_URL if the script cannot resolve it automatically.</p>' +
+    '</div>';
   const html = HtmlService
-    .createHtmlOutput('<div style="font-family:Arial,sans-serif;font-size:13px;padding:12px">' + body + '</div>')
+    .createHtmlOutput(body)
     .setWidth(420)
-    .setHeight(160);
+    .setHeight(170);
   SpreadsheetApp.getUi().showModelessDialog(html, 'Communication App');
+}
+
+function buildCommunicationAppLauncherHtml_(url) {
+  const safeUrl = escapeReviewControllerHtml_(url);
+  const jsUrl = JSON.stringify(url);
+  return '<!doctype html><html><head><base target="_top"></head>' +
+    '<body style="font-family:Arial,sans-serif;font-size:13px;padding:12px">' +
+    '<p style="margin-top:0">Opening the Personal Assistant Communication App...</p>' +
+    '<div id="fallback" style="display:none">' +
+    '<p>Your browser blocked the automatic open.</p>' +
+    '<p><a href="' + safeUrl + '" target="_blank">Open Communication App</a></p>' +
+    '</div>' +
+    '<script>' +
+    'var opened=null;' +
+    'try{opened=window.open(' + jsUrl + ',"_blank");}catch(error){}' +
+    'if(opened){google.script.host.close();}' +
+    'else{document.getElementById("fallback").style.display="block";}' +
+    '</script>' +
+    '</body></html>';
 }
 
 function getCommunicationAppContext() {
