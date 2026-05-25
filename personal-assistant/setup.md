@@ -51,6 +51,8 @@ Optional Control Center Script Properties:
 | `AUTO_SEND_TEST_ON_QUEUE` | Defaults to `TRUE`. Automatically sends queued drafts to the configured test Slack channel while keeping the draft active for real approval/send. |
 | `COMMUNICATION_APP_URL` | Optional Web App URL shown by the spreadsheet menu. If omitted, the script attempts to resolve the current deployment URL. |
 | `WEB_APP_ALLOWED_EMAILS` | Optional comma-separated email allowlist for the Communication App. If omitted, access is controlled by the Web App deployment settings. |
+| `GEMINI_API_KEY` | Optional Gemini API key for the Communication App copy coach. If omitted, the app falls back to deterministic template scaffolds. |
+| `GEMINI_MODEL` | Optional Gemini model override. Defaults to `gemini-2.5-flash`. |
 
 The Control Center no longer needs `REGISTRY_SPREADSHEET_ID`, `HUB_SPREADSHEET_ID`, `AUTOMATION_SYNC_WEB_APP_URL`, or the Console-to-Automation `AUTOMATION_SYNC_TOKEN`.
 
@@ -66,6 +68,18 @@ After setup:
    - Access: your Workspace/domain, or the narrowest access level that works for your PMs
    - Copy the Web App URL into `COMMUNICATION_APP_URL` if the menu cannot resolve it automatically.
 7. Use the Web App URL, or `Personal Assistant > Open Communication App`, for PM review, test sends, queueing, manual sync, and live approval.
+
+The Communication App opens as an Action Cockpit. The first screen groups work by PM decision state, such as needs review, ready for live, needs context, failed, scheduled soon, stabilizing, and recent tests. Opening a draft shows a two-column object view with the final title/body editor, actions, readiness checklist, Slack route state, source evidence, and recent history.
+
+If `GEMINI_API_KEY` is configured, Gemini generates an initial editable draft on first open when a Queue item has no saved final message. PMs can also use `AI Re-draft` to tighten their current title/body for Slack formatting. The saved message source of truth is Slack `mrkdwn`; browser HTML is only the editing layer. AI output is never sent automatically; the PM must test or approve the final edited content.
+
+Optional async AI worker:
+
+```text
+processPendingCommunicationAiDrafts
+```
+
+Install it as a time-driven trigger every 1-5 minutes if you want dashboard-created drafts to be pre-polished before PMs open them. The Web App still has a just-in-time fallback: if a PM opens a draft before the worker processes it, the app generates the AI draft immediately and marks the Queue row complete so the worker will not overwrite it later.
 
 The old sidebar/modal Communication Console remains under `Personal Assistant > Admin / Debug` as a fallback. It is no longer the preferred PM workflow.
 

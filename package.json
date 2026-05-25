@@ -10,8 +10,9 @@
     "test:hub-routing": "node scripts/test-hub-test-routing.mjs",
     "test:dashboard-rules": "node scripts/test-dashboard-trigger-rules.mjs",
     "test:sync-endpoint": "node scripts/test-automation-sync-endpoint.mjs",
+    "test:gemini-copy-coach": "node scripts/test-gemini-copy-coach.mjs",
     "test:gas-html": "node scripts/test-gas-html-parse.mjs",
-    "test": "npm run test:slack-formatting && npm run test:hub-routing && npm run test:dashboard-rules && npm run test:sync-endpoint && npm run test:gas-html"
+    "test": "npm run test:slack-formatting && npm run test:hub-routing && npm run test:dashboard-rules && npm run test:sync-endpoint && npm run test:gemini-copy-coach && npm run test:gas-html"
   },
   "devDependencies": {
     "@google/clasp": "3.3.0"

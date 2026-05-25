@@ -33,6 +33,12 @@ Queue stores only workflow handles, routing override, send rule, test Slack poin
 
 The GAS-hosted Communication App is the intended PM-facing workflow. PMs start or continue communications, edit the final title/body, send tests to the sandbox Slack channel, queue drafts, approve/send, inspect dashboard signals and history, and run `Sync Dashboard Now` from the app.
 
+The app is now an Action Cockpit rather than a spreadsheet-style review screen. The first screen groups work by decision state: needs review, ready for live, needs context, failed, scheduled soon, stabilizing, and recent tests. Each card explains why it exists and exposes the next PM action. The detail view is an object view: title/body editor and action buttons in the main column, with a readiness checklist, Slack route status, source/evidence summary, flow state, and recent history in the right rail.
+
+When `GEMINI_API_KEY` is configured, the Communication App includes a Gemini copy coach. Gemini can generate an initial editable draft on first PM open when no final saved title/body exists, and can re-draft the PM's current edit for Slack formatting. Templates remain structure/prompt scaffolds only. Slack `mrkdwn` is the saved message source of truth; browser HTML is only a temporary editing/display layer. AI output is not approved or sent by itself; only the draft `mrkdwn` title/body and lightweight AI metadata are stored in `Payload JSON`.
+
+AI draft generation can happen in two ways. The optional `processPendingCommunicationAiDrafts` time-driven worker pre-polishes queued drafts when Apps Script wakes up. If a PM opens a draft first, the Web App uses a just-in-time Gemini call and marks that Queue row complete so the worker will not overwrite the PM-facing draft later.
+
 `Queue`, `Review`, `Flow_Console`, and the older sidebar/modal Communication Console remain for compatibility, observability, and admin/debug recovery. They are hidden or moved under `Admin / Debug` and should not be part of normal PM operation.
 
 ## Hub Sheet Roles
@@ -76,6 +82,7 @@ Any code that creates a new row should use the local row-2 insertion helper for 
 Use Script Properties only for:
 
 - Secrets, such as `SLACK_BOT_TOKEN`.
+- Optional AI configuration, such as `GEMINI_API_KEY` and `GEMINI_MODEL`.
 - Bootstrap pointers, such as `REGISTRY_SPREADSHEET_ID`.
 - Temporary fallback channel IDs during setup.
 
@@ -98,6 +105,7 @@ The current implementation supports:
 - Hub queue review, automatic/manual test Slack send, approval, live Slack send, History, and Run_Log.
 - Automation Dashboard fast no-change detection, export materialization, circuit breaker validation, state anchoring, snapshots, trigger logging, dedupe, and Hub draft creation.
 - Manual dashboard sync from the Communication App by directly calling the local dashboard sync function in the Control Center.
+- Action Cockpit inbox grouping, readiness panel, source/evidence detail, and Gemini-assisted Slack `mrkdwn` draft polish with deterministic template fallback.
 - Slack slash-command intake for `/incident` and `/release`.
 - Legacy optional passive W-Graph memory behind the split Hub flow, disabled by default until it powers a visible feature. The consolidated Control Center v1 omits graph sheets.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
@@ -139,4 +147,4 @@ The next architecture keeps the same Registry and Hub boundaries, then adds:
 - Nudge and escalation logs for stale status governance.
 - Future `/update` command support for owner-provided raw updates.
 
-The LLM/Nudge layer is design-only in this pass. No live Gemini or other LLM calls are part of the current implementation.
+The nudge/escalation layer is design-only in this pass. Gemini is limited to copy coaching for drafts inside the Communication App and does not make communication decisions.

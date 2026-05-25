@@ -28,7 +28,9 @@ The Registry resolves the event key into the scaffold template, channel type, po
 
 Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates reply in the same thread and update the anchor message with the latest executive summary.
 
-PMs should use the GAS-hosted Communication App for normal work. The spreadsheet remains the backend/control layer. From the app, PMs can open the Action Inbox, review dashboard signals, select an existing communication or start a new one, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send without working directly in spreadsheet tabs.
+PMs should use the GAS-hosted Communication App for normal work. The spreadsheet remains the backend/control layer. From the app, PMs can open the Action Cockpit, review dashboard signals, select an existing communication or start a new one, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send without working directly in spreadsheet tabs.
+
+The Action Cockpit groups work by PM decision state and gives each card one obvious next action. Draft detail pages show the final editor beside readiness, Slack route state, source evidence, flow state, and history. If configured with `GEMINI_API_KEY`, Gemini provides optional copy coaching for initial drafts and AI re-drafts. Slack `mrkdwn` is the saved source of truth; HTML is only the browser editor layer. PMs still explicitly test and approve all final messages.
 
 ## Inputs
 

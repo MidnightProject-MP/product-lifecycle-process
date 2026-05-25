@@ -70,6 +70,9 @@ function getCommunicationDetail(selection) {
   if (!context || !context.ok) return context;
   const flowId = context.queue && context.queue.flowId || context.flow && context.flow.flowId || '';
   context.history = flowId ? getCommunicationHistory(flowId) : [];
+  context.evidence = buildCommunicationAppEvidence_(context);
+  context.readiness = buildCommunicationAppReadiness_(context);
+  context.ai = buildCommunicationAppAiState_(context);
   logCommunicationAppEvent_('load_detail', {
     selection: selection || '',
     queueId: context.queue && context.queue.queueId || '',
@@ -77,6 +80,24 @@ function getCommunicationDetail(selection) {
     eventKey: context.queue && context.queue.eventKey || ''
   }, {});
   return context;
+}
+
+function generateInitialCommunicationAiDraft(form) {
+  assertCommunicationAppAccess_();
+  logCommunicationAppEvent_('ai_initial_draft', form || {}, {});
+  return generateCommunicationDraftWithGemini_(form || {}, {
+    mode: 'initial',
+    persist: true
+  });
+}
+
+function redraftCommunicationWithAi(form) {
+  assertCommunicationAppAccess_();
+  logCommunicationAppEvent_('ai_redraft', form || {}, {});
+  return generateCommunicationDraftWithGemini_(form || {}, {
+    mode: 'redraft',
+    persist: false
+  });
 }
 
 function saveCommunicationDraft(form) {
@@ -141,6 +162,7 @@ function buildCommunicationAppContext_() {
   const inbox = buildCommunicationAppInbox_();
   const active = buildCommunicationAppActiveCommunications_();
   const dashboard = buildCommunicationAppDashboard_();
+  const actionInbox = buildCommunicationAppActionInbox_(inbox.items, dashboard);
   const history = buildCommunicationAppHistory_('', 20);
   const appUrl = getCommunicationAppUrl_();
   return {
@@ -150,6 +172,7 @@ function buildCommunicationAppContext_() {
     appUrl: appUrl,
     spreadsheetId: getControlCenterSpreadsheet_().getId(),
     inbox: inbox,
+    actionInbox: actionInbox,
     activeCommunications: active,
     dashboard: dashboard,
     history: history,
@@ -159,7 +182,12 @@ function buildCommunicationAppContext_() {
       errors: inbox.items.filter(item => item.status === HUB.STATUS.ERROR).length,
       scheduled: inbox.items.filter(item => item.status === HUB.STATUS.SCHEDULED).length,
       pendingSignals: dashboard.pending.length,
-      activeCommunications: active.length
+      activeCommunications: active.length,
+      needsReview: actionInbox.summary.needsReview,
+      readyLive: actionInbox.summary.readyLive,
+      needsContext: actionInbox.summary.needsContext,
+      failed: actionInbox.summary.failed,
+      recentTests: actionInbox.summary.recentTests
     }
   };
 }
@@ -184,7 +212,7 @@ function buildCommunicationAppQueueCard_(row) {
   const eventKey = row['Event Key'] || payload.event_key || '';
   const subject = getReviewControllerSubject_(row, payload) || 'Untitled communication';
   const testUrl = row['Test Slack Message URL'] || '';
-  return {
+  const card = {
     kind: 'draft',
     selection: 'queue:' + row['Queue ID'],
     queueId: row['Queue ID'] || '',
@@ -203,8 +231,162 @@ function buildCommunicationAppQueueCard_(row) {
     error: row.Error || '',
     testSlackUrl: testUrl,
     testSentAt: row['Test Sent At'] || '',
+    testSlackChannel: row['Test Slack Channel'] || '',
+    testSlackThreadTs: row['Test Slack Thread TS'] || '',
+    testSlackMessageTs: row['Test Slack Message TS'] || '',
+    hasTitle: Boolean(String(payload.message_title || payload.message_title_mrkdwn || payload.message_title_html || subject || '').trim()),
+    hasBody: Boolean(String(payload.message_body_mrkdwn || '').trim() || stripHtml_(payload.message_body_html || '').trim() || String(payload.what || payload.so_what || payload.whats_next || '').trim()),
     hasTest: Boolean(testUrl),
-    hasLive: false
+    hasLive: Boolean(row['Slack Message URL'])
+  };
+  return Object.assign(card, classifyCommunicationAppDraft_(card, row, payload));
+}
+
+function classifyCommunicationAppDraft_(card, row, payload) {
+  if (card.status === HUB.STATUS.ERROR || card.error) {
+    return {
+      decisionState: 'failed',
+      decisionLabel: 'Failed',
+      nextAction: 'Open and resolve',
+      why: card.error || 'The last processing attempt failed and needs PM attention.'
+    };
+  }
+
+  if (!card.hasTitle || !card.hasBody) {
+    return {
+      decisionState: 'needs_context',
+      decisionLabel: 'Needs context',
+      nextAction: 'Complete message',
+      why: 'The draft needs a usable title and body before it can be tested or sent.'
+    };
+  }
+
+  if (card.hasTest) {
+    return {
+      decisionState: 'ready_live',
+      decisionLabel: 'Ready for live',
+      nextAction: 'Approve live send',
+      why: 'A sandbox test exists; review the final content and approve the live route.'
+    };
+  }
+
+  if (card.status === HUB.STATUS.SCHEDULED) {
+    return {
+      decisionState: 'scheduled_soon',
+      decisionLabel: 'Scheduled',
+      nextAction: 'Review scheduled draft',
+      why: 'This was scheduled by the flow or dashboard and is waiting for PM review.'
+    };
+  }
+
+  return {
+    decisionState: 'needs_review',
+    decisionLabel: 'Needs review',
+    nextAction: 'Review and send test',
+    why: buildCommunicationAppDraftReason_(card, payload)
+  };
+}
+
+function buildCommunicationAppDraftReason_(card, payload) {
+  if (/dashboard/i.test(card.source || '')) {
+    return 'A dashboard signal created this draft for PM review before stakeholder communication.';
+  }
+  if (/flow/i.test(card.source || '')) {
+    return 'The active communication flow scheduled this next step.';
+  }
+  if (payload && payload.release_type === 'Special Release') {
+    return 'A project dashboard row scheduled a special release that needs release-style communication.';
+  }
+  return 'This draft is ready for PM review, sandbox testing, and live approval.';
+}
+
+function buildCommunicationAppActionInbox_(items, dashboard) {
+  const groups = [
+    {
+      id: 'needs_review',
+      label: 'Needs Review',
+      description: 'Drafts that need PM review before a test or live send.',
+      items: []
+    },
+    {
+      id: 'ready_live',
+      label: 'Ready For Live',
+      description: 'Drafts with a test send already available.',
+      items: []
+    },
+    {
+      id: 'needs_context',
+      label: 'Needs Context',
+      description: 'Drafts missing message content or source context.',
+      items: []
+    },
+    {
+      id: 'failed',
+      label: 'Failed',
+      description: 'Drafts or sync results with errors that need attention.',
+      items: []
+    },
+    {
+      id: 'scheduled_soon',
+      label: 'Scheduled Soon',
+      description: 'Flow-scheduled drafts waiting for PM review.',
+      items: []
+    },
+    {
+      id: 'stabilizing',
+      label: 'Stabilizing',
+      description: 'Dashboard signals waiting for the stable-poll guard.',
+      items: []
+    },
+    {
+      id: 'recent_tests',
+      label: 'Recent Tests',
+      description: 'Drafts recently sent to the sandbox Slack route.',
+      items: []
+    }
+  ];
+  const byId = groups.reduce((memo, group) => {
+    memo[group.id] = group;
+    return memo;
+  }, {});
+
+  (items || []).forEach(item => {
+    const state = byId[item.decisionState] ? item.decisionState : 'needs_review';
+    byId[state].items.push(item);
+    if (item.hasTest) byId.recent_tests.items.push(item);
+  });
+
+  ((dashboard && dashboard.pending) || []).forEach(item => {
+    const pendingCard = Object.assign({}, item, {
+      kind: 'signal',
+      selection: '',
+      subject: item.subject || item.flowId || item.sourceItemId || 'Dashboard signal',
+      owner: '',
+      source: 'Dashboard sync',
+      decisionState: item.status === 'Error' ? 'failed' : 'stabilizing',
+      decisionLabel: item.status || 'Pending Evaluation',
+      nextAction: item.status === 'Needs Reason' ? 'Add source context' : 'Wait for stable polls',
+      why: item.status === 'Needs Reason' ?
+        'The signal looks communication-worthy but needs a reason before a draft can be created.' :
+        'The source row changed and the automation is waiting for the configured stable-poll threshold.'
+    });
+    byId[pendingCard.decisionState].items.push(pendingCard);
+  });
+
+  const visibleGroups = groups.filter(group => group.items.length);
+  return {
+    groups: visibleGroups,
+    summary: {
+      needsReview: byId.needs_review.items.length,
+      readyLive: byId.ready_live.items.length,
+      needsContext: byId.needs_context.items.length,
+      failed: byId.failed.items.length,
+      scheduledSoon: byId.scheduled_soon.items.length,
+      stabilizing: byId.stabilizing.items.length,
+      recentTests: byId.recent_tests.items.length,
+      total: visibleGroups.reduce((sum, group) => sum + group.items.length, 0)
+    },
+    updatedAt: nowIso_()
   };
 }
 
@@ -281,6 +463,178 @@ function buildCommunicationAppDashboard_() {
       error: row['Processing Error'] || ''
     }))
   };
+}
+
+function buildCommunicationAppReadiness_(context) {
+  const queue = context.queue || {};
+  const flow = context.flow || {};
+  const routes = resolveCommunicationAppReadinessRoutes_(context);
+  const titleReady = Boolean(stripHtml_(queue.messageTitleHtml || queue.messageTitle || '').trim());
+  const bodyReady = Boolean(stripHtml_(queue.messageBodyHtml || '').trim());
+  const sourceAvailable = Boolean(queue.source || queue.flowId || flow.exists || context.evidence && context.evidence.summary);
+  const items = [
+    buildCommunicationAppReadinessItem_('Title ready', titleReady, titleReady ? 'Title is present.' : 'Add a concise title.'),
+    buildCommunicationAppReadinessItem_('Body ready', bodyReady, bodyReady ? 'Body is present.' : 'Add the stakeholder message body.'),
+    buildCommunicationAppReadinessItem_('Test channel resolved', Boolean(routes.testChannel), routes.testMessage),
+    buildCommunicationAppReadinessItem_('Live channel resolved', Boolean(routes.liveChannel), routes.liveMessage),
+    buildCommunicationAppReadinessItem_('Test sent', Boolean(queue.testSlackUrl || flow.testAnchorUrl), queue.testSlackUrl || flow.testAnchorUrl ? 'Sandbox Slack message is available.' : 'Send a sandbox test before live approval.', false),
+    buildCommunicationAppReadinessItem_('Live approval', Boolean(queue.slackUrl || flow.anchorUrl), queue.slackUrl || flow.anchorUrl ? 'Live Slack anchor exists.' : 'Not approved live yet.', false),
+    buildCommunicationAppReadinessItem_('Source evidence', sourceAvailable, sourceAvailable ? 'Source and flow context are available.' : 'No source evidence was found.'),
+    buildCommunicationAppReadinessItem_('No blocking error', !queue.error, queue.error || 'No current Queue error.')
+  ];
+  const blocking = items.filter(item => item.blocking && !item.ok);
+  return {
+    ok: blocking.length === 0,
+    status: blocking.length ? 'Needs attention' : 'Ready',
+    items: items,
+    routes: routes,
+    blockingCount: blocking.length
+  };
+}
+
+function buildCommunicationAppReadinessItem_(label, ok, detail, blocking) {
+  return {
+    label: label,
+    ok: Boolean(ok),
+    state: ok ? 'ok' : 'warn',
+    blocking: blocking !== false,
+    detail: detail || ''
+  };
+}
+
+function resolveCommunicationAppReadinessRoutes_(context) {
+  const queue = context.queue || {};
+  const flow = context.flow || {};
+  const item = {
+    'Queue ID': queue.queueId || '',
+    'Flow ID': queue.flowId || flow.flowId || '',
+    'Event Key': queue.eventKey || '',
+    Lane: queue.lane || inferLaneFromEventKey_(queue.eventKey || ''),
+    Owner: queue.owner || flow.owner || '',
+    'Payload JSON': stringifyJson_({
+      event_key: queue.eventKey || '',
+      subject: queue.subject || flow.subject || '',
+      owner: queue.owner || flow.owner || ''
+    })
+  };
+  try {
+    const template = findReviewControllerTemplateForPreview_(item);
+    const channelType = template['Channel Type'] || inferLaneFromEventKey_(queue.eventKey || '');
+    const testChannel = queue.testSlackChannel || flow.testSlackChannel || resolveTestChannel_(channelType);
+    const liveChannel = flow.slackChannel || resolveDefaultChannel_(channelType);
+    return {
+      channelType: channelType,
+      testChannel: testChannel,
+      liveChannel: liveChannel,
+      testMessage: testChannel ? 'Sandbox route is configured.' : 'No sandbox route found.',
+      liveMessage: liveChannel ? 'Live route is configured.' : 'No live route found.'
+    };
+  } catch (error) {
+    return {
+      channelType: '',
+      testChannel: queue.testSlackChannel || flow.testSlackChannel || '',
+      liveChannel: flow.slackChannel || '',
+      testMessage: queue.testSlackChannel || flow.testSlackChannel ? 'Sandbox route was recorded on this communication.' : error.message || String(error),
+      liveMessage: flow.slackChannel ? 'Live route was recorded on the flow.' : error.message || String(error)
+    };
+  }
+}
+
+function buildCommunicationAppEvidence_(context) {
+  const queue = context.queue || {};
+  const flow = context.flow || {};
+  const trigger = findCommunicationAppTriggerEvidence_(queue);
+  const evidence = {
+    summary: '',
+    items: []
+  };
+
+  if (trigger) {
+    evidence.summary = trigger.candidate || trigger.eventName || 'Dashboard-created draft';
+    evidence.items.push({
+      label: 'Dashboard signal',
+      value: trigger.candidate || trigger.eventName || 'Dashboard signal'
+    });
+    evidence.items.push({
+      label: 'Source item',
+      value: trigger.sourceItemId || trigger.flowId || ''
+    });
+    evidence.items.push({
+      label: 'Trigger status',
+      value: trigger.status || ''
+    });
+    if (trigger.createdAt) evidence.items.push({
+      label: 'Detected',
+      value: trigger.createdAt
+    });
+    if (trigger.error) evidence.items.push({
+      label: 'Error',
+      value: trigger.error
+    });
+    return evidence;
+  }
+
+  evidence.summary = queue.source || (flow.exists ? 'Existing communication flow' : 'Communication Console draft');
+  evidence.items.push({
+    label: 'Source',
+    value: queue.source || 'Communication Console'
+  });
+  if (queue.flowId || flow.flowId) evidence.items.push({
+    label: 'Flow ID',
+    value: queue.flowId || flow.flowId
+  });
+  if (queue.eventName || queue.eventKey) evidence.items.push({
+    label: 'Event',
+    value: queue.eventName || queue.eventKey
+  });
+  if (queue.createdAt) evidence.items.push({
+    label: 'Created',
+    value: queue.createdAt
+  });
+  return evidence;
+}
+
+function findCommunicationAppTriggerEvidence_(queue) {
+  if (!queue || (!queue.queueId && !queue.flowId)) return null;
+  const rows = readCommunicationAppObjects_(getControlCenterSpreadsheet_(), AUTOMATION.SHEETS.TRIGGER_LOG);
+  const match = rows.find(row =>
+    (queue.queueId && row['Hub Queue ID'] === queue.queueId) ||
+    (queue.flowId && row['Flow ID'] === queue.flowId && row['Event Key'] === queue.eventKey)
+  );
+  if (!match) return null;
+  return {
+    id: match['Trigger Log ID'] || '',
+    createdAt: match['Created At'] || '',
+    flowId: match['Flow ID'] || '',
+    sourceItemId: match['Source Row Key'] || '',
+    candidate: match['Trigger Candidate'] || '',
+    eventKey: match['Event Key'] || '',
+    eventName: match['Event Key'] ? getReviewControllerEventDisplayName_(match['Event Key']) : '',
+    status: match['Processing Status'] || '',
+    error: match['Processing Error'] || ''
+  };
+}
+
+function buildCommunicationAppAiState_(context) {
+  const queue = context.queue || {};
+  const payload = queue.queueId ? normalizePayload_(findCommunicationAppQueueRow_(queue.queueId) || {}) : {};
+  const hasSavedFinal = Boolean(String(payload.message_title || payload.message_title_mrkdwn || payload.message_body_mrkdwn || payload.message_title_html || payload.message_body_html || '').trim());
+  return {
+    enabled: Boolean(String(getScriptProperty_('GEMINI_API_KEY') || '').trim()),
+    model: getGeminiCommunicationModel_(),
+    status: payload.message_ai_status || '',
+    needsInitialDraft: !hasSavedFinal && Boolean(queue.eventKey) && payload.message_ai_status !== 'AI_Complete',
+    generatedAt: payload.message_ai_generated_at || '',
+    redraftedAt: payload.message_ai_redrafted_at || '',
+    modelUsed: payload.message_ai_model || ''
+  };
+}
+
+function findCommunicationAppQueueRow_(queueId) {
+  const sheet = getControlCenterSpreadsheet_().getSheetByName(HUB.SHEETS.QUEUE);
+  if (!sheet || !queueId) return null;
+  const row = findQueueRowByQueueId_(sheet, queueId);
+  return row ? getRowObject_(sheet, row) : null;
 }
 
 function buildCommunicationAppHistory_(flowId, limit) {

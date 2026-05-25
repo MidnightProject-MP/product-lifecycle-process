@@ -323,6 +323,15 @@ function buildCommunicationConsoleSyncMessage_(result) {
 
 function buildReviewControllerFinalMessage_(item) {
   const payload = normalizePayload_(item);
+  if (payload.message_title_mrkdwn || payload.message_body_mrkdwn) {
+    const titleText = payload.message_title || cleanReviewControllerTitle_(payload.message_title_mrkdwn);
+    return {
+      title: titleText,
+      titleHtml: reviewControllerSlackInlineToHtml_(payload.message_title_mrkdwn || titleText),
+      bodyHtml: slackTextToReviewControllerHtml_(payload.message_body_mrkdwn || '')
+    };
+  }
+
   if (payload.message_title || payload.message_title_html || payload.message_body_html) {
     return {
       title: stripHtml_(payload.message_title_html || payload.message_title || getReviewControllerSubject_(item, payload)),
@@ -387,36 +396,48 @@ function cleanReviewControllerTitle_(line) {
 function slackTextToReviewControllerHtml_(text) {
   const lines = String(text || '').split(/\n/);
   const html = [];
-  let listOpen = false;
+  let listType = '';
 
   lines.forEach(rawLine => {
     const line = String(rawLine || '').trim();
     if (!line) {
-      if (listOpen) {
-        html.push('</ul>');
-        listOpen = false;
+      if (listType) {
+        html.push('</' + listType + '>');
+        listType = '';
       }
       return;
     }
 
     const bullet = line.match(/^[-\u2022]\s+(.+)$/);
     if (bullet) {
-      if (!listOpen) {
+      if (listType !== 'ul') {
+        if (listType) html.push('</' + listType + '>');
         html.push('<ul>');
-        listOpen = true;
+        listType = 'ul';
       }
       html.push('<li>' + reviewControllerSlackInlineToHtml_(bullet[1]) + '</li>');
       return;
     }
 
-    if (listOpen) {
-      html.push('</ul>');
-      listOpen = false;
+    const numbered = line.match(/^\d+\.\s+(.+)$/);
+    if (numbered) {
+      if (listType !== 'ol') {
+        if (listType) html.push('</' + listType + '>');
+        html.push('<ol>');
+        listType = 'ol';
+      }
+      html.push('<li>' + reviewControllerSlackInlineToHtml_(numbered[1]) + '</li>');
+      return;
+    }
+
+    if (listType) {
+      html.push('</' + listType + '>');
+      listType = '';
     }
     html.push('<p>' + reviewControllerSlackInlineToHtml_(line) + '</p>');
   });
 
-  if (listOpen) html.push('</ul>');
+  if (listType) html.push('</' + listType + '>');
   return html.join('');
 }
 
@@ -429,7 +450,7 @@ function reviewControllerPlainTextToHtml_(text) {
 
 function reviewControllerSlackInlineToHtml_(text) {
   return escapeReviewControllerHtml_(text)
-    .replace(/&lt;([^|&]+)\|([^&]+)&gt;/g, '<a href="$1">$2</a>')
+    .replace(/&lt;([^|]+)\|([^&]+)&gt;/g, '<a href="$1">$2</a>')
     .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
     .replace(/_([^_\n]+)_/g, '<em>$1</em>');
 }
@@ -530,22 +551,25 @@ function createReviewControllerNewCommunicationDraft(form) {
   const messageTitleHtml = stringFromForm_(form.messageTitleHtml);
   const messageTitle = stringFromForm_(form.messageTitle) || stripHtml_(messageTitleHtml);
   const messageBodyHtml = stringFromForm_(form.messageBodyHtml);
+  const messageTitleMrkdwn = htmlToSlackText_(messageTitleHtml || messageTitle).trim();
+  const messageBodyMrkdwn = htmlToSlackText_(messageBodyHtml).trim();
   const payload = {
     event_key: eventKey,
     lane: lane,
     subject: stringFromForm_(form.subject) || messageTitle,
     owner: stringFromForm_(form.owner),
     what: stringFromForm_(form.what) || messageTitle,
-    so_what: stringFromForm_(form.soWhat) || htmlToSlackText_(messageBodyHtml),
+    so_what: stringFromForm_(form.soWhat) || messageBodyMrkdwn,
     whats_next: stringFromForm_(form.whatsNext),
     message_title: messageTitle,
-    message_title_html: messageTitleHtml || reviewControllerPlainTextToHtml_(messageTitle),
-    message_body_html: messageBodyHtml,
-    message_format: 'html_v1',
+    message_title_mrkdwn: messageTitleMrkdwn || messageTitle,
+    message_body_mrkdwn: messageBodyMrkdwn,
+    message_format: 'mrkdwn_v1',
     priority: event.Severity || 'Medium'
   };
+  applyReviewControllerAiMetadataToPayload_(payload, form || {});
   if (!payload.message_title) throw new Error('Add a title before queueing a new communication.');
-  if (!stripHtml_(payload.message_body_html)) throw new Error('Add a body before queueing a new communication.');
+  if (!payload.message_body_mrkdwn) throw new Error('Add a body before queueing a new communication.');
 
   const draft = {
     Source: 'Communication Console',
@@ -869,13 +893,18 @@ function updateQueueDraftFromReviewControllerForm_(queueSheet, row, form) {
   const messageTitleHtml = reviewControllerFormValue_(form, 'messageTitleHtml', payload.message_title_html || reviewControllerPlainTextToHtml_(payload.message_title || payload.subject || ''));
   const messageTitle = reviewControllerFormValue_(form, 'messageTitle', payload.message_title || stripHtml_(messageTitleHtml) || payload.subject || '');
   const messageBodyHtml = reviewControllerFormValue_(form, 'messageBodyHtml', payload.message_body_html || '');
+  const messageTitleMrkdwn = htmlToSlackText_(messageTitleHtml || messageTitle).trim();
+  const messageBodyMrkdwn = htmlToSlackText_(messageBodyHtml).trim();
 
   if (messageTitle || messageTitleHtml || messageBodyHtml) {
     payload.message_title = messageTitle;
-    payload.message_title_html = messageTitleHtml;
-    payload.message_body_html = messageBodyHtml;
-    payload.message_format = 'html_v1';
+    payload.message_title_mrkdwn = messageTitleMrkdwn || messageTitle;
+    payload.message_body_mrkdwn = messageBodyMrkdwn;
+    payload.message_format = 'mrkdwn_v1';
+    delete payload.message_title_html;
+    delete payload.message_body_html;
   }
+  applyReviewControllerAiMetadataToPayload_(payload, form);
   payload.subject = stringFromForm_(form.subject) || payload.subject || messageTitle || '';
   if (Object.prototype.hasOwnProperty.call(form || {}, 'what')) payload.what = stringFromForm_(form.what);
   if (Object.prototype.hasOwnProperty.call(form || {}, 'soWhat')) payload.so_what = stringFromForm_(form.soWhat);
@@ -902,15 +931,28 @@ function applyReviewControllerFinalMessageToPayload_(payload, form) {
   const messageTitleHtml = stringFromForm_(form && form.messageTitleHtml);
   const messageTitle = stringFromForm_(form && form.messageTitle) || stripHtml_(messageTitleHtml);
   const messageBodyHtml = stringFromForm_(form && form.messageBodyHtml);
+  const messageTitleMrkdwn = htmlToSlackText_(messageTitleHtml || messageTitle).trim();
+  const messageBodyMrkdwn = htmlToSlackText_(messageBodyHtml).trim();
   if (!messageTitle && !messageTitleHtml && !messageBodyHtml) return payload;
 
   payload.message_title = messageTitle;
-  payload.message_title_html = messageTitleHtml || reviewControllerPlainTextToHtml_(messageTitle);
-  payload.message_body_html = messageBodyHtml;
-  payload.message_format = 'html_v1';
+  payload.message_title_mrkdwn = messageTitleMrkdwn || messageTitle;
+  payload.message_body_mrkdwn = messageBodyMrkdwn;
+  payload.message_format = 'mrkdwn_v1';
+  delete payload.message_title_html;
+  delete payload.message_body_html;
   if (messageTitle && !payload.subject) payload.subject = messageTitle;
   if (messageTitle && !payload.what) payload.what = messageTitle;
-  if (messageBodyHtml && !payload.so_what) payload.so_what = htmlToSlackText_(messageBodyHtml);
+  if (messageBodyMrkdwn && !payload.so_what) payload.so_what = messageBodyMrkdwn;
+  applyReviewControllerAiMetadataToPayload_(payload, form);
+  return payload;
+}
+
+function applyReviewControllerAiMetadataToPayload_(payload, form) {
+  form = form || {};
+  if (Object.prototype.hasOwnProperty.call(form, 'aiModel')) payload.message_ai_model = stringFromForm_(form.aiModel);
+  if (Object.prototype.hasOwnProperty.call(form, 'aiGeneratedAt')) payload.message_ai_generated_at = stringFromForm_(form.aiGeneratedAt);
+  if (Object.prototype.hasOwnProperty.call(form, 'aiRedraftedAt')) payload.message_ai_redrafted_at = stringFromForm_(form.aiRedraftedAt);
   return payload;
 }
 

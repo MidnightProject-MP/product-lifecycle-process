@@ -6,21 +6,26 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f6f8fb;
-      --panel: #fff;
-      --line: #dfe3ea;
-      --muted: #5f6368;
-      --text: #202124;
-      --blue: #1a73e8;
-      --blue-soft: #e8f0fe;
-      --green: #137333;
-      --green-soft: #e6f4ea;
-      --red: #a50e0e;
-      --red-soft: #fce8e6;
-      --yellow: #b06000;
-      --yellow-soft: #fef7e0;
-      --shadow: 0 10px 30px rgba(60, 64, 67, .12);
-      font-family: Arial, sans-serif;
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --surface-2: #fbfbfa;
+      --line: #deded9;
+      --line-strong: #c9c9c1;
+      --text: #171717;
+      --muted: #6b6b63;
+      --muted-2: #8a8a82;
+      --accent: #635bff;
+      --accent-soft: #f0efff;
+      --green: #0f7a4f;
+      --green-soft: #e9f7ef;
+      --amber: #a15c00;
+      --amber-soft: #fff4df;
+      --red: #b42318;
+      --red-soft: #fff0ed;
+      --blue: #1769e0;
+      --blue-soft: #edf4ff;
+      --shadow: 0 18px 50px rgba(23, 23, 23, .08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
       font-size: 14px;
       color: var(--text);
     }
@@ -30,8 +35,8 @@
     }
 
     body {
-      margin: 0;
       background: var(--bg);
+      margin: 0;
     }
 
     button,
@@ -41,16 +46,22 @@
     }
 
     button {
-      border: 0;
-      border-radius: 6px;
+      align-items: center;
+      border: 1px solid transparent;
+      border-radius: 7px;
       cursor: pointer;
-      font-weight: 700;
-      padding: 9px 11px;
+      display: inline-flex;
+      font-weight: 650;
+      gap: 6px;
+      justify-content: center;
+      min-height: 34px;
+      padding: 7px 11px;
+      white-space: nowrap;
     }
 
     button:disabled {
       cursor: default;
-      opacity: .6;
+      opacity: .55;
     }
 
     a {
@@ -58,79 +69,91 @@
       text-decoration: none;
     }
 
-    .shell {
+    .app-shell {
       display: grid;
-      grid-template-columns: 236px minmax(0, 1fr);
+      grid-template-columns: 228px minmax(0, 1fr);
       min-height: 100vh;
     }
 
-    .sidebar {
-      background: #111827;
-      color: #f8fafc;
+    .side-nav {
+      background: #111111;
+      color: #f6f6f3;
       padding: 18px 14px;
     }
 
     .brand {
-      font-size: 18px;
-      font-weight: 800;
+      border-bottom: 1px solid rgba(255, 255, 255, .1);
+      margin-bottom: 14px;
+      padding: 2px 4px 16px;
+    }
+
+    .brand-title {
+      font-size: 17px;
+      font-weight: 780;
+      letter-spacing: 0;
       line-height: 1.2;
-      margin-bottom: 4px;
     }
 
     .brand-subtitle {
-      color: #cbd5e1;
+      color: #b7b7ad;
       font-size: 12px;
       line-height: 1.35;
-      margin-bottom: 20px;
+      margin-top: 4px;
     }
 
     .nav-button {
-      align-items: center;
       background: transparent;
-      color: #e5e7eb;
-      display: flex;
+      border: 1px solid transparent;
+      color: #deded8;
       justify-content: space-between;
-      margin: 3px 0;
-      padding: 10px;
+      margin: 2px 0;
+      padding: 9px 10px;
       text-align: left;
       width: 100%;
     }
 
-    .nav-button.active,
-    .nav-button:hover {
-      background: rgba(255, 255, 255, .12);
+    .nav-button:hover,
+    .nav-button.active {
+      background: rgba(255, 255, 255, .08);
+      border-color: rgba(255, 255, 255, .08);
+      color: #fff;
     }
 
     .nav-count {
-      background: rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .13);
       border-radius: 999px;
       color: #fff;
       font-size: 11px;
+      min-width: 22px;
       padding: 2px 7px;
+      text-align: center;
     }
 
     .main {
       min-width: 0;
-      padding: 22px;
+      padding: 20px;
     }
 
     .topbar {
       align-items: flex-start;
       display: flex;
-      gap: 14px;
+      gap: 18px;
       justify-content: space-between;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     h1 {
-      font-size: 24px;
+      font-size: 25px;
+      letter-spacing: 0;
       line-height: 1.15;
-      margin: 0 0 4px;
+      margin: 0;
     }
 
     .subtitle {
       color: var(--muted);
       line-height: 1.4;
+      margin-top: 5px;
+      max-width: 760px;
     }
 
     .top-actions {
@@ -140,29 +163,35 @@
       justify-content: flex-end;
     }
 
-    .primary {
-      background: var(--blue);
+    .btn-primary {
+      background: var(--text);
       color: #fff;
     }
 
-    .secondary {
-      background: var(--blue-soft);
-      color: #174ea6;
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
     }
 
-    .plain {
-      background: #eef1f5;
+    .btn-secondary {
+      background: var(--surface);
+      border-color: var(--line);
       color: var(--text);
     }
 
-    .danger {
+    .btn-muted {
+      background: #ededeb;
+      color: var(--text);
+    }
+
+    .btn-danger {
       background: var(--red-soft);
       color: var(--red);
     }
 
     .status-line {
       color: var(--muted);
-      min-height: 20px;
+      min-height: 21px;
       margin-bottom: 12px;
     }
 
@@ -176,58 +205,58 @@
       font-weight: 700;
     }
 
-    .stats {
+    .metric-row {
       display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      margin-bottom: 14px;
+      gap: 8px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      margin-bottom: 12px;
     }
 
-    .stat-card {
-      background: var(--panel);
+    .metric {
+      background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 12px;
+      padding: 10px;
     }
 
-    .stat-value {
-      font-size: 24px;
-      font-weight: 800;
+    .metric-value {
+      font-size: 21px;
+      font-weight: 780;
       line-height: 1;
     }
 
-    .stat-label {
+    .metric-label {
       color: var(--muted);
       font-size: 12px;
       margin-top: 5px;
     }
 
     .workspace {
-      display: grid;
-      gap: 14px;
-      grid-template-columns: minmax(0, 1.05fr) minmax(420px, .95fr);
       align-items: start;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
     }
 
     .panel {
-      background: var(--panel);
+      background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 10px;
       box-shadow: var(--shadow);
       min-width: 0;
-      padding: 14px;
+      padding: 13px;
     }
 
     .panel-header {
       align-items: baseline;
       display: flex;
-      justify-content: space-between;
       gap: 10px;
+      justify-content: space-between;
       margin-bottom: 10px;
     }
 
     h2 {
-      font-size: 17px;
+      font-size: 15px;
       margin: 0;
     }
 
@@ -235,160 +264,219 @@
       color: var(--muted);
     }
 
+    .success {
+      color: var(--green);
+    }
+
+    .error {
+      color: var(--red);
+    }
+
     .small {
       font-size: 12px;
     }
 
+    .group {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .group:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .group-title {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .group-description {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin: -2px 0 8px;
+    }
+
     .card-list {
       display: grid;
-      gap: 9px;
+      gap: 8px;
     }
 
-    .item-card {
-      background: #fff;
+    .work-card {
+      background: var(--surface);
       border: 1px solid var(--line);
-      border-left: 4px solid #9aa0a6;
+      border-left: 3px solid var(--line-strong);
       border-radius: 8px;
       cursor: pointer;
-      padding: 11px;
+      padding: 10px;
+      transition: border-color .12s ease, box-shadow .12s ease, transform .12s ease;
     }
 
-    .item-card:hover,
-    .item-card.selected {
-      border-color: #b8c7f4;
-      border-left-color: var(--blue);
-      box-shadow: 0 4px 12px rgba(26, 115, 232, .12);
+    .work-card:hover,
+    .work-card.selected {
+      border-color: #b8b6ff;
+      border-left-color: var(--accent);
+      box-shadow: 0 8px 22px rgba(99, 91, 255, .12);
+      transform: translateY(-1px);
     }
 
-    .item-card.error {
+    .work-card.failed {
       border-left-color: var(--red);
     }
 
-    .item-card.scheduled {
-      border-left-color: var(--yellow);
-    }
-
-    .item-card.sent {
+    .work-card.ready_live {
       border-left-color: var(--green);
     }
 
-    .item-title {
-      font-weight: 800;
+    .work-card.scheduled_soon,
+    .work-card.stabilizing {
+      border-left-color: var(--amber);
+    }
+
+    .work-card.signal {
+      cursor: default;
+    }
+
+    .card-top {
+      align-items: center;
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      margin-bottom: 7px;
+    }
+
+    .card-title {
+      font-weight: 760;
       line-height: 1.25;
       margin-bottom: 4px;
     }
 
-    .item-meta {
+    .card-meta,
+    .card-why {
       color: var(--muted);
       font-size: 12px;
       line-height: 1.35;
     }
 
-    .chips {
+    .card-why {
+      margin-top: 6px;
+    }
+
+    .pill-row {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
       margin-top: 8px;
     }
 
-    .chip {
-      background: #f1f3f4;
-      border: 1px solid #e0e0e0;
+    .pill {
+      background: #f1f1ef;
+      border: 1px solid #e3e3df;
       border-radius: 999px;
-      color: #3c4043;
+      color: #3f3f39;
+      display: inline-flex;
       font-size: 11px;
-      padding: 3px 7px;
+      gap: 4px;
+      line-height: 1.2;
+      padding: 4px 7px;
     }
 
-    .chip.error {
-      background: var(--red-soft);
-      border-color: #fad2cf;
-      color: var(--red);
-    }
-
-    .chip.ok {
+    .pill.ok {
       background: var(--green-soft);
-      border-color: #ceead6;
+      border-color: #c9ead8;
       color: var(--green);
     }
 
-    .chip.warn {
-      background: var(--yellow-soft);
-      border-color: #fdd663;
-      color: var(--yellow);
+    .pill.warn {
+      background: var(--amber-soft);
+      border-color: #f2d9a8;
+      color: var(--amber);
     }
 
-    .detail-empty {
+    .pill.error {
+      background: var(--red-soft);
+      border-color: #ffc9c2;
+      color: var(--red);
+    }
+
+    .pill.info {
+      background: var(--blue-soft);
+      border-color: #cfe1ff;
+      color: var(--blue);
+    }
+
+    .empty-state {
+      border: 1px dashed var(--line-strong);
+      border-radius: 9px;
       color: var(--muted);
       line-height: 1.45;
       padding: 20px;
       text-align: center;
     }
 
-    .detail-title {
-      font-size: 19px;
-      font-weight: 800;
-      line-height: 1.2;
-      margin-bottom: 3px;
-    }
-
-    .detail-summary {
-      color: var(--muted);
-      line-height: 1.35;
-      margin-bottom: 12px;
-    }
-
-    .detail-grid {
+    .object-view {
       display: grid;
-      gap: 8px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      align-items: start;
+    }
+
+    .object-header {
+      border-bottom: 1px solid var(--line);
       margin-bottom: 12px;
+      padding-bottom: 12px;
     }
 
-    .info-box {
-      background: #f8fafd;
-      border: 1px solid #dfe5f2;
-      border-radius: 8px;
-      padding: 9px;
+    .object-kicker {
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 8px;
     }
 
-    .info-label {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    .info-value {
-      line-height: 1.35;
-      margin-top: 3px;
+    .object-title {
+      font-size: 21px;
+      font-weight: 780;
+      line-height: 1.2;
+      margin-bottom: 4px;
       overflow-wrap: anywhere;
     }
 
-    label {
-      color: #3c4043;
+    .object-summary {
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .field-label {
+      color: #383832;
       display: block;
-      font-weight: 800;
-      margin: 10px 0 4px;
+      font-size: 12px;
+      font-weight: 760;
+      margin: 12px 0 5px;
     }
 
     input,
     select,
     .html-editor {
       background: #fff;
-      border: 1px solid #dadce0;
-      border-radius: 6px;
+      border: 1px solid var(--line-strong);
+      border-radius: 7px;
       color: var(--text);
-      padding: 8px;
+      padding: 8px 9px;
       width: 100%;
     }
 
     .editor-toolbar {
       align-items: center;
-      background: #f8fafd;
-      border: 1px solid #dadce0;
+      background: var(--surface-2);
+      border: 1px solid var(--line-strong);
       border-bottom: 0;
-      border-radius: 6px 6px 0 0;
+      border-radius: 7px 7px 0 0;
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
@@ -397,97 +485,204 @@
 
     .editor-toolbar button {
       background: transparent;
-      color: #3c4043;
+      border: 1px solid transparent;
+      color: #383832;
+      min-height: 28px;
       min-width: 30px;
-      padding: 5px 7px;
+      padding: 4px 7px;
     }
 
     .editor-toolbar button:hover,
     .editor-toolbar button:focus {
-      background: var(--blue-soft);
+      background: var(--accent-soft);
+      border-color: #d8d5ff;
       outline: none;
     }
 
     .separator {
-      background: #dadce0;
+      background: var(--line);
       height: 22px;
       margin: 0 2px;
       width: 1px;
     }
 
     .html-editor {
+      border-radius: 0 0 7px 7px;
       line-height: 1.45;
-      min-height: 250px;
+      min-height: 260px;
       outline: none;
       overflow: auto;
     }
 
     .title-editor {
-      min-height: 38px;
+      min-height: 42px;
     }
 
-    .with-toolbar {
-      border-radius: 0 0 6px 6px;
-    }
-
-    .detail-actions {
+    .action-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      margin-top: 13px;
+    }
+
+    .coach-box {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 9px;
       margin-top: 12px;
+      padding: 10px;
     }
 
-    .route-grid {
-      display: grid;
+    .coach-header {
+      align-items: center;
+      display: flex;
       gap: 8px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin: 10px 0 12px;
+      justify-content: space-between;
+      margin-bottom: 6px;
     }
 
-    .history-list {
+    .coach-notes {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      margin-top: 7px;
+    }
+
+    .rail {
+      display: grid;
+      gap: 10px;
+    }
+
+    .rail-card {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px;
+    }
+
+    .rail-title {
+      font-size: 13px;
+      font-weight: 760;
+      margin-bottom: 7px;
+    }
+
+    .check-list {
       display: grid;
       gap: 7px;
-      margin-top: 10px;
     }
 
-    .history-row {
+    .check {
+      display: grid;
+      gap: 7px;
+      grid-template-columns: 22px minmax(0, 1fr);
+    }
+
+    .check-dot {
+      align-items: center;
+      background: #ececea;
+      border-radius: 999px;
+      color: #77776e;
+      display: flex;
+      font-size: 9px;
+      font-weight: 800;
+      height: 18px;
+      justify-content: center;
+      margin-top: 1px;
+      width: 22px;
+    }
+
+    .check.ok .check-dot {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .check.warn .check-dot {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .check.error .check-dot {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .check-label {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.25;
+    }
+
+    .check-detail {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      margin-top: 2px;
+    }
+
+    .kv-list {
+      display: grid;
+      gap: 7px;
+    }
+
+    .kv-row {
       border-top: 1px solid var(--line);
       padding-top: 7px;
     }
 
-    .empty {
-      border: 1px dashed #c8ced6;
-      border-radius: 8px;
-      color: var(--muted);
-      padding: 18px;
-      text-align: center;
+    .kv-row:first-child {
+      border-top: 0;
+      padding-top: 0;
     }
 
-    @media (max-width: 1120px) {
-      .workspace {
+    .kv-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+      text-transform: uppercase;
+    }
+
+    .kv-value {
+      line-height: 1.35;
+      margin-top: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .history-row {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+    }
+
+    .history-row:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    @media (max-width: 1220px) {
+      .workspace,
+      .object-view {
         grid-template-columns: 1fr;
       }
 
-      .stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+      .metric-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
     }
 
     @media (max-width: 760px) {
-      .shell {
+      .app-shell {
         grid-template-columns: 1fr;
-      }
-
-      .sidebar {
-        position: static;
       }
 
       .main {
         padding: 14px;
       }
 
-      .topbar,
-      .panel-header {
+      .topbar {
         display: block;
       }
 
@@ -496,20 +691,20 @@
         margin-top: 10px;
       }
 
-      .detail-grid,
-      .route-grid,
-      .stats {
-        grid-template-columns: 1fr;
+      .metric-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="brand">Personal Assistant</div>
-      <div class="brand-subtitle">Communication Console</div>
-      <button class="nav-button active" data-view="inbox" onclick="setView('inbox')"><span>Inbox</span><span id="navInbox" class="nav-count">0</span></button>
+  <div class="app-shell">
+    <aside class="side-nav">
+      <div class="brand">
+        <div class="brand-title">Personal Assistant</div>
+        <div class="brand-subtitle">Communication Action Cockpit</div>
+      </div>
+      <button class="nav-button active" data-view="inbox" onclick="setView('inbox')"><span>Action Inbox</span><span id="navInbox" class="nav-count">0</span></button>
       <button class="nav-button" data-view="active" onclick="setView('active')"><span>Active Communications</span><span id="navActive" class="nav-count">0</span></button>
       <button class="nav-button" data-view="new" onclick="setView('new')"><span>New Communication</span></button>
       <button class="nav-button" data-view="signals" onclick="setView('signals')"><span>Dashboard Signals</span><span id="navSignals" class="nav-count">0</span></button>
@@ -523,13 +718,13 @@
           <div id="viewSubtitle" class="subtitle">Loading Personal Assistant...</div>
         </div>
         <div class="top-actions">
-          <button class="secondary" onclick="syncDashboard()">Sync Dashboard Now</button>
-          <button class="plain" onclick="loadApp(true)">Refresh</button>
+          <button class="btn-secondary" onclick="syncDashboard()">Sync Dashboard Now</button>
+          <button class="btn-muted" onclick="loadApp(true)">Refresh</button>
         </div>
       </div>
 
       <div id="status" class="status-line"></div>
-      <section id="stats" class="stats"></section>
+      <section id="metrics" class="metric-row"></section>
 
       <div class="workspace">
         <section id="content" class="panel"></section>
@@ -546,6 +741,8 @@
     let actionDefaults = {};
     let savedEditorRanges = {};
     let isBusy = false;
+    let aiDraftAttempts = {};
+    let aiMetadata = {};
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -564,22 +761,24 @@
       });
     }
 
-    function serverCall(fnName, args, onSuccess) {
-      setBusy(true);
+    function serverCall(fnName, args, onSuccess, options) {
+      const useBusy = !options || options.busy !== false;
+      if (useBusy) setBusy(true);
       const runner = google.script.run
         .withSuccessHandler(result => {
-          setBusy(false);
+          if (useBusy) setBusy(false);
           if (onSuccess) onSuccess(result);
         })
         .withFailureHandler(error => {
-          setBusy(false);
+          if (useBusy) setBusy(false);
           setStatus(error && error.message ? error.message : String(error), 'error');
+          if (options && options.onError) options.onError(error);
         });
       runner[fnName].apply(runner, args || []);
     }
 
     function loadApp(keepDetail) {
-      setStatus('Loading communication app...');
+      setStatus('Loading communication cockpit...');
       serverCall('getCommunicationAppContext', [], context => {
         appContext = context;
         setStatus('Ready.', 'success');
@@ -603,7 +802,7 @@
     function renderShell() {
       if (!appContext) return;
       renderNav();
-      renderStats();
+      renderMetrics();
       renderContent();
     }
 
@@ -616,37 +815,32 @@
       document.getElementById('navSignals').textContent = appContext.stats.pendingSignals || 0;
     }
 
-    function renderStats() {
+    function renderMetrics() {
       const sync = appContext.dashboard.config || {};
-      const cards = [
-        ['Needs review', appContext.stats.inbox || 0],
-        ['Errors', appContext.stats.errors || 0],
-        ['Scheduled', appContext.stats.scheduled || 0],
-        ['Pending signals', appContext.stats.pendingSignals || 0],
+      const metrics = [
+        ['Needs review', appContext.stats.needsReview || 0],
+        ['Ready live', appContext.stats.readyLive || 0],
+        ['Needs context', appContext.stats.needsContext || 0],
+        ['Failures', appContext.stats.failed || 0],
+        ['Stabilizing', appContext.actionInbox && appContext.actionInbox.summary.stabilizing || 0],
         ['Last sync', sync.lastSyncMode || 'Unknown']
       ];
-      document.getElementById('stats').innerHTML = cards.map(card =>
-        '<div class="stat-card"><div class="stat-value">' + escapeHtml(card[1]) + '</div><div class="stat-label">' + escapeHtml(card[0]) + '</div></div>'
+      document.getElementById('metrics').innerHTML = metrics.map(item =>
+        '<div class="metric"><div class="metric-value">' + escapeHtml(item[1]) + '</div><div class="metric-label">' + escapeHtml(item[0]) + '</div></div>'
       ).join('');
     }
 
     function renderContent() {
-      const title = {
-        inbox: 'Action Inbox',
-        active: 'Active Communications',
-        new: 'New Communication',
-        signals: 'Dashboard Signals',
-        history: 'History'
-      }[currentView] || 'Action Inbox';
-      const subtitle = {
-        inbox: 'Drafts and issues that need PM attention.',
-        active: 'Parent communications with their current state, next expected step, and Slack anchors.',
-        new: 'Start a fresh communication from the same templates and flow rules.',
-        signals: 'Dashboard changes, pending evaluations, and recent automation decisions.',
-        history: 'Recently completed communication events.'
-      }[currentView] || '';
-      document.getElementById('viewTitle').textContent = title;
-      document.getElementById('viewSubtitle').textContent = subtitle;
+      const titles = {
+        inbox: ['Action Inbox', 'Grouped by the next PM decision: review, test, approve, add context, or wait.'],
+        active: ['Active Communications', 'Parent threads with current state, next expected step, and Slack routing.'],
+        new: ['New Communication', 'Start from a lane scaffold, then edit the final message directly.'],
+        signals: ['Dashboard Signals', 'What the dashboard automation saw, what is stabilizing, and what it decided.'],
+        history: ['History', 'Recently completed communication events and their Slack links.']
+      };
+      const copy = titles[currentView] || titles.inbox;
+      document.getElementById('viewTitle').textContent = copy[0];
+      document.getElementById('viewSubtitle').textContent = copy[1];
 
       if (currentView === 'inbox') renderInbox();
       if (currentView === 'active') renderActive();
@@ -656,27 +850,66 @@
     }
 
     function renderInbox() {
-      const items = appContext.inbox.items || [];
+      const groups = appContext.actionInbox && appContext.actionInbox.groups || [];
       document.getElementById('content').innerHTML =
-        panelHeaderHtml('Drafts needing attention', items.length + ' active') +
-        (items.length ? '<div class="card-list">' + items.map(renderDraftCard).join('') + '</div>' : emptyHtml('No queued drafts need attention.'));
+        panelHeaderHtml('Inbox', (appContext.actionInbox && appContext.actionInbox.summary.total || 0) + ' actions') +
+        (groups.length ? groups.map(renderInboxGroup).join('') : emptyHtml('No PM action is waiting right now.'));
+    }
+
+    function renderInboxGroup(group) {
+      return '<div class="group">' +
+        '<div class="group-title"><h2>' + escapeHtml(group.label) + '</h2><span class="pill">' + group.items.length + '</span></div>' +
+        '<div class="group-description">' + escapeHtml(group.description || '') + '</div>' +
+        '<div class="card-list">' + group.items.map(renderActionCard).join('') + '</div>' +
+        '</div>';
+    }
+
+    function renderActionCard(item) {
+      const clickable = item.selection ? ' onclick="openDetail(' + quote(item.selection) + ')"' : '';
+      const selected = selectedSelection === item.selection ? ' selected' : '';
+      const classes = ['work-card', item.decisionState || '', item.kind === 'signal' ? 'signal' : '', selected].filter(Boolean).join(' ');
+      const routeChips = item.kind === 'draft' ?
+        ((item.hasTest ? pillHtml('Test sent', 'ok') : pillHtml('No test yet', '')) +
+        (item.hasLive ? pillHtml('Live sent', 'ok') : pillHtml('Live pending', 'warn'))) :
+        pillHtml(item.decisionLabel || item.status || 'Signal', item.status === 'Needs Reason' ? 'warn' : 'info');
+      return '<div class="' + classes + '"' + clickable + '>' +
+        '<div class="card-top">' + pillHtml(item.decisionLabel || item.status || 'Draft', stateMode(item.decisionState)) +
+        '<strong class="small">' + escapeHtml(item.nextAction || '') + '</strong></div>' +
+        '<div class="card-title">' + escapeHtml(item.subject || 'Untitled communication') + '</div>' +
+        '<div class="card-meta">' + escapeHtml([item.eventName || item.eventKey, item.owner || 'Owner not set', item.source || ''].filter(Boolean).join(' | ')) + '</div>' +
+        '<div class="card-why">' + escapeHtml(item.why || '') + '</div>' +
+        '<div class="pill-row">' + routeChips + pillHtml(item.lane || item.recordType || 'No lane') + '</div>' +
+        '</div>';
     }
 
     function renderActive() {
       const items = appContext.activeCommunications || [];
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Active communications', items.length + ' flows') +
-        (items.length ? '<div class="card-list">' + items.map(renderFlowCard).join('') + '</div>' : emptyHtml('No active communications yet.'));
+        (items.length ? '<div class="card-list">' + items.map(renderFlowCard).join('') + '</div>' : emptyHtml('No active communication flows yet.'));
+    }
+
+    function renderFlowCard(item) {
+      const selected = selectedSelection === item.selection ? ' selected' : '';
+      return '<div class="work-card ready_live' + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
+        '<div class="card-top">' + pillHtml(item.status || 'Active', 'ok') + '<strong class="small">Continue flow</strong></div>' +
+        '<div class="card-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="card-meta">Current: ' + escapeHtml(item.currentState) + '</div>' +
+        '<div class="card-why">Expected next: ' + escapeHtml(item.expectedNext || 'No expected next step') + '</div>' +
+        '<div class="pill-row">' + (item.liveSlackUrl ? linkPillHtml('Live anchor', item.liveSlackUrl, 'ok') : pillHtml('No live anchor', 'warn')) +
+        (item.testSlackUrl ? linkPillHtml('Test anchor', item.testSlackUrl, 'ok') : '') +
+        pillHtml(item.lane || 'No lane') + '</div></div>';
     }
 
     function renderNew() {
       const options = appContext.newCommunicationOptions || [];
       document.getElementById('content').innerHTML =
-        panelHeaderHtml('Start a communication', 'Choose the lane first') +
+        panelHeaderHtml('Start a communication', 'Choose a lane') +
         '<div class="card-list">' + options.map(option =>
-          '<div class="item-card" onclick="openDetail(' + quote(option.value) + ')">' +
-          '<div class="item-title">' + escapeHtml(option.label) + '</div>' +
-          '<div class="item-meta">Creates a draft using the matching start event and template scaffold.</div>' +
+          '<div class="work-card" onclick="openDetail(' + quote(option.value) + ')">' +
+          '<div class="card-top">' + pillHtml('New', 'info') + '<strong class="small">Create draft</strong></div>' +
+          '<div class="card-title">' + escapeHtml(option.label.replace(/^\+\s*/, '')) + '</div>' +
+          '<div class="card-why">Loads the matching scaffold and flow policy, then lets you edit the final message.</div>' +
           '</div>'
         ).join('') + '</div>';
     }
@@ -685,11 +918,31 @@
       const pending = appContext.dashboard.pending || [];
       const triggers = appContext.dashboard.recentTriggers || [];
       document.getElementById('content').innerHTML =
-        panelHeaderHtml('Pending dashboard signals', pending.length + ' pending') +
+        panelHeaderHtml('Pending evaluations', pending.length + ' pending') +
         (pending.length ? '<div class="card-list">' + pending.map(renderSignalCard).join('') + '</div>' : emptyHtml('No pending dashboard signals.')) +
-        '<div style="height:14px"></div>' +
-        panelHeaderHtml('Recent automation decisions', triggers.length + ' recent') +
+        '<div style="height:12px"></div>' +
+        panelHeaderHtml('Recent decisions', triggers.length + ' recent') +
         (triggers.length ? '<div class="card-list">' + triggers.map(renderTriggerCard).join('') + '</div>' : emptyHtml('No trigger log rows yet.'));
+    }
+
+    function renderSignalCard(item) {
+      return '<div class="work-card stabilizing signal">' +
+        '<div class="card-top">' + pillHtml(item.status || 'Pending Evaluation', item.status === 'Needs Reason' ? 'warn' : 'info') +
+        '<strong class="small">' + escapeHtml(item.stablePolls ? 'Stable polls ' + item.stablePolls : 'Watching') + '</strong></div>' +
+        '<div class="card-title">' + escapeHtml(item.subject || item.flowId) + '</div>' +
+        '<div class="card-why">' + escapeHtml(item.triggerCandidate || item.eventName || 'Dashboard change under evaluation') + '</div>' +
+        (item.error ? '<div class="pill-row">' + pillHtml(item.error, 'error') + '</div>' : '') +
+        '</div>';
+    }
+
+    function renderTriggerCard(item) {
+      return '<div class="work-card">' +
+        '<div class="card-top">' + pillHtml(item.status || 'Logged', item.error ? 'error' : item.queueId ? 'ok' : '') +
+        '<span class="small">' + escapeHtml(formatDateTime(item.createdAt)) + '</span></div>' +
+        '<div class="card-title">' + escapeHtml(item.subject || item.candidate || item.flowId) + '</div>' +
+        '<div class="card-meta">' + escapeHtml(item.eventName || item.eventKey || 'No event') + '</div>' +
+        '<div class="pill-row">' + (item.queueId ? pillHtml('Draft ' + item.queueId, 'ok') : pillHtml('No draft')) +
+        (item.error ? pillHtml(item.error, 'error') : '') + '</div></div>';
     }
 
     function renderHistory() {
@@ -699,62 +952,13 @@
         (items.length ? '<div class="card-list">' + items.map(renderHistoryCard).join('') + '</div>' : emptyHtml('No history recorded yet.'));
     }
 
-    function panelHeaderHtml(title, meta) {
-      return '<div class="panel-header"><h2>' + escapeHtml(title) + '</h2><span class="muted small">' + escapeHtml(meta || '') + '</span></div>';
-    }
-
-    function renderDraftCard(item) {
-      const classes = ['item-card'];
-      if (item.status === 'Error') classes.push('error');
-      if (item.status === 'Scheduled') classes.push('scheduled');
-      const selected = selectedSelection === item.selection ? ' selected' : '';
-      return '<div class="' + classes.join(' ') + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
-        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
-        '<div class="item-meta">' + escapeHtml(item.eventName) + ' | ' + escapeHtml(item.owner || 'Owner not set') + ' | ' + escapeHtml(item.source) + '</div>' +
-        '<div class="chips">' +
-        chipHtml(item.status, item.status === 'Error' ? 'error' : item.status === 'Scheduled' ? 'warn' : '') +
-        chipHtml(item.lane || 'No lane') +
-        (item.hasTest ? chipHtml('Test sent', 'ok') : chipHtml('No test yet')) +
-        (item.error ? chipHtml('Needs attention', 'error') : '') +
-        '</div></div>';
-    }
-
-    function renderFlowCard(item) {
-      const selected = selectedSelection === item.selection ? ' selected' : '';
-      return '<div class="item-card sent' + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
-        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
-        '<div class="item-meta">Current: ' + escapeHtml(item.currentState) + ' | Next: ' + escapeHtml(item.expectedNext) + '</div>' +
-        '<div class="chips">' + chipHtml(item.status || 'Active', 'ok') + chipHtml(item.lane || 'No lane') +
-        (item.liveSlackUrl ? chipHtml('Live anchor', 'ok') : chipHtml('No live anchor')) +
-        (item.testSlackUrl ? chipHtml('Test anchor', 'ok') : '') +
-        '</div></div>';
-    }
-
-    function renderSignalCard(item) {
-      return '<div class="item-card scheduled">' +
-        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
-        '<div class="item-meta">' + escapeHtml(item.triggerCandidate || item.eventName || 'Dashboard signal') + '</div>' +
-        '<div class="chips">' + chipHtml(item.status || 'Pending Evaluation', item.status === 'Needs Reason' ? 'warn' : '') +
-        (item.stablePolls ? chipHtml('Stable polls ' + item.stablePolls) : '') +
-        (item.error ? chipHtml(item.error, 'error') : '') +
-        '</div></div>';
-    }
-
-    function renderTriggerCard(item) {
-      return '<div class="item-card">' +
-        '<div class="item-title">' + escapeHtml(item.subject || item.candidate || item.flowId) + '</div>' +
-        '<div class="item-meta">' + escapeHtml(item.status) + ' | ' + escapeHtml(item.eventName || item.eventKey || 'No event') + ' | ' + formatDateTime(item.createdAt) + '</div>' +
-        '<div class="chips">' + (item.queueId ? chipHtml('Draft ' + item.queueId, 'ok') : chipHtml('No draft')) +
-        (item.error ? chipHtml(item.error, 'error') : '') + '</div></div>';
-    }
-
     function renderHistoryCard(item) {
-      return '<div class="item-card sent">' +
-        '<div class="item-title">' + escapeHtml(item.subject) + '</div>' +
-        '<div class="item-meta">' + escapeHtml(item.eventName) + ' | ' + escapeHtml(item.status) + ' | ' + formatDateTime(item.completedAt) + '</div>' +
-        '<div class="chips">' + (item.liveSlackUrl ? linkChipHtml('Live Slack', item.liveSlackUrl, 'ok') : chipHtml('No live link')) +
-        (item.testSlackUrl ? linkChipHtml('Test Slack', item.testSlackUrl, 'ok') : '') +
-        '</div></div>';
+      return '<div class="work-card ready_live">' +
+        '<div class="card-top">' + pillHtml(item.status || 'Done', 'ok') + '<span class="small">' + escapeHtml(formatDateTime(item.completedAt)) + '</span></div>' +
+        '<div class="card-title">' + escapeHtml(item.subject) + '</div>' +
+        '<div class="card-meta">' + escapeHtml(item.eventName || item.eventKey) + '</div>' +
+        '<div class="pill-row">' + (item.liveSlackUrl ? linkPillHtml('Live Slack', item.liveSlackUrl, 'ok') : pillHtml('No live link')) +
+        (item.testSlackUrl ? linkPillHtml('Test Slack', item.testSlackUrl, 'ok') : '') + '</div></div>';
     }
 
     function openDetail(selection) {
@@ -773,7 +977,8 @@
     }
 
     function renderDetailEmpty() {
-      document.getElementById('detail').innerHTML = '<div class="detail-empty">Select a draft, active communication, dashboard signal, or new communication type to work on it here.</div>';
+      document.getElementById('detail').innerHTML =
+        '<div class="empty-state"><strong>Select an action.</strong><br>Open a draft, flow, or new communication type to see the editor, readiness checklist, routing state, and source evidence.</div>';
     }
 
     function renderDetail() {
@@ -783,98 +988,135 @@
       const queue = detail.queue || {};
       const flow = detail.flow || {};
       const subject = queue.subject || flow.subject || 'New communication';
-      const actionOptions = (detail.actions || []).map(action =>
-        '<option value="' + escapeAttr(action.value) + '" data-event-key="' + escapeAttr(action.eventKey || '') + '">' + escapeHtml(action.label) + '</option>'
-      ).join('');
+      const actions = detail.actions || [];
       actionDefaults = {};
-      (detail.actions || []).forEach(action => {
+      actions.forEach(action => {
         actionDefaults[action.value] = action.defaults || {};
       });
+      aiMetadata = {
+        model: detail.ai && detail.ai.modelUsed || detail.ai && detail.ai.model || '',
+        generatedAt: detail.ai && detail.ai.generatedAt || '',
+        redraftedAt: detail.ai && detail.ai.redraftedAt || ''
+      };
 
       document.getElementById('detail').innerHTML =
-        '<div class="detail-title">' + escapeHtml(subject) + '</div>' +
-        '<div class="detail-summary">' + escapeHtml(buildDetailSummary(detail)) + '</div>' +
-        '<div class="detail-grid">' +
-          infoBoxHtml('Current state', flow.currentState || 'No parent thread yet') +
-          infoBoxHtml('Expected next', flow.expectedNext || 'Choose an action') +
-          infoBoxHtml('Owner', queue.owner || 'Not set') +
-          infoBoxHtml('Source', friendlySource(queue.source || 'Communication Console')) +
-        '</div>' +
-        '<div class="route-grid">' +
-          routeBoxHtml('Test Slack', queue.testSlackUrl || flow.testAnchorUrl, queue.testSentAt || '') +
-          routeBoxHtml('Live Slack', queue.slackUrl || flow.anchorUrl, flow.lastConfirmedAt || '') +
-        '</div>' +
-        '<label for="flowAction">Action</label><select id="flowAction" onchange="applyActionDefaults()">' + actionOptions + '</select>' +
-        '<label for="subjectInput">Subject</label><input id="subjectInput" value="' + escapeAttr(subject) + '">' +
-        '<label for="ownerInput">Owner</label><input id="ownerInput" value="' + escapeAttr(queue.owner || '') + '">' +
-        '<label for="messageTitle">Title</label>' +
-        toolbarHtml('messageTitle', false) +
-        '<div id="messageTitle" class="html-editor title-editor with-toolbar" contenteditable="true"></div>' +
-        '<label for="messageBody">Body</label>' +
-        toolbarHtml('messageBody', true) +
-        '<div id="messageBody" class="html-editor with-toolbar" contenteditable="true"></div>' +
-        '<div class="detail-actions">' +
-          '<button class="secondary" onclick="saveDraft()">' + escapeHtml(detail.mode === 'queue' ? 'Save' : 'Queue Draft') + '</button>' +
-          '<button class="secondary" onclick="sendTest()">Send Test</button>' +
-          '<button class="primary" onclick="approveLive()">Approve & Send</button>' +
-          (detail.mode === 'queue' ? '<button class="danger" onclick="discardDraft()">Discard</button>' : '') +
-        '</div>' +
-        renderDetailHistory(detail.history || []);
+        '<div class="object-view">' +
+          '<div class="object-main">' +
+            '<div class="object-header">' +
+              '<div class="object-kicker">' + pillHtml(queue.status || flow.status || detail.mode || 'Draft', queue.error ? 'error' : 'info') +
+              pillHtml(queue.eventName || flow.currentState || 'No event') + '</div>' +
+              '<div class="object-title">' + escapeHtml(subject) + '</div>' +
+              '<div class="object-summary">' + escapeHtml(buildDetailSummary(detail)) + '</div>' +
+            '</div>' +
+            '<label class="field-label" for="flowAction">Action</label>' +
+            '<select id="flowAction" onchange="applyActionDefaults()">' + actions.map(action =>
+              '<option value="' + escapeAttr(action.value) + '" data-event-key="' + escapeAttr(action.eventKey || '') + '">' + escapeHtml(action.label) + '</option>'
+            ).join('') + '</select>' +
+            '<label class="field-label" for="messageTitle">Title</label>' +
+            toolbarHtml('messageTitle', false) +
+            '<div id="messageTitle" class="html-editor title-editor" contenteditable="true"></div>' +
+            '<label class="field-label" for="messageBody">Body</label>' +
+            toolbarHtml('messageBody', true) +
+            '<div id="messageBody" class="html-editor" contenteditable="true"></div>' +
+            '<div class="action-row">' +
+              '<button class="btn-secondary" onclick="saveDraft()">' + escapeHtml(detail.mode === 'queue' ? 'Save' : 'Queue Draft') + '</button>' +
+              '<button class="btn-secondary" onclick="sendTest()">Send Test</button>' +
+              '<button class="btn-accent" onclick="approveLive()">Approve & Send</button>' +
+              (detail.mode === 'queue' ? '<button class="btn-danger" onclick="discardDraft()">Discard</button>' : '') +
+            '</div>' +
+          '</div>' +
+          '<aside class="rail">' +
+            renderCoachBox(detail) +
+            renderReadinessPanel(detail) +
+            renderRoutePanel(detail) +
+            renderFlowPanel(detail) +
+            renderEvidencePanel(detail) +
+            renderHistoryPanel(detail.history || []) +
+          '</aside>' +
+        '</div>';
 
       const actionSelect = document.getElementById('flowAction');
-      if (actionSelect && detail.actions && detail.actions.length) {
-        actionSelect.value = detail.actions[0].value;
-      }
+      if (actionSelect && actions.length) actionSelect.value = actions[0].value;
       document.getElementById('messageTitle').innerHTML = queue.messageTitleHtml || escapeHtml(queue.messageTitle || queue.subject || '');
       document.getElementById('messageBody').innerHTML = queue.messageBodyHtml || '';
-      if ((detail.mode === 'new' || detail.mode === 'flow') && actionSelect && actionSelect.value) {
-        applyActionDefaults();
-      }
+      if ((detail.mode === 'new' || detail.mode === 'flow') && actionSelect && actionSelect.value) applyActionDefaults();
       bindEditors();
+      updateClientReadiness();
+      maybeGenerateInitialAiDraft();
     }
 
     function buildDetailSummary(detail) {
-      if (detail.mode === 'new') return 'Start a new parent communication from the selected lane.';
-      if (detail.mode === 'flow') return 'Continue this parent communication with the next expected update or a detour.';
-      if (detail.queue && detail.queue.error) return 'This draft needs attention before live send: ' + detail.queue.error;
-      if (detail.queue && detail.queue.status === 'Scheduled') return 'This draft was scheduled by the flow or dashboard and is waiting for review.';
-      return 'Edit the final message, test it in Slack, then approve the live send.';
+      if (detail.mode === 'new') return 'Start a new parent communication. The scaffold is a starting point; the edited title and body are the final message.';
+      if (detail.mode === 'flow') return 'Continue this parent communication using the expected next step or a controlled detour.';
+      if (detail.queue && detail.queue.error) return 'This draft needs attention before it can be tested or sent live.';
+      if (detail.queue && detail.queue.testSlackUrl) return 'Sandbox test exists. Review the content and approve the live send when ready.';
+      return 'Review the final message, send a sandbox test, then approve the live Slack send.';
     }
 
-    function infoBoxHtml(label, value) {
-      return '<div class="info-box"><div class="info-label">' + escapeHtml(label) + '</div><div class="info-value">' + escapeHtml(value || 'Not set') + '</div></div>';
+    function renderCoachBox(detail) {
+      const ai = detail.ai || {};
+      const label = ai.enabled ? 'Gemini Copy Coach' : 'Copy Coach';
+      const body = ai.enabled ?
+        'Use AI to tighten the Slack formatting and wording while preserving your intent.' :
+        'Gemini is not configured. The deterministic template scaffold remains available.';
+      return '<div class="rail-card coach-box">' +
+        '<div class="coach-header"><strong>' + escapeHtml(label) + '</strong><button class="btn-secondary" onclick="redraftWithAi()">AI Re-draft</button></div>' +
+        '<div id="coachStatus" class="small muted">' + escapeHtml(body) + '</div>' +
+        '<div id="coachNotes" class="coach-notes"></div>' +
+        '</div>';
     }
 
-    function routeBoxHtml(label, url, date) {
-      const state = url ? '<a href="' + escapeAttr(url) + '" target="_blank">Open message</a>' : 'Not posted yet';
-      return '<div class="info-box"><div class="info-label">' + escapeHtml(label) + '</div><div class="info-value">' + state + '</div>' +
-        (date ? '<div class="item-meta">' + formatDateTime(date) + '</div>' : '') + '</div>';
+    function renderReadinessPanel(detail) {
+      const readiness = detail.readiness || { items: [] };
+      return '<div class="rail-card"><div class="rail-title">Readiness</div>' +
+        '<div class="check-list">' + (readiness.items || []).map((item, index) => renderCheck(item, index)).join('') + '</div></div>';
     }
 
-    function renderDetailHistory(history) {
-      if (!history.length) return '<div class="history-list">' + emptyHtml('No history for this communication yet.') + '</div>';
-      return '<div class="history-list"><strong>Flow history</strong>' + history.slice(0, 8).map(item =>
-        '<div class="history-row"><div><strong>' + escapeHtml(item.eventName) + '</strong></div>' +
-        '<div class="item-meta">' + escapeHtml(item.status) + ' | ' + formatDateTime(item.completedAt) + '</div>' +
-        '<div class="chips">' + (item.liveSlackUrl ? linkChipHtml('Live', item.liveSlackUrl, 'ok') : '') +
-        (item.testSlackUrl ? linkChipHtml('Test', item.testSlackUrl, 'ok') : '') + '</div></div>'
-      ).join('') + '</div>';
+    function renderCheck(item, index) {
+      const state = item.ok ? 'ok' : item.state || 'warn';
+      return '<div class="check ' + escapeAttr(state) + '" data-check-index="' + index + '">' +
+        '<div class="check-dot">' + (item.ok ? 'OK' : '!') + '</div>' +
+        '<div><div class="check-label">' + escapeHtml(item.label) + '</div>' +
+        '<div class="check-detail">' + escapeHtml(item.detail || '') + '</div></div></div>';
     }
 
-    function toolbarHtml(editorId, allowLists) {
-      return '<div class="editor-toolbar">' +
-        '<button type="button" title="Bold" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('bold') + ')"><strong>B</strong></button>' +
-        '<button type="button" title="Italic" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('italic') + ')"><em>I</em></button>' +
-        '<span class="separator"></span>' +
-        (allowLists ?
-          '<button type="button" title="Bullet list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertUnorderedList') + ')">Bullets</button>' +
-          '<button type="button" title="Numbered list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertOrderedList') + ')">1.</button>' +
-          '<button type="button" title="Decrease list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('outdent') + ')">Out</button>' +
-          '<button type="button" title="Increase list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('indent') + ')">In</button>' +
-          '<span class="separator"></span>' : '') +
-        '<button type="button" title="Add link" onmousedown="addLink(event, ' + quote(editorId) + ')">Link</button>' +
-        '<button type="button" title="Remove link" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('unlink') + ')">Unlink</button>' +
-      '</div>';
+    function renderRoutePanel(detail) {
+      const queue = detail.queue || {};
+      const flow = detail.flow || {};
+      const readiness = detail.readiness || {};
+      const routes = readiness.routes || {};
+      return '<div class="rail-card"><div class="rail-title">Slack routes</div><div class="kv-list">' +
+        kvHtml('Test route', queue.testSlackUrl || flow.testAnchorUrl ? linkHtml('Open sandbox message', queue.testSlackUrl || flow.testAnchorUrl) : (routes.testChannel ? 'Ready: ' + routes.testChannel : 'Not resolved'), Boolean(queue.testSlackUrl || flow.testAnchorUrl)) +
+        kvHtml('Live route', queue.slackUrl || flow.anchorUrl ? linkHtml('Open live message', queue.slackUrl || flow.anchorUrl) : (routes.liveChannel ? 'Ready: ' + routes.liveChannel : 'Not resolved'), Boolean(queue.slackUrl || flow.anchorUrl)) +
+        '</div></div>';
+    }
+
+    function renderFlowPanel(detail) {
+      const flow = detail.flow || {};
+      return '<div class="rail-card"><div class="rail-title">Flow state</div><div class="kv-list">' +
+        kvHtml('Current', flow.currentState || 'No parent flow yet') +
+        kvHtml('Expected next', flow.expectedNext || 'Choose an action') +
+        kvHtml('Detours', flow.availableDetours || 'None listed') +
+        kvHtml('Last confirmed', flow.lastConfirmedAt ? formatDateTime(flow.lastConfirmedAt) : 'Not confirmed yet') +
+        '</div></div>';
+    }
+
+    function renderEvidencePanel(detail) {
+      const evidence = detail.evidence || { items: [] };
+      return '<div class="rail-card"><div class="rail-title">Source evidence</div>' +
+        (evidence.items && evidence.items.length ? '<div class="kv-list">' + evidence.items.map(item => kvHtml(item.label, formatMaybeDate(item.value), true)).join('') + '</div>' : '<div class="muted small">No source evidence found.</div>') +
+        '</div>';
+    }
+
+    function renderHistoryPanel(history) {
+      return '<div class="rail-card"><div class="rail-title">Recent history</div>' +
+        (history.length ? '<div class="history-list">' + history.slice(0, 6).map(item =>
+          '<div class="history-row"><strong class="small">' + escapeHtml(item.eventName || item.eventKey) + '</strong>' +
+          '<div class="card-meta">' + escapeHtml(item.status || '') + ' | ' + escapeHtml(formatDateTime(item.completedAt)) + '</div>' +
+          '<div class="pill-row">' + (item.liveSlackUrl ? linkPillHtml('Live', item.liveSlackUrl, 'ok') : '') +
+          (item.testSlackUrl ? linkPillHtml('Test', item.testSlackUrl, 'ok') : '') + '</div></div>'
+        ).join('') + '</div>' : '<div class="muted small">No history for this communication yet.</div>') +
+        '</div>';
     }
 
     function applyActionDefaults() {
@@ -884,6 +1126,8 @@
       if (!defaults) return;
       document.getElementById('messageTitle').innerHTML = defaults.messageTitleHtml || escapeHtml(defaults.messageTitle || '');
       document.getElementById('messageBody').innerHTML = defaults.messageBodyHtml || '';
+      aiMetadata = {};
+      updateClientReadiness();
     }
 
     function collectForm() {
@@ -898,12 +1142,15 @@
         flowId: queue.flowId || '',
         flowAction: action ? action.value : '',
         eventKey: selected ? selected.dataset.eventKey || '' : '',
-        subject: document.getElementById('subjectInput') ? document.getElementById('subjectInput').value : '',
-        owner: document.getElementById('ownerInput') ? document.getElementById('ownerInput').value : '',
+        subject: stripHtmlFromElement(titleEditor) || queue.subject || '',
+        owner: queue.owner || '',
         priority: queue.priority || '',
-        messageTitle: titleEditor ? titleEditor.textContent || '' : '',
+        messageTitle: stripHtmlFromElement(titleEditor),
         messageTitleHtml: titleEditor ? titleEditor.innerHTML || '' : '',
-        messageBodyHtml: bodyEditor ? bodyEditor.innerHTML || '' : ''
+        messageBodyHtml: bodyEditor ? bodyEditor.innerHTML || '' : '',
+        aiModel: aiMetadata.model || '',
+        aiGeneratedAt: aiMetadata.generatedAt || '',
+        aiRedraftedAt: aiMetadata.redraftedAt || ''
       };
     }
 
@@ -974,11 +1221,102 @@
       loadApp(true);
     }
 
+    function maybeGenerateInitialAiDraft() {
+      if (!currentDetail || !currentDetail.ai || !currentDetail.ai.needsInitialDraft) return;
+      if (!currentDetail.ai.enabled) {
+        setCoachStatus('Gemini is not configured. Template scaffold loaded instead.', '');
+        return;
+      }
+      if (aiDraftAttempts[selectedSelection]) return;
+      aiDraftAttempts[selectedSelection] = true;
+      setCoachStatus('Asking Gemini for an initial draft...', '');
+      serverCall('generateInitialCommunicationAiDraft', [collectForm()], result => {
+        applyAiDraft(result, 'initial');
+      }, {
+        busy: false,
+        onError: error => setCoachStatus(error && error.message ? error.message : String(error), 'error')
+      });
+    }
+
+    function redraftWithAi() {
+      const form = collectForm();
+      if (!hasVisibleText(form.messageTitleHtml) || !hasVisibleText(form.messageBodyHtml)) {
+        setStatus('Add a title and body before asking AI to re-draft.', 'error');
+        return;
+      }
+      setCoachStatus('Re-drafting with Gemini...', '');
+      serverCall('redraftCommunicationWithAi', [form], result => {
+        applyAiDraft(result, 'redraft');
+      }, {
+        busy: false,
+        onError: error => setCoachStatus(error && error.message ? error.message : String(error), 'error')
+      });
+    }
+
+    function applyAiDraft(result, mode) {
+      if (!result || !result.ok) {
+        setCoachStatus(result && result.message ? result.message : 'AI draft was not available.', 'error');
+        return;
+      }
+      if (mode === 'redraft' && result.source !== 'gemini') {
+        setCoachStatus(result.message || 'AI re-draft is unavailable; keeping your current edits.', '');
+        renderCoachNotes(result);
+        return;
+      }
+      const titleEditor = document.getElementById('messageTitle');
+      const bodyEditor = document.getElementById('messageBody');
+      if (titleEditor && result.titleHtml) titleEditor.innerHTML = result.titleHtml;
+      if (bodyEditor && result.bodyHtml) bodyEditor.innerHTML = result.bodyHtml;
+      aiMetadata.model = result.model || aiMetadata.model || '';
+      if (mode === 'redraft') aiMetadata.redraftedAt = result.generatedAt || new Date().toISOString();
+      else aiMetadata.generatedAt = result.generatedAt || new Date().toISOString();
+      const source = result.source === 'gemini' ? 'Gemini draft loaded. Review and save when ready.' : (result.message || 'Template scaffold loaded.');
+      setCoachStatus(source, result.source === 'gemini' ? 'success' : '');
+      renderCoachNotes(result);
+      updateClientReadiness();
+    }
+
+    function setCoachStatus(message, mode) {
+      const el = document.getElementById('coachStatus');
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = 'small ' + (mode === 'success' ? 'success' : mode === 'error' ? 'error' : 'muted');
+    }
+
+    function renderCoachNotes(result) {
+      const el = document.getElementById('coachNotes');
+      if (!el) return;
+      const notes = []
+        .concat(result.formattingNotes || [])
+        .concat((result.missingContext || []).map(item => 'Missing context: ' + item))
+        .concat(result.warnings || []);
+      el.innerHTML = notes.length ? '<ul>' + notes.map(note => '<li>' + escapeHtml(note) + '</li>').join('') + '</ul>' : '';
+    }
+
+    function updateClientReadiness() {
+      updateCheck(0, hasVisibleText(document.getElementById('messageTitle') && document.getElementById('messageTitle').innerHTML), 'Title is present.', 'Add a concise title.');
+      updateCheck(1, hasVisibleText(document.getElementById('messageBody') && document.getElementById('messageBody').innerHTML), 'Body is present.', 'Add the stakeholder message body.');
+    }
+
+    function updateCheck(index, ok, okText, badText) {
+      const node = document.querySelector('[data-check-index="' + index + '"]');
+      if (!node) return;
+      node.classList.toggle('ok', Boolean(ok));
+      node.classList.toggle('warn', !ok);
+      const dot = node.querySelector('.check-dot');
+      const detail = node.querySelector('.check-detail');
+      if (dot) dot.textContent = ok ? 'OK' : '!';
+      if (detail) detail.textContent = ok ? okText : badText;
+    }
+
     function bindEditors() {
       ['messageTitle', 'messageBody'].forEach(id => {
         const editor = document.getElementById(id);
         if (!editor) return;
-        editor.onkeyup = () => saveEditorSelection(id);
+        editor.onkeyup = () => {
+          saveEditorSelection(id);
+          updateClientReadiness();
+        };
         editor.onmouseup = () => saveEditorSelection(id);
         editor.onfocus = () => saveEditorSelection(id);
         editor.onkeydown = event => handleEditorKeydown(event, id);
@@ -1011,6 +1349,7 @@
       restoreEditorSelection(editorId);
       document.execCommand(command, false, null);
       saveEditorSelection(editorId);
+      updateClientReadiness();
     }
 
     function addLink(event, editorId) {
@@ -1020,6 +1359,7 @@
       if (!url) return;
       document.execCommand('createLink', false, url);
       saveEditorSelection(editorId);
+      updateClientReadiness();
     }
 
     function handleEditorKeydown(event, editorId) {
@@ -1034,30 +1374,68 @@
       saveEditorSelection(editorId);
     }
 
+    function toolbarHtml(editorId, allowLists) {
+      return '<div class="editor-toolbar">' +
+        '<button type="button" title="Bold" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('bold') + ')"><strong>B</strong></button>' +
+        '<button type="button" title="Italic" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('italic') + ')"><em>I</em></button>' +
+        '<span class="separator"></span>' +
+        (allowLists ?
+          '<button type="button" title="Bullet list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertUnorderedList') + ')">Bullets</button>' +
+          '<button type="button" title="Numbered list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertOrderedList') + ')">1.</button>' +
+          '<button type="button" title="Decrease list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('outdent') + ')">Out</button>' +
+          '<button type="button" title="Increase list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('indent') + ')">In</button>' +
+          '<span class="separator"></span>' : '') +
+        '<button type="button" title="Add link" onmousedown="addLink(event, ' + quote(editorId) + ')">Link</button>' +
+        '<button type="button" title="Remove link" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('unlink') + ')">Unlink</button>' +
+      '</div>';
+    }
+
+    function panelHeaderHtml(title, meta) {
+      return '<div class="panel-header"><h2>' + escapeHtml(title) + '</h2><span class="muted small">' + escapeHtml(meta || '') + '</span></div>';
+    }
+
+    function kvHtml(label, value, isHtml) {
+      return '<div class="kv-row"><div class="kv-label">' + escapeHtml(label) + '</div><div class="kv-value">' + (isHtml ? value : escapeHtml(value || '')) + '</div></div>';
+    }
+
+    function pillHtml(text, mode) {
+      return '<span class="pill ' + escapeAttr(mode || '') + '">' + escapeHtml(text || '') + '</span>';
+    }
+
+    function linkPillHtml(text, url, mode) {
+      return '<a class="pill ' + escapeAttr(mode || '') + '" href="' + escapeAttr(url) + '" target="_blank">' + escapeHtml(text) + '</a>';
+    }
+
+    function linkHtml(text, url) {
+      return '<a href="' + escapeAttr(url) + '" target="_blank">' + escapeHtml(text) + '</a>';
+    }
+
+    function emptyHtml(text) {
+      return '<div class="empty-state">' + escapeHtml(text) + '</div>';
+    }
+
+    function stateMode(state) {
+      if (state === 'failed') return 'error';
+      if (state === 'ready_live') return 'ok';
+      if (state === 'scheduled_soon' || state === 'stabilizing' || state === 'needs_context') return 'warn';
+      return 'info';
+    }
+
     function hasVisibleText(html) {
       const scratch = document.createElement('div');
       scratch.innerHTML = html || '';
       return Boolean(String(scratch.textContent || '').trim());
     }
 
-    function chipHtml(text, mode) {
-      return '<span class="chip ' + escapeAttr(mode || '') + '">' + escapeHtml(text || '') + '</span>';
+    function stripHtmlFromElement(el) {
+      return el ? String(el.textContent || '').trim() : '';
     }
 
-    function linkChipHtml(text, url, mode) {
-      return '<a class="chip ' + escapeAttr(mode || '') + '" href="' + escapeAttr(url) + '" target="_blank">' + escapeHtml(text) + '</a>';
-    }
-
-    function emptyHtml(text) {
-      return '<div class="empty">' + escapeHtml(text) + '</div>';
-    }
-
-    function friendlySource(value) {
-      const text = String(value || '');
-      if (/dashboard/i.test(text)) return 'Dashboard sync';
-      if (/console/i.test(text)) return 'Communication Console';
-      if (/flow/i.test(text)) return 'Flow step';
-      return text || 'Communication Console';
+    function formatMaybeDate(value) {
+      if (!value) return '';
+      const text = String(value);
+      if (/^\d{4}-\d{2}-\d{2}T/.test(text)) return formatDateTime(text);
+      return escapeHtml(text);
     }
 
     function formatDateTime(value) {

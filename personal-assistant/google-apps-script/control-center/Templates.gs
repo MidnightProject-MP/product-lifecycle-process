@@ -81,19 +81,28 @@ function renderTemplate_(text, item) {
 
 function hasFinalMessageOverride_(item) {
   const payload = getPayload_(item);
-  return Boolean(String(payload.message_title || '').trim() || String(payload.message_title_html || '').trim() || String(payload.message_body_html || '').trim());
+  return Boolean(
+    String(payload.message_title || '').trim() ||
+    String(payload.message_title_mrkdwn || '').trim() ||
+    String(payload.message_body_mrkdwn || '').trim() ||
+    String(payload.message_title_html || '').trim() ||
+    String(payload.message_body_html || '').trim()
+  );
 }
 
 function renderFinalAnchorMessage_(item) {
   const payload = getPayload_(item);
-  const title = htmlToSlackText_(payload.message_title_html || payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
-  const body = htmlToSlackText_(payload.message_body_html || '').trim();
+  const title = String(payload.message_title_mrkdwn || '').trim() ||
+    htmlToSlackText_(payload.message_title_html || payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
+  const body = String(payload.message_body_mrkdwn || '').trim() ||
+    htmlToSlackText_(payload.message_body_html || '').trim();
   return [title, body].filter(Boolean).join('\n\n');
 }
 
 function renderFinalThreadReply_(item) {
   const payload = getPayload_(item);
-  return htmlToSlackText_(payload.message_title_html || payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
+  return String(payload.message_title_mrkdwn || '').trim() ||
+    htmlToSlackText_(payload.message_title_html || payload.message_title || payload.subject || buildFlowSubject_(item, payload)).trim();
 }
 
 function htmlToSlackText_(html) {
