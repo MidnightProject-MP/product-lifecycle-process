@@ -1537,7 +1537,14 @@
     }
 
     function quote(value) {
-      return JSON.stringify(String(value || ''));
+      return "'" + String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/</g, '\\x3C')
+        .replace(/>/g, '\\x3E')
+        .replace(/&/g, '\\x26') + "'";
     }
 
     function escapeHtml(value) {
