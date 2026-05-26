@@ -51,10 +51,26 @@ function buildCommunicationAppLauncherHtml_(url) {
 
 function getCommunicationAppContext() {
   assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
   const context = buildCommunicationAppContext_();
+  context.durationMs = new Date().getTime() - startedAt;
   logCommunicationAppEvent_('load_context', {}, {
     inboxCount: context.inbox.items.length,
-    pendingSignals: context.dashboard.pending.length
+    pendingSignals: context.dashboard.pending.length,
+    durationMs: context.durationMs
+  });
+  return context;
+}
+
+function getCommunicationAppShellContext() {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const context = buildCommunicationAppShellContext_();
+  context.durationMs = new Date().getTime() - startedAt;
+  logCommunicationAppEvent_('load_shell_context', {}, {
+    inboxCount: context.inbox.items.length,
+    pendingSignals: context.dashboard.pending.length,
+    durationMs: context.durationMs
   });
   return context;
 }
@@ -64,15 +80,92 @@ function listCommunicationInbox() {
   return buildCommunicationAppInbox_();
 }
 
-function getCommunicationDetail(selection) {
+function listCommunicationInboxLight() {
   assertCommunicationAppAccess_();
-  const context = getReviewControllerContext(selection || '');
+  const startedAt = new Date().getTime();
+  const readContext = createControlCenterReadContext_([HUB.SHEETS.QUEUE]);
+  const inbox = buildCommunicationAppInbox_(readContext);
+  return {
+    ok: true,
+    inbox: inbox,
+    durationMs: new Date().getTime() - startedAt,
+    timings: readContext.timings || {}
+  };
+}
+
+function listActiveCommunicationsLight() {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const readContext = createControlCenterReadContext_([HUB.SHEETS.FLOW_STATE]);
+  return {
+    ok: true,
+    items: buildCommunicationAppActiveCommunications_(readContext),
+    durationMs: new Date().getTime() - startedAt,
+    timings: readContext.timings || {}
+  };
+}
+
+function listDashboardSignalsLight() {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const readContext = createControlCenterReadContext_([
+    AUTOMATION.SHEETS.CONFIG,
+    AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS,
+    AUTOMATION.SHEETS.TRIGGER_LOG
+  ]);
+  return {
+    ok: true,
+    dashboard: buildCommunicationAppDashboard_(readContext, { includeTriggerLog: true }),
+    durationMs: new Date().getTime() - startedAt,
+    timings: readContext.timings || {}
+  };
+}
+
+function listHistoryLight(limit, cursor) {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const readContext = createControlCenterReadContext_([HUB.SHEETS.HISTORY]);
+  return {
+    ok: true,
+    items: buildCommunicationAppHistory_('', limit || 20, readContext),
+    cursor: cursor || '',
+    durationMs: new Date().getTime() - startedAt,
+    timings: readContext.timings || {}
+  };
+}
+
+function listNewCommunicationOptionsLight() {
+  assertCommunicationAppAccess_();
+  return {
+    ok: true,
+    items: buildReviewControllerNewCommunicationOptions_(),
+    durationMs: 0
+  };
+}
+
+function getCommunicationDetail(selection) {
+  const context = getCommunicationDetailFast(selection);
   if (!context || !context.ok) return context;
   const flowId = context.queue && context.queue.flowId || context.flow && context.flow.flowId || '';
-  context.history = flowId ? getCommunicationHistory(flowId) : [];
+  context.history = flowId ? buildCommunicationAppHistory_(flowId, 30) : [];
   context.evidence = buildCommunicationAppEvidence_(context);
+  return context;
+}
+
+function getCommunicationDetailFast(selection) {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const context = buildCommunicationDetailFast_(selection || '');
+  if (!context || !context.ok) return context;
+  const flowId = context.queue && context.queue.flowId || context.flow && context.flow.flowId || '';
+  context.history = [];
+  context.evidence = {
+    summary: 'Loading source evidence...',
+    items: []
+  };
   context.readiness = buildCommunicationAppReadiness_(context);
   context.ai = buildCommunicationAppAiState_(context);
+  context.durationMs = new Date().getTime() - startedAt;
   logCommunicationAppEvent_('load_detail', {
     selection: selection || '',
     queueId: context.queue && context.queue.queueId || '',
@@ -80,6 +173,29 @@ function getCommunicationDetail(selection) {
     eventKey: context.queue && context.queue.eventKey || ''
   }, {});
   return context;
+}
+
+function getCommunicationDetailEvidence(selection) {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  const context = buildCommunicationDetailFast_(selection || '');
+  if (!context || !context.ok) return {
+    ok: false,
+    message: context && context.message || 'Unable to load detail evidence.'
+  };
+  const evidence = buildCommunicationAppEvidence_(context);
+  evidence.durationMs = new Date().getTime() - startedAt;
+  return evidence;
+}
+
+function getCommunicationDetailHistory(flowId, limit) {
+  assertCommunicationAppAccess_();
+  const startedAt = new Date().getTime();
+  return {
+    ok: true,
+    items: flowId ? buildCommunicationAppHistory_(flowId, limit || 10) : [],
+    durationMs: new Date().getTime() - startedAt
+  };
 }
 
 function generateInitialCommunicationAiDraft(form) {
@@ -103,41 +219,59 @@ function redraftCommunicationWithAi(form) {
 function saveCommunicationDraft(form) {
   assertCommunicationAppAccess_();
   logCommunicationAppEvent_('save_draft', form || {}, {});
-  return saveReviewControllerDraft(form || {});
+  return withHubReviewSyncSuppressed_(function() {
+    return saveReviewControllerDraft(form || {});
+  });
 }
 
 function sendCommunicationTest(form) {
   assertCommunicationAppAccess_();
   logCommunicationAppEvent_('send_test', form || {}, {});
-  return sendReviewControllerTest(form || {});
+  return withHubReviewSyncSuppressed_(function() {
+    return sendReviewControllerTest(form || {});
+  });
 }
 
 function approveCommunication(form) {
   assertCommunicationAppAccess_();
   logCommunicationAppEvent_('approve_live', form || {}, {});
-  return approveReviewControllerSelection(form || {});
+  return withHubReviewSyncSuppressed_(function() {
+    return approveReviewControllerSelection(form || {});
+  });
 }
 
 function discardCommunication(form) {
   assertCommunicationAppAccess_();
   logCommunicationAppEvent_('discard', form || {}, {});
-  return discardReviewControllerDraft(form || {});
+  return withHubReviewSyncSuppressed_(function() {
+    return discardReviewControllerDraft(form || {});
+  });
 }
 
 function createCommunication(form) {
   assertCommunicationAppAccess_();
   logCommunicationAppEvent_('create_communication', form || {}, {});
-  return queueReviewControllerDraft(form || {});
+  return withHubReviewSyncSuppressed_(function() {
+    return queueReviewControllerDraft(form || {});
+  });
 }
 
 function syncDashboardFromWebApp() {
   assertCommunicationAppAccess_();
-  const result = syncDashboardFromCommunicationConsole({
-    source: 'Communication Web App'
+  const result = withHubReviewSyncSuppressed_(function() {
+    return syncDashboardFromCommunicationConsole({
+      source: 'Communication Web App'
+    });
   });
   logCommunicationAppEvent_('manual_dashboard_sync', {}, {
     ok: result.ok,
-    message: result.message || ''
+    message: result.message || '',
+    syncMode: result.result && result.result.syncMode || '',
+    changedRows: result.result && result.result.changedRows,
+    draftsCreated: result.result && result.result.hubDraftsCreated,
+    pendingEvaluations: result.result && result.result.pendingEvaluations,
+    durationMs: result.result && result.result.durationMs,
+    timings: result.result && result.result.timings || {}
   });
   return result;
 }
@@ -159,24 +293,37 @@ function getControlCenterSpreadsheet_() {
 
 function buildCommunicationAppContext_() {
   const access = getCommunicationAppAccess_();
-  const inbox = buildCommunicationAppInbox_();
-  const active = buildCommunicationAppActiveCommunications_();
-  const dashboard = buildCommunicationAppDashboard_();
+  const readContext = createControlCenterReadContext_([
+    HUB.SHEETS.QUEUE,
+    HUB.SHEETS.FLOW_STATE,
+    HUB.SHEETS.HISTORY,
+    AUTOMATION.SHEETS.CONFIG,
+    AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS,
+    AUTOMATION.SHEETS.TRIGGER_LOG
+  ]);
+  const inbox = buildCommunicationAppInbox_(readContext);
+  const active = buildCommunicationAppActiveCommunications_(readContext);
+  const dashboard = buildCommunicationAppDashboard_(readContext, { includeTriggerLog: true });
   const actionInbox = buildCommunicationAppActionInbox_(inbox.items, dashboard);
-  const history = buildCommunicationAppHistory_('', 20);
+  const history = buildCommunicationAppHistory_('', 20, readContext);
   const appUrl = getCommunicationAppUrl_();
   return {
     ok: true,
     generatedAt: nowIso_(),
     user: access.email || '',
     appUrl: appUrl,
-    spreadsheetId: getControlCenterSpreadsheet_().getId(),
+    spreadsheetId: readContext.ss.getId(),
     inbox: inbox,
     actionInbox: actionInbox,
     activeCommunications: active,
+    activeCommunicationsLoaded: true,
     dashboard: dashboard,
+    dashboardSignalsLoaded: true,
     history: history,
+    historyLoaded: true,
     newCommunicationOptions: buildReviewControllerNewCommunicationOptions_(),
+    newCommunicationOptionsLoaded: true,
+    timings: readContext.timings || {},
     stats: {
       inbox: inbox.items.length,
       errors: inbox.items.filter(item => item.status === HUB.STATUS.ERROR).length,
@@ -192,10 +339,182 @@ function buildCommunicationAppContext_() {
   };
 }
 
-function buildCommunicationAppInbox_() {
-  const ss = getControlCenterSpreadsheet_();
-  const queueSheet = ss.getSheetByName(HUB.SHEETS.QUEUE);
-  const rows = queueSheet ? getObjects_(queueSheet) : [];
+function buildCommunicationAppShellContext_() {
+  const access = getCommunicationAppAccess_();
+  const readContext = createControlCenterReadContext_([
+    HUB.SHEETS.QUEUE,
+    AUTOMATION.SHEETS.CONFIG,
+    AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS
+  ]);
+  const inbox = buildCommunicationAppInbox_(readContext);
+  const dashboard = buildCommunicationAppDashboard_(readContext, { includeTriggerLog: false });
+  const actionInbox = buildCommunicationAppActionInbox_(inbox.items, dashboard);
+  const appUrl = getCommunicationAppUrl_();
+  return {
+    ok: true,
+    generatedAt: nowIso_(),
+    user: access.email || '',
+    appUrl: appUrl,
+    spreadsheetId: readContext.ss.getId(),
+    inbox: inbox,
+    actionInbox: actionInbox,
+    activeCommunications: [],
+    activeCommunicationsLoaded: false,
+    dashboard: dashboard,
+    dashboardSignalsLoaded: false,
+    history: [],
+    historyLoaded: false,
+    newCommunicationOptions: [],
+    newCommunicationOptionsLoaded: false,
+    timings: readContext.timings || {},
+    stats: {
+      inbox: inbox.items.length,
+      errors: inbox.items.filter(item => item.status === HUB.STATUS.ERROR).length,
+      scheduled: inbox.items.filter(item => item.status === HUB.STATUS.SCHEDULED).length,
+      pendingSignals: dashboard.pending.length,
+      activeCommunications: 0,
+      needsReview: actionInbox.summary.needsReview,
+      readyLive: actionInbox.summary.readyLive,
+      needsContext: actionInbox.summary.needsContext,
+      failed: actionInbox.summary.failed,
+      recentTests: actionInbox.summary.recentTests
+    }
+  };
+}
+
+function buildCommunicationDetailFast_(selection) {
+  try {
+    const selectedValue = String(selection || '').trim() || 'new:project';
+    const parsed = parseReviewControllerSelection_(selectedValue);
+    if (parsed.mode === 'new') return buildReviewControllerNewContext_([], selectedValue);
+    const readContext = createControlCenterReadContext_([
+      HUB.SHEETS.QUEUE,
+      HUB.SHEETS.FLOW_STATE
+    ]);
+    if (parsed.mode === 'flow') return buildCommunicationFlowDetailFast_(parsed.id, selectedValue, readContext);
+    return buildCommunicationQueueDetailFast_(parsed.id, selectedValue, readContext);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error.message || String(error)
+    };
+  }
+}
+
+function buildCommunicationQueueDetailFast_(queueId, selectedValue, readContext) {
+  const item = getSheetObjectsCached_(readContext, HUB.SHEETS.QUEUE)
+    .find(row => String(row['Queue ID'] || '') === String(queueId));
+  if (!item) throw new Error('Queue item is no longer active: ' + queueId);
+
+  const payload = normalizePayload_(item);
+  const finalMessage = buildReviewControllerFinalMessage_(item);
+  const flow = item['Flow ID'] ?
+    indexRowsBy_(getSheetObjectsCached_(readContext, HUB.SHEETS.FLOW_STATE), 'Flow ID')[String(item['Flow ID'])] || null :
+    null;
+
+  return {
+    ok: true,
+    mode: 'queue',
+    communications: [],
+    selectedCommunication: selectedValue,
+    selection: {
+      sourceSheet: HUB.SHEETS.QUEUE,
+      row: 0,
+      queueRow: 0
+    },
+    queue: {
+      queueId: item['Queue ID'],
+      flowId: item['Flow ID'] || '',
+      eventKey: item['Event Key'] || '',
+      eventName: getReviewControllerEventDisplayName_(item['Event Key']),
+      lane: item.Lane || '',
+      status: item.Status || '',
+      source: item.Source || '',
+      priority: item.Priority || '',
+      createdAt: item['Created At'] || '',
+      updatedAt: item['Updated At'] || '',
+      scheduledFor: item['Scheduled For'] || '',
+      sendRule: item['Send Rule'] || '',
+      channelOverride: item['Channel Override'] || '',
+      owner: item.Owner || payload.owner || '',
+      subject: getReviewControllerSubject_(item, payload),
+      payloadJson: item['Payload JSON'] || '',
+      messageTitle: finalMessage.title,
+      messageTitleHtml: finalMessage.titleHtml,
+      messageBodyHtml: finalMessage.bodyHtml,
+      what: payload.what || '',
+      soWhat: payload.so_what || '',
+      whatsNext: payload.whats_next || '',
+      slackUrl: item['Slack Message URL'] || '',
+      testSlackUrl: item['Test Slack Message URL'] || '',
+      testSlackChannel: item['Test Slack Channel'] || '',
+      testSlackThreadTs: item['Test Slack Thread TS'] || '',
+      testSlackMessageTs: item['Test Slack Message TS'] || '',
+      testSentAt: item['Test Sent At'] || '',
+      error: item.Error || ''
+    },
+    flow: buildReviewControllerFlowContext_(flow),
+    actions: buildReviewControllerActions_(item, flow, { includeSelected: true }),
+    message: ''
+  };
+}
+
+function buildCommunicationFlowDetailFast_(flowId, selectedValue, readContext) {
+  const flow = indexRowsBy_(getSheetObjectsCached_(readContext, HUB.SHEETS.FLOW_STATE), 'Flow ID')[String(flowId)] || null;
+  if (!flow) throw new Error('Flow not found in Flow_State: ' + flowId);
+
+  const item = buildReviewControllerItemFromFlow_(flow);
+  const payload = normalizePayload_(item);
+  const finalMessage = buildReviewControllerFinalMessage_(item);
+  return {
+    ok: true,
+    mode: 'flow',
+    communications: [],
+    selectedCommunication: selectedValue,
+    selection: {
+      sourceSheet: HUB.SHEETS.FLOW_STATE,
+      row: 0,
+      queueRow: 0
+    },
+    queue: {
+      queueId: '',
+      flowId: flowId,
+      eventKey: flow['Current Event Key'] || '',
+      eventName: getReviewControllerEventDisplayName_(flow['Current Event Key']),
+      lane: flow['Flow Type'] || '',
+      status: flow['Flow Status'] || '',
+      source: 'Flow_State',
+      priority: payload.priority || '',
+      createdAt: '',
+      updatedAt: flow['Updated At'] || '',
+      scheduledFor: '',
+      sendRule: '',
+      channelOverride: '',
+      owner: flow.Owner || payload.owner || '',
+      subject: flow.Subject || payload.subject || flowId,
+      payloadJson: item['Payload JSON'] || '',
+      messageTitle: finalMessage.title,
+      messageTitleHtml: finalMessage.titleHtml,
+      messageBodyHtml: finalMessage.bodyHtml,
+      what: payload.what || '',
+      soWhat: payload.so_what || '',
+      whatsNext: payload.whats_next || '',
+      slackUrl: flow['Anchor Message URL'] || '',
+      testSlackUrl: flow['Test Anchor Message URL'] || '',
+      testSlackChannel: flow['Test Slack Channel'] || '',
+      testSlackThreadTs: flow['Test Thread TS'] || '',
+      testSlackMessageTs: flow['Test Latest Reply TS'] || '',
+      testSentAt: '',
+      error: ''
+    },
+    flow: buildReviewControllerFlowContext_(flow),
+    actions: buildReviewControllerActions_(item, flow, { includeSelected: false }),
+    message: ''
+  };
+}
+
+function buildCommunicationAppInbox_(readContext) {
+  const rows = getSheetObjectsCached_(readContext, HUB.SHEETS.QUEUE);
   const activeStatuses = [HUB.STATUS.DRAFT, HUB.STATUS.SCHEDULED, HUB.STATUS.ERROR];
   const items = rows
     .filter(row => activeStatuses.indexOf(String(row.Status || '').trim()) >= 0)
@@ -390,10 +709,8 @@ function buildCommunicationAppActionInbox_(items, dashboard) {
   };
 }
 
-function buildCommunicationAppActiveCommunications_() {
-  const ss = getControlCenterSpreadsheet_();
-  const sheet = ss.getSheetByName(HUB.SHEETS.FLOW_STATE);
-  const rows = sheet ? getObjects_(sheet) : [];
+function buildCommunicationAppActiveCommunications_(readContext) {
+  const rows = getSheetObjectsCached_(readContext, HUB.SHEETS.FLOW_STATE);
   return rows
     .filter(row => row['Flow ID'])
     .map(row => ({
@@ -415,14 +732,18 @@ function buildCommunicationAppActiveCommunications_() {
     .sort((a, b) => compareCommunicationAppDates_(b.updatedAt || b.lastConfirmedAt, a.updatedAt || a.lastConfirmedAt));
 }
 
-function buildCommunicationAppDashboard_() {
-  const ss = getControlCenterSpreadsheet_();
-  const config = readCommunicationAppConfig_(ss);
-  const observations = readCommunicationAppObjects_(ss, AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS)
+function buildCommunicationAppDashboard_(readContext, options) {
+  options = options || {};
+  const ss = readContext && readContext.ss || getControlCenterSpreadsheet_();
+  const config = readCommunicationAppConfig_(ss, readContext);
+  const observations = getSheetObjectsCached_(readContext, AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS)
     .filter(row => row['Source Item ID']);
-  const triggerLog = readCommunicationAppObjects_(ss, AUTOMATION.SHEETS.TRIGGER_LOG)
-    .filter(row => row['Trigger Log ID'])
-    .slice(0, 20);
+  const includeTriggerLog = options.includeTriggerLog !== false;
+  const triggerLog = includeTriggerLog ?
+    getSheetObjectsCached_(readContext, AUTOMATION.SHEETS.TRIGGER_LOG)
+      .filter(row => row['Trigger Log ID'])
+      .slice(0, 20) :
+    [];
   const pending = observations
     .filter(row => row['Pending State Hash'] || ['Pending Evaluation', 'Needs Reason', 'Error'].indexOf(String(row['Processing Status'] || '').trim()) >= 0)
     .map(row => ({
@@ -617,7 +938,9 @@ function findCommunicationAppTriggerEvidence_(queue) {
 
 function buildCommunicationAppAiState_(context) {
   const queue = context.queue || {};
-  const payload = queue.queueId ? normalizePayload_(findCommunicationAppQueueRow_(queue.queueId) || {}) : {};
+  const payload = queue.payloadJson ?
+    parseJsonObject_(queue.payloadJson) :
+    (queue.queueId ? normalizePayload_(findCommunicationAppQueueRow_(queue.queueId) || {}) : {});
   const hasSavedFinal = Boolean(String(payload.message_title || payload.message_title_mrkdwn || payload.message_body_mrkdwn || payload.message_title_html || payload.message_body_html || '').trim());
   return {
     enabled: Boolean(String(getScriptProperty_('GEMINI_API_KEY') || '').trim()),
@@ -637,10 +960,8 @@ function findCommunicationAppQueueRow_(queueId) {
   return row ? getRowObject_(sheet, row) : null;
 }
 
-function buildCommunicationAppHistory_(flowId, limit) {
-  const ss = getControlCenterSpreadsheet_();
-  const sheet = ss.getSheetByName(HUB.SHEETS.HISTORY);
-  const rows = sheet ? getObjects_(sheet) : [];
+function buildCommunicationAppHistory_(flowId, limit, readContext) {
+  const rows = getSheetObjectsCached_(readContext, HUB.SHEETS.HISTORY);
   return rows
     .filter(row => !flowId || String(row['Flow ID'] || '') === String(flowId))
     .slice(0, limit || 20)
@@ -665,8 +986,43 @@ function readCommunicationAppObjects_(ss, sheetName) {
   return sheet ? getObjects_(sheet) : [];
 }
 
-function readCommunicationAppConfig_(ss) {
-  const rows = readCommunicationAppObjects_(ss, AUTOMATION.SHEETS.CONFIG);
+function createControlCenterReadContext_(sheetNames) {
+  const context = {
+    ss: getControlCenterSpreadsheet_(),
+    rowsBySheet: {},
+    timings: {}
+  };
+  (sheetNames || []).forEach(name => getSheetObjectsCached_(context, name));
+  return context;
+}
+
+function getSheetObjectsCached_(context, sheetName) {
+  if (!sheetName) return [];
+  if (!context) {
+    return readCommunicationAppObjects_(getControlCenterSpreadsheet_(), sheetName);
+  }
+  if (Object.prototype.hasOwnProperty.call(context.rowsBySheet, sheetName)) {
+    return context.rowsBySheet[sheetName];
+  }
+
+  const startedAt = new Date().getTime();
+  const sheet = context.ss.getSheetByName(sheetName);
+  const rows = sheet ? getObjects_(sheet) : [];
+  context.rowsBySheet[sheetName] = rows;
+  context.timings['read:' + sheetName] = new Date().getTime() - startedAt;
+  return rows;
+}
+
+function indexRowsBy_(rows, key) {
+  return (rows || []).reduce((index, row) => {
+    const value = typeof key === 'function' ? key(row) : row[key];
+    if (value != null && value !== '') index[String(value)] = row;
+    return index;
+  }, {});
+}
+
+function readCommunicationAppConfig_(ss, readContext) {
+  const rows = getSheetObjectsCached_(readContext, AUTOMATION.SHEETS.CONFIG);
   return rows.reduce((obj, row) => {
     if (row.Key) obj[row.Key] = row.Value;
     return obj;

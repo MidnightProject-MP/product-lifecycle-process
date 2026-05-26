@@ -3,6 +3,7 @@ var HUB_RUN_LOG_BUFFER = [];
 var HUB_SKILL_RUN_LOG_BUFFER = [];
 var HUB_REVIEW_SYNC_DEFER_DEPTH = 0;
 var HUB_REVIEW_SYNC_PENDING = false;
+var HUB_REVIEW_SYNC_SUPPRESS_DEPTH = 0;
 
 function setupHubSheets() {
   const ss = SpreadsheetApp.getActive();
@@ -642,6 +643,7 @@ function syncReviewSheetFromQueue_() {
 }
 
 function syncReviewSheetFromQueueSafe_() {
+  if (isHubReviewSyncSuppressed_()) return;
   if (isHubReviewSyncDeferred_()) {
     HUB_REVIEW_SYNC_PENDING = true;
     return;
@@ -813,6 +815,19 @@ function withHubDeferredReviewSync_(callback) {
 
 function isHubReviewSyncDeferred_() {
   return HUB_REVIEW_SYNC_DEFER_DEPTH > 0;
+}
+
+function withHubReviewSyncSuppressed_(callback) {
+  HUB_REVIEW_SYNC_SUPPRESS_DEPTH++;
+  try {
+    return callback();
+  } finally {
+    HUB_REVIEW_SYNC_SUPPRESS_DEPTH--;
+  }
+}
+
+function isHubReviewSyncSuppressed_() {
+  return HUB_REVIEW_SYNC_SUPPRESS_DEPTH > 0;
 }
 
 function flushHubReviewSyncIfNeeded_() {

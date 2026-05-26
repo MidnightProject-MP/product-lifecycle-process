@@ -480,15 +480,25 @@ function insertObjectRowAtTop_(sheet, object) {
 }
 
 function updateRowFields_(sheet, row, fields) {
+  batchUpdateRowFields_(sheet, row, fields);
+}
+
+function batchUpdateRowFields_(sheet, row, fields) {
   const headers = getHeaders_(sheet);
-  Object.keys(fields).forEach(key => {
-    const col = headers.indexOf(key) + 1;
-    if (col > 0) {
-      const range = sheet.getRange(row, col);
-      if (shouldPreserveHubCellAsText_(key)) range.setNumberFormat('@');
-      range.setValue(normalizeHubCellValue_(key, fields[key]));
+  const values = sheet.getRange(row, 1, 1, headers.length).getValues()[0];
+  let changed = false;
+  Object.keys(fields || {}).forEach(key => {
+    const index = headers.indexOf(key);
+    if (index < 0) return;
+    if (shouldPreserveHubCellAsText_(key)) {
+      sheet.getRange(row, index + 1).setNumberFormat('@');
     }
+    values[index] = normalizeHubCellValue_(key, fields[key]);
+    changed = true;
   });
+  if (changed) {
+    sheet.getRange(row, 1, 1, headers.length).setValues([values]);
+  }
 }
 
 function findActiveQueueIdByDedupeKey_(sheet, dedupeKey) {

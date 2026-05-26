@@ -30,18 +30,34 @@ function setupAutomationSheets() {
 
 function syncLeadershipDashboardToAutomation() {
   const startedAt = new Date().getTime();
+  const timings = {};
+  let checkpoint = new Date().getTime();
   setupAutomationSheets();
+  timings.setupMs = new Date().getTime() - checkpoint;
 
   const automation = SpreadsheetApp.getActive();
+  checkpoint = new Date().getTime();
   const config = getAutomationConfig_();
   const pollCount = incrementAutomationPollCount_(automation, config);
   config.POLL_COUNT = String(pollCount);
+  timings.configMs = new Date().getTime() - checkpoint;
+
+  checkpoint = new Date().getTime();
   const fastPreflight = buildAutomationFastChangePreflight_(automation, config);
+  timings.fastIndexMs = new Date().getTime() - checkpoint;
 
   if (fastPreflight.mode === 'Fast Skip') {
-    updateAutomationConfigValue_(automation, 'LAST_FAST_CHECK_AT', automationNowIso_());
-    updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', 'Fast Skip');
+    checkpoint = new Date().getTime();
     const gc = runAutomationGarbageCollectionIfNeeded_(automation, config);
+    timings.gcMs = new Date().getTime() - checkpoint;
+    const configUpdates = {
+      LAST_FAST_CHECK_AT: automationNowIso_(),
+      LAST_SYNC_MODE: 'Fast Skip'
+    };
+    if (gc && gc.ran && gc.lastGcAt) configUpdates.LAST_GC_AT = gc.lastGcAt;
+    checkpoint = new Date().getTime();
+    batchUpdateAutomationConfigValues_(automation, configUpdates);
+    timings.configWriteMs = new Date().getTime() - checkpoint;
     return {
       ok: true,
       pollCount: pollCount,
@@ -50,14 +66,19 @@ function syncLeadershipDashboardToAutomation() {
       changeIndexRows: fastPreflight.rowCount,
       pendingEvaluations: 0,
       garbageCollection: gc,
+      timings: timings,
       durationMs: new Date().getTime() - startedAt
     };
   }
 
+  checkpoint = new Date().getTime();
   const materialized = materializeAutomationExportIfValid_(automation, config);
+  timings.materializeMs = new Date().getTime() - checkpoint;
 
   if (!materialized.ok) {
-    updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', 'Circuit Breaker');
+    batchUpdateAutomationConfigValues_(automation, {
+      LAST_SYNC_MODE: 'Circuit Breaker'
+    });
     recordAutomationTriggerLog_(automation, {
       'Work Item Type': 'Automation Export',
       'Flow ID': '',
@@ -78,19 +99,34 @@ function syncLeadershipDashboardToAutomation() {
       ok: false,
       pollCount: pollCount,
       message: materialized.message,
+      timings: timings,
       durationMs: new Date().getTime() - startedAt
     };
   }
 
+  checkpoint = new Date().getTime();
   const rows = readAutomationExportRows_(automation);
-  const result = processAutomationExportRows_(automation, config, rows);
+  timings.readExportMs = new Date().getTime() - checkpoint;
+  checkpoint = new Date().getTime();
+  const result = processAutomationExportRows_(automation, config, rows, {
+    observationRows: fastPreflight.observationRows || null
+  });
+  timings.processMs = new Date().getTime() - checkpoint;
+  checkpoint = new Date().getTime();
   const gc = runAutomationGarbageCollectionIfNeeded_(automation, config);
+  timings.gcMs = new Date().getTime() - checkpoint;
   const fullSyncMode = result.errors ? 'Full Error' : 'Full';
+  const configUpdates = {
+    LAST_SYNC_MODE: fullSyncMode
+  };
   if (!result.errors && fastPreflight.indexHealthy && fastPreflight.hash) {
-    updateAutomationConfigValue_(automation, 'LAST_CHANGE_INDEX_HASH', fastPreflight.hash);
-    updateAutomationConfigValue_(automation, 'LAST_CHANGE_INDEX_AT', automationNowIso_());
+    configUpdates.LAST_CHANGE_INDEX_HASH = fastPreflight.hash;
+    configUpdates.LAST_CHANGE_INDEX_AT = automationNowIso_();
   }
-  updateAutomationConfigValue_(automation, 'LAST_SYNC_MODE', fullSyncMode);
+  if (gc && gc.ran && gc.lastGcAt) configUpdates.LAST_GC_AT = gc.lastGcAt;
+  checkpoint = new Date().getTime();
+  batchUpdateAutomationConfigValues_(automation, configUpdates);
+  timings.configWriteMs = new Date().getTime() - checkpoint;
 
   return {
     ok: true,
@@ -106,6 +142,7 @@ function syncLeadershipDashboardToAutomation() {
     skippedRows: result.skippedRows,
     errors: result.errors,
     garbageCollection: gc,
+    timings: timings,
     durationMs: new Date().getTime() - startedAt
   };
 }

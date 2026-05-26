@@ -23,11 +23,11 @@ function runAutomationGarbageCollectionIfNeeded_(automation, config) {
     cutoff
   );
 
-  updateAutomationConfigValue_(automation, 'LAST_GC_AT', automationNowIso_());
   return {
     ran: true,
     deletedRows: deletedSnapshots + deletedChanges,
-    retentionDays: retentionDays
+    retentionDays: retentionDays,
+    lastGcAt: automationNowIso_()
   };
 }
 
@@ -38,13 +38,22 @@ function pruneAutomationRowsOlderThan_(sheet, timestampHeader, cutoff) {
   if (timestampIndex < 0) return 0;
 
   const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const retained = [];
   let deleted = 0;
-  for (let i = values.length - 1; i >= 0; i--) {
+  for (let i = 0; i < values.length; i++) {
     const value = values[i][timestampIndex];
     const date = value instanceof Date ? value : new Date(value);
     if (value && !isNaN(date.getTime()) && date < cutoff) {
-      sheet.deleteRow(i + 2);
       deleted++;
+    } else {
+      retained.push(values[i]);
+    }
+  }
+
+  if (deleted) {
+    sheet.getRange(2, 1, values.length, headers.length).clearContent();
+    if (retained.length) {
+      sheet.getRange(2, 1, retained.length, headers.length).setValues(retained);
     }
   }
   return deleted;
@@ -57,6 +66,46 @@ function incrementAutomationPollCount_(automation, config) {
 }
 
 function updateAutomationConfigValue_(automation, key, value) {
+  batchUpdateAutomationConfigValues_(automation, (function() {
+    const fields = {};
+    fields[key] = value;
+    return fields;
+  })());
+}
+
+function batchUpdateAutomationConfigValues_(automation, fields) {
+  const sheet = automation.getSheetByName(AUTOMATION.SHEETS.CONFIG);
+  const values = sheet.getDataRange().getValues();
+  const missing = [];
+  const updates = fields || {};
+  let changed = false;
+  Object.keys(updates).forEach(key => {
+    let found = false;
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][0]) === String(key)) {
+        values[i][1] = updates[key];
+        found = true;
+        changed = true;
+        break;
+      }
+    }
+    if (!found) missing.push([key, updates[key]]);
+  });
+
+  if (changed) {
+    const width = Math.max(2, values[0] ? values[0].length : 2);
+    const padded = values.map(row => {
+      const copy = row.slice();
+      while (copy.length < width) copy.push('');
+      return copy.slice(0, width);
+    });
+    sheet.getRange(1, 1, padded.length, width).setValues(padded);
+  }
+
+  missing.forEach(row => insertAutomationValuesAtTop_(sheet, row));
+}
+
+function updateAutomationConfigValueLegacy_(automation, key, value) {
   const sheet = automation.getSheetByName(AUTOMATION.SHEETS.CONFIG);
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {

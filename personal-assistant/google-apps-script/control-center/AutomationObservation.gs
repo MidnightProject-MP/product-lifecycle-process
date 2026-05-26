@@ -1,4 +1,4 @@
-function processAutomationExportRows_(automation, config, rows) {
+function processAutomationExportRows_(automation, config, rows, options) {
   const result = {
     processedRows: 0,
     changedRows: 0,
@@ -7,7 +7,7 @@ function processAutomationExportRows_(automation, config, rows) {
     skippedRows: 0,
     errors: 0
   };
-  const context = createAutomationProcessingContext_(automation);
+  const context = createAutomationProcessingContext_(automation, options && options.observationRows);
 
   rows.forEach(row => {
     result.processedRows++;
@@ -24,8 +24,8 @@ function processAutomationExportRows_(automation, config, rows) {
   return result;
 }
 
-function createAutomationProcessingContext_(automation) {
-  const observationRows = readDashboardObservationRows_(automation);
+function createAutomationProcessingContext_(automation, observationRows) {
+  observationRows = observationRows || readDashboardObservationRows_(automation);
   return {
     now: automationNowIso_(),
     hasExistingObservations: observationRows.length > 0,
@@ -171,7 +171,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
       mode: 'Full',
       reason: 'Fast change index disabled.',
       indexHealthy: false,
-      rowCount: 0
+      rowCount: 0,
+      observationRows: null
     };
   }
 
@@ -184,7 +185,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
       reason: index.message,
       indexHealthy: false,
       rowCount: index.rowCount || 0,
-      hasPendingEvaluation: hasPendingEvaluation
+      hasPendingEvaluation: hasPendingEvaluation,
+      observationRows: observationRows
     };
   }
 
@@ -195,7 +197,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
       indexHealthy: true,
       hash: index.hash,
       rowCount: index.rowCount,
-      hasPendingEvaluation: true
+      hasPendingEvaluation: true,
+      observationRows: observationRows
     };
   }
 
@@ -206,7 +209,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
       indexHealthy: true,
       hash: index.hash,
       rowCount: index.rowCount,
-      hasPendingEvaluation: false
+      hasPendingEvaluation: false,
+      observationRows: observationRows
     };
   }
 
@@ -218,7 +222,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
       indexHealthy: true,
       hash: index.hash,
       rowCount: index.rowCount,
-      hasPendingEvaluation: false
+      hasPendingEvaluation: false,
+      observationRows: observationRows
     };
   }
 
@@ -228,7 +233,8 @@ function buildAutomationFastChangePreflight_(automation, config) {
     indexHealthy: true,
     hash: index.hash,
     rowCount: index.rowCount,
-    hasPendingEvaluation: false
+    hasPendingEvaluation: false,
+    observationRows: observationRows
   };
 }
 

@@ -740,6 +740,7 @@
     let aiDraftAttempts = {};
     let aiMetadata = {};
     let cardDetailMap = {};
+    let lazyLoads = {};
 
     function setStatus(message, mode) {
       const el = document.getElementById('status');
@@ -776,7 +777,8 @@
 
     function loadApp(keepDetail) {
       setStatus('Loading communication cockpit...');
-      serverCall('getCommunicationAppContext', [], context => {
+      lazyLoads = {};
+      serverCall('getCommunicationAppShellContext', [], context => {
         appContext = context;
         setStatus('Ready.', 'success');
         renderShell();
@@ -784,6 +786,20 @@
           openDetail(selectedSelection);
         } else if (!currentDetail) {
           renderDetailEmpty();
+        }
+      });
+    }
+
+    function loadLazy(key, fnName, args, onSuccess) {
+      if (lazyLoads[key]) return;
+      lazyLoads[key] = true;
+      serverCall(fnName, args || [], result => {
+        lazyLoads[key] = false;
+        if (onSuccess) onSuccess(result || {});
+      }, {
+        busy: false,
+        onError: () => {
+          lazyLoads[key] = false;
         }
       });
     }
@@ -914,6 +930,19 @@
     }
 
     function renderActive() {
+      if (!appContext.activeCommunicationsLoaded) {
+        document.getElementById('content').innerHTML =
+          panelHeaderHtml('Active communications', 'Loading') +
+          emptyHtml('Loading active communications...');
+        loadLazy('active', 'listActiveCommunicationsLight', [], result => {
+          appContext.activeCommunications = result.items || [];
+          appContext.activeCommunicationsLoaded = true;
+          appContext.stats.activeCommunications = appContext.activeCommunications.length;
+          renderNav();
+          if (currentView === 'active') renderActive();
+        });
+        return;
+      }
       const items = appContext.activeCommunications || [];
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Active communications', items.length + ' flows') +
@@ -933,6 +962,17 @@
     }
 
     function renderNew() {
+      if (!appContext.newCommunicationOptionsLoaded) {
+        document.getElementById('content').innerHTML =
+          panelHeaderHtml('Start a communication', 'Loading') +
+          emptyHtml('Loading communication types...');
+        loadLazy('newOptions', 'listNewCommunicationOptionsLight', [], result => {
+          appContext.newCommunicationOptions = result.items || [];
+          appContext.newCommunicationOptionsLoaded = true;
+          if (currentView === 'new') renderNew();
+        });
+        return;
+      }
       const options = appContext.newCommunicationOptions || [];
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Start a communication', 'Choose a lane') +
@@ -946,6 +986,20 @@
     }
 
     function renderSignals() {
+      if (!appContext.dashboardSignalsLoaded) {
+        document.getElementById('content').innerHTML =
+          panelHeaderHtml('Dashboard signals', 'Loading') +
+          emptyHtml('Loading dashboard signals and recent decisions...');
+        loadLazy('signals', 'listDashboardSignalsLight', [], result => {
+          appContext.dashboard = result.dashboard || { pending: [], recentTriggers: [], config: {} };
+          appContext.dashboardSignalsLoaded = true;
+          appContext.stats.pendingSignals = (appContext.dashboard.pending || []).length;
+          renderMetrics();
+          renderNav();
+          if (currentView === 'signals') renderSignals();
+        });
+        return;
+      }
       cardDetailMap = {};
       const pending = appContext.dashboard.pending || [];
       const triggers = appContext.dashboard.recentTriggers || [];
@@ -1000,6 +1054,17 @@
     }
 
     function renderHistory() {
+      if (!appContext.historyLoaded) {
+        document.getElementById('content').innerHTML =
+          panelHeaderHtml('Recent history', 'Loading') +
+          emptyHtml('Loading recent history...');
+        loadLazy('history', 'listHistoryLight', [20, ''], result => {
+          appContext.history = result.items || [];
+          appContext.historyLoaded = true;
+          if (currentView === 'history') renderHistory();
+        });
+        return;
+      }
       const items = appContext.history || [];
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Recent history', items.length + ' events') +
@@ -1018,7 +1083,8 @@
     function openDetail(selection) {
       selectedSelection = selection || '';
       setStatus('Loading communication detail...');
-      serverCall('getCommunicationDetail', [selectedSelection], detail => {
+      renderDetailLoading();
+      serverCall('getCommunicationDetailFast', [selectedSelection], detail => {
         currentDetail = detail;
         if (!detail || !detail.ok) {
           setStatus(detail && detail.message ? detail.message : 'Unable to load detail.', 'error');
@@ -1027,12 +1093,18 @@
         setStatus('Ready.', 'success');
         renderShell();
         renderDetail();
-      });
+        loadDetailSupportingData(detail);
+      }, { busy: false });
     }
 
     function renderDetailEmpty() {
       document.getElementById('detail').innerHTML =
         '<div class="empty-state"><strong>Select an action.</strong><br>Open a draft, flow, or new communication type to see the editor, readiness checklist, routing state, and source evidence.</div>';
+    }
+
+    function renderDetailLoading() {
+      document.getElementById('detail').innerHTML =
+        '<div class="empty-state"><strong>Opening communication...</strong><br>Loading the message editor first; evidence and history will follow.</div>';
     }
 
     function renderSignalDetail(item) {
@@ -1122,8 +1194,8 @@
             renderReadinessPanel(detail) +
             renderRoutePanel(detail) +
             renderFlowPanel(detail) +
-            renderEvidencePanel(detail) +
-            renderHistoryPanel(detail.history || []) +
+            '<div id="evidencePanelContainer">' + renderEvidencePanel(detail) + '</div>' +
+            '<div id="historyPanelContainer">' + renderHistoryPanel(detail.history || []) + '</div>' +
           '</aside>' +
         '</div>';
 
@@ -1135,6 +1207,27 @@
       bindEditors();
       updateClientReadiness();
       maybeGenerateInitialAiDraft();
+    }
+
+    function loadDetailSupportingData(detail) {
+      const selectionAtLoad = selectedSelection;
+      const flowId = detail && detail.queue && detail.queue.flowId || detail && detail.flow && detail.flow.flowId || '';
+
+      loadLazy('evidence:' + selectionAtLoad, 'getCommunicationDetailEvidence', [selectionAtLoad], evidence => {
+        if (selectionAtLoad !== selectedSelection) return;
+        if (currentDetail) currentDetail.evidence = evidence || {};
+        const target = document.getElementById('evidencePanelContainer');
+        if (target) target.innerHTML = renderEvidencePanel({ evidence: evidence || {} });
+      });
+
+      if (!flowId) return;
+      loadLazy('history:' + flowId, 'getCommunicationDetailHistory', [flowId, 10], result => {
+        if (selectionAtLoad !== selectedSelection) return;
+        const history = result.items || [];
+        if (currentDetail) currentDetail.history = history;
+        const target = document.getElementById('historyPanelContainer');
+        if (target) target.innerHTML = renderHistoryPanel(history);
+      });
     }
 
     function buildDetailSummary(detail) {
