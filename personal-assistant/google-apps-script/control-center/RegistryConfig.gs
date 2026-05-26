@@ -9,7 +9,7 @@ const REGISTRY = {
   },
   HEADERS: {
     SETTINGS: ['Key', 'Value', 'Scope', 'Description', 'Is Secret'],
-    EVENT_CATALOG: ['Event Key', 'Lane', 'Path', 'Communication Event', 'Trigger', 'Template Key', 'Channel Type', 'Post Mode', 'Anchor Update Policy', 'Thread Reply Policy', 'Reply Broadcast', 'Send Rule', 'Severity', 'Active'],
+    EVENT_CATALOG: ['Event Key', 'Lane', 'Path', 'Communication Event', 'Trigger', 'Template Key', 'Channel Type', 'Post Mode', 'Anchor Update Policy', 'Thread Reply Policy', 'Reply Broadcast', 'Spotlight Policy', 'Send Rule', 'Severity', 'Active'],
     TEMPLATES: ['Template Key', 'Version', 'Template Name', 'Active', 'Anchor Text', 'Reply Text'],
     TEMPLATE_VARIABLES: ['Variable Key', 'Label', 'Required', 'Source', 'Description', 'Example', 'Active'],
     EVENT_TRANSITIONS: ['Event Key', 'Next Happy Event Key', 'Allowed Sad Path Event Keys', 'Return Event Key', 'Flow Terminal', 'Auto Queue Next', 'Default Delay Minutes', 'Active'],
@@ -145,6 +145,7 @@ function event_(eventKey, lane, path, eventName, trigger, templateKey, channelTy
     'Anchor Update Policy': anchorUpdatePolicy,
     'Thread Reply Policy': threadReplyPolicy,
     'Reply Broadcast': replyBroadcast,
+    'Spotlight Policy': String(replyBroadcast || '').toUpperCase() === 'TRUE' ? 'Keep Latest' : 'None',
     'Send Rule': sendRule,
     Severity: severity,
     Active: 'TRUE'

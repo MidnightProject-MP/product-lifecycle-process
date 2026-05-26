@@ -940,6 +940,8 @@ function shouldPreserveHubCellAsText_(header) {
     'Slack Message TS',
     'Test Slack Thread TS',
     'Test Slack Message TS',
+    'Live Spotlight TS',
+    'Test Spotlight TS',
     'Test Anchor Message TS',
     'Test Thread TS',
     'Test Latest Reply TS',

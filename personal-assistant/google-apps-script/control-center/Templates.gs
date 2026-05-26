@@ -32,7 +32,8 @@ function findTemplate_(item) {
     'Post Mode': event['Post Mode'] || template['Post Mode'],
     'Anchor Update Policy': event['Anchor Update Policy'] || template['Anchor Update Policy'] || '',
     'Thread Reply Policy': event['Thread Reply Policy'] || template['Thread Reply Policy'] || '',
-    'Reply Broadcast': event['Reply Broadcast'] || template['Reply Broadcast'] || ''
+    'Reply Broadcast': event['Reply Broadcast'] || template['Reply Broadcast'] || '',
+    'Spotlight Policy': event['Spotlight Policy'] || template['Spotlight Policy'] || ''
   });
 }
 
@@ -292,6 +293,22 @@ function shouldUpdateAnchorMessage_(template, item) {
 
 function shouldBroadcastThreadReply_(template, item) {
   return String(template['Reply Broadcast'] || '').toUpperCase() === 'TRUE';
+}
+
+function getSpotlightPolicy_(template, item) {
+  const configured = normalizeTemplatePolicy_(template['Spotlight Policy']);
+  if (configured) return configured;
+  return shouldBroadcastThreadReply_(template, item) ? 'keep latest' : 'none';
+}
+
+function shouldPostSpotlightReply_(template, item) {
+  const policy = getSpotlightPolicy_(template, item);
+  return ['keep latest', 'keep all', 'broadcast latest', 'true', 'yes'].indexOf(policy) >= 0;
+}
+
+function shouldDeletePreviousSpotlightReply_(template, item) {
+  const policy = getSpotlightPolicy_(template, item);
+  return ['keep latest', 'broadcast latest', 'true', 'yes'].indexOf(policy) >= 0;
 }
 
 function getTemplateAnchorText_(template) {

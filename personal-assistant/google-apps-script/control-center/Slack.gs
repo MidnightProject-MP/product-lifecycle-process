@@ -77,6 +77,43 @@ function updateSlackMessage_(channel, ts, text) {
   };
 }
 
+function deleteSlackMessage_(channel, ts, options) {
+  options = options || {};
+  const token = getScriptProperty_('SLACK_BOT_TOKEN');
+  if (!token) throw new Error('Missing SLACK_BOT_TOKEN script property.');
+  if (!channel) throw new Error('Missing Slack channel for delete.');
+  if (!ts) throw new Error('Missing Slack message timestamp for delete.');
+
+  const response = UrlFetchApp.fetch('https://slack.com/api/chat.delete', {
+    method: 'post',
+    contentType: 'application/json; charset=utf-8',
+    headers: {
+      Authorization: 'Bearer ' + token
+    },
+    payload: JSON.stringify({
+      channel: channel,
+      ts: String(ts)
+    }),
+    muteHttpExceptions: true
+  });
+
+  const body = JSON.parse(response.getContentText());
+  if (!body.ok) {
+    logHub_(options.logLevel || 'ERROR', 'deleteSlackMessage_', '', 'Slack API returned error.', {
+      error: body.error,
+      channel: channel,
+      ts: ts,
+      response: body
+    });
+    throw new Error('Slack delete failed: ' + (body.error || response.getContentText()));
+  }
+
+  return {
+    ts: body.ts || ts,
+    channel: body.channel || channel
+  };
+}
+
 function getSlackPermalink_(channel, ts) {
   const token = getScriptProperty_('SLACK_BOT_TOKEN');
   const url = 'https://slack.com/api/chat.getPermalink?channel=' +

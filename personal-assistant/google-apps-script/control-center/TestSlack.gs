@@ -79,18 +79,43 @@ function sendQueueItemTestToSlack_(queueSheet, row, item, options) {
   logHub_('INFO', 'sendQueueItemTestToSlack_', hydratedItem['Queue ID'], 'Posting test Slack message.', {
     channel: target.channel,
     threadTs: target.threadTs || '',
-    textLength: outboundText.length
+    textLength: outboundText.length,
+    spotlightPolicy: template['Spotlight Policy'] || ''
   });
-  const postResult = runSkillOrThrow_('post_slack_message', {
-    channel: target.channel,
-    text: outboundText,
-    threadTs: target.threadTs || '',
-    replyBroadcast: false
-  }, { parentRunId: parentRunId });
-  const initialThreadRecord = createInitialTestThreadHistoryReplyIfNeeded_(target.channel, historyText, postResult, target.threadTs, existingFlow, hydratedItem, template, parentRunId);
+  let postResult = null;
+  let messageResult = null;
+  let spotlightResult = null;
+
+  if (target.threadTs && target.shouldPostReply) {
+    postResult = runSkillOrThrow_('post_slack_message', {
+      channel: target.channel,
+      text: historyText,
+      threadTs: target.threadTs || '',
+      replyBroadcast: false
+    }, { parentRunId: parentRunId });
+    messageResult = postResult;
+    spotlightResult = postSlackSpotlightReplyIfNeeded_(
+      'Test',
+      target.channel,
+      buildAnchorText_(anchorText, hydratedItem),
+      target.threadTs,
+      existingFlow,
+      hydratedItem,
+      template,
+      parentRunId
+    );
+  } else {
+    postResult = runSkillOrThrow_('post_slack_message', {
+      channel: target.channel,
+      text: outboundText,
+      threadTs: target.threadTs || '',
+      replyBroadcast: false
+    }, { parentRunId: parentRunId });
+    const initialThreadRecord = createInitialTestThreadHistoryReplyIfNeeded_(target.channel, historyText, postResult, target.threadTs, existingFlow, hydratedItem, template, parentRunId);
+    messageResult = initialThreadRecord || postResult;
+  }
   updateTestSlackAnchorIfNeeded_(existingFlow, anchorText, hydratedItem, template);
 
-  const messageResult = initialThreadRecord || postResult;
   const sentAt = nowIso_();
   const completion = {
     testSlackChannel: postResult.channel || target.channel,
@@ -99,6 +124,8 @@ function sendQueueItemTestToSlack_(queueSheet, row, item, options) {
     testSlackMessageUrl: messageResult.permalink || '',
     testAnchorMessageTs: existingFlow && existingFlow['Test Anchor Message TS'] || postResult.ts || '',
     testAnchorMessageUrl: existingFlow && existingFlow['Test Anchor Message URL'] || postResult.permalink || '',
+    testSpotlightTs: spotlightResult && spotlightResult.ts || '',
+    testSpotlightUrl: spotlightResult && spotlightResult.permalink || '',
     testSentAt: sentAt
   };
 
@@ -120,7 +147,8 @@ function resolveTestSlackTarget_(template, item, flow) {
   return {
     channel: channel,
     threadTs: threadTs,
-    shouldPostReply: shouldReplyInThread_(template, item)
+    shouldPostReply: shouldReplyInThread_(template, item),
+    shouldBroadcastReply: Boolean(threadTs && shouldReplyInThread_(template, item) && shouldBroadcastThreadReply_(template, item))
   };
 }
 
@@ -198,6 +226,8 @@ function recordTestSlackMetadataOnQueueRow_(queueSheet, row, item, completion) {
     thread_ts: completion.testSlackThreadTs || '',
     message_ts: completion.testSlackMessageTs || '',
     permalink: completion.testSlackMessageUrl || '',
+    spotlight_ts: completion.testSpotlightTs || '',
+    spotlight_permalink: completion.testSpotlightUrl || '',
     sent_at: completion.testSentAt || ''
   };
 
@@ -207,6 +237,8 @@ function recordTestSlackMetadataOnQueueRow_(queueSheet, row, item, completion) {
     'Test Slack Message TS': completion.testSlackMessageTs || '',
     'Test Slack Message URL': completion.testSlackMessageUrl || '',
     'Test Sent At': completion.testSentAt || '',
+    'Test Spotlight TS': completion.testSpotlightTs || '',
+    'Test Spotlight URL': completion.testSpotlightUrl || '',
     'Payload JSON': stringifyJson_(payload),
     'Updated At': nowIso_(),
     Error: ''
@@ -233,6 +265,8 @@ function recordTestFlowStateAfterSend_(item, template, completion, previousFlow)
     'Test Thread TS': completion.testSlackThreadTs || previous['Test Thread TS'] || '',
     'Test Latest Reply TS': completion.testSlackMessageTs || previous['Test Latest Reply TS'] || '',
     'Test Anchor Message URL': completion.testAnchorMessageUrl || previous['Test Anchor Message URL'] || '',
+    'Test Spotlight TS': completion.testSpotlightTs || previous['Test Spotlight TS'] || '',
+    'Test Spotlight URL': completion.testSpotlightUrl || previous['Test Spotlight URL'] || '',
     'Updated At': nowIso_()
   };
 
@@ -251,6 +285,10 @@ function recordTestFlowStateAfterSend_(item, template, completion, previousFlow)
     'Thread TS': '',
     'Latest Reply TS': '',
     'Anchor Message URL': '',
+    'Live Spotlight TS': '',
+    'Live Spotlight URL': '',
+    'Test Spotlight TS': '',
+    'Test Spotlight URL': '',
     'Last Queue ID': '',
     'Last Confirmed At': '',
     'State JSON': ''

@@ -159,16 +159,41 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
       textLength: outboundText.length,
       anchorTextLength: anchorText.length,
       historyTextLength: historyText.length,
+      spotlightPolicy: template['Spotlight Policy'] || '',
       replyBroadcast: Boolean(target.shouldBroadcastReply)
     });
-    const result = runSkillOrThrow_('post_slack_message', {
-      channel: channel,
-      text: outboundText,
-      threadTs: threadTs,
-      replyBroadcast: target.shouldBroadcastReply
-    }, { parentRunId: workflowRunId });
-    const initialThreadRecord = createInitialThreadHistoryReplyIfNeeded_(channel, historyText, result, threadTs, existingFlow, hydratedItem, template, workflowRunId);
-    const messageResult = initialThreadRecord || result;
+    let result = null;
+    let messageResult = null;
+    let spotlightResult = null;
+
+    if (threadTs && shouldPostReply) {
+      result = runSkillOrThrow_('post_slack_message', {
+        channel: channel,
+        text: historyText,
+        threadTs: threadTs,
+        replyBroadcast: false
+      }, { parentRunId: workflowRunId });
+      messageResult = result;
+      spotlightResult = postSlackSpotlightReplyIfNeeded_(
+        'Live',
+        channel,
+        buildAnchorText_(anchorText, hydratedItem),
+        threadTs,
+        existingFlow,
+        hydratedItem,
+        template,
+        workflowRunId
+      );
+    } else {
+      result = runSkillOrThrow_('post_slack_message', {
+        channel: channel,
+        text: outboundText,
+        threadTs: threadTs,
+        replyBroadcast: false
+      }, { parentRunId: workflowRunId });
+      const initialThreadRecord = createInitialThreadHistoryReplyIfNeeded_(channel, historyText, result, threadTs, existingFlow, hydratedItem, template, workflowRunId);
+      messageResult = initialThreadRecord || result;
+    }
 
     const sentAt = nowIso_();
     const completedItem = buildCompletedCommunicationItem_(hydratedItem, {
@@ -177,7 +202,9 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
       slackThreadId: threadTs || result.ts,
       slackChannel: result.channel || channel,
       slackMessageTs: messageResult.ts || '',
-      slackMessageUrl: messageResult.permalink || ''
+      slackMessageUrl: messageResult.permalink || '',
+      liveSpotlightTs: spotlightResult && spotlightResult.ts || '',
+      liveSpotlightUrl: spotlightResult && spotlightResult.permalink || ''
     });
     updateRowFields_(sheet, row, {
       'Status': HUB.STATUS.SENT,
@@ -212,8 +239,9 @@ function sendApprovedQueueRow_(sheet, row, parentRunId) {
     }, { parentRunId: workflowRunId });
     logHub_('INFO', 'sendApprovedQueueRow_', item['Queue ID'], 'Slack message sent and history recorded.', {
       slackThreadId: threadTs || result.ts,
-      slackMessageTs: result.ts || '',
-      permalink: result.permalink || ''
+      slackMessageTs: messageResult && messageResult.ts || '',
+      permalink: messageResult && messageResult.permalink || '',
+      liveSpotlightTs: sentItem['Live Spotlight TS'] || ''
     });
   } catch (error) {
     updateRowFields_(sheet, row, {
@@ -349,10 +377,14 @@ function buildCompletedCommunicationItem_(item, completion) {
   if (completion && completion.slackChannel) merged['Slack Channel'] = completion.slackChannel;
   if (completion && completion.slackMessageTs) merged['Slack Message TS'] = completion.slackMessageTs;
   if (completion && completion.slackMessageUrl) merged['Slack Message URL'] = completion.slackMessageUrl;
+  if (completion && completion.liveSpotlightTs) merged['Live Spotlight TS'] = completion.liveSpotlightTs;
+  if (completion && completion.liveSpotlightUrl) merged['Live Spotlight URL'] = completion.liveSpotlightUrl;
   if (completion && completion.testSlackChannel) merged['Test Slack Channel'] = completion.testSlackChannel;
   if (completion && completion.testSlackThreadTs) merged['Test Slack Thread TS'] = completion.testSlackThreadTs;
   if (completion && completion.testSlackMessageTs) merged['Test Slack Message TS'] = completion.testSlackMessageTs;
   if (completion && completion.testSlackMessageUrl) merged['Test Slack Message URL'] = completion.testSlackMessageUrl;
+  if (completion && completion.testSpotlightTs) merged['Test Spotlight TS'] = completion.testSpotlightTs;
+  if (completion && completion.testSpotlightUrl) merged['Test Spotlight URL'] = completion.testSpotlightUrl;
   if (completion && completion.testSentAt) merged['Test Sent At'] = completion.testSentAt;
   if (!merged.Owner && payload.owner) merged.Owner = payload.owner;
   if (!merged.Lane && payload.lane) merged.Lane = payload.lane;
@@ -391,6 +423,10 @@ function buildHistoryRowFromCommunicationItem_(item) {
     'Test Slack Message TS': item['Test Slack Message TS'] || '',
     'Test Slack Message URL': item['Test Slack Message URL'] || '',
     'Last Test Sent At': item['Test Sent At'] || '',
+    'Live Spotlight TS': item['Live Spotlight TS'] || '',
+    'Live Spotlight URL': item['Live Spotlight URL'] || '',
+    'Test Spotlight TS': item['Test Spotlight TS'] || '',
+    'Test Spotlight URL': item['Test Spotlight URL'] || '',
     'Payload Hash': graphHashString_(payloadText),
     Error: item.Error || ''
   };

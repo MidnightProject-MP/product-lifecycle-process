@@ -99,6 +99,69 @@ function createInitialThreadHistoryReplyIfNeeded_(channel, historyText, anchorRe
   }
 }
 
+function postSlackSpotlightReplyIfNeeded_(route, channel, spotlightText, threadTs, flow, item, template, parentRunId) {
+  if (!threadTs || !shouldPostSpotlightReply_(template, item)) return null;
+  if (!String(spotlightText || '').trim()) return null;
+
+  const routeLabel = String(route || 'Live');
+  const isTest = routeLabel.toLowerCase() === 'test';
+  const previousTs = flow && (isTest ? flow['Test Spotlight TS'] : flow['Live Spotlight TS']) || '';
+  const previousChannel = flow && (isTest ? flow['Test Slack Channel'] : flow['Slack Channel']) || channel;
+
+  try {
+    const result = runSkillOrThrow_('post_slack_message', {
+      channel: channel,
+      text: spotlightText,
+      threadTs: threadTs,
+      replyBroadcast: true
+    }, { parentRunId: parentRunId || '' });
+
+    logHub_('INFO', 'postSlackSpotlightReplyIfNeeded_', item['Queue ID'], 'Posted ' + routeLabel.toLowerCase() + ' Slack spotlight reply.', {
+      flowId: item['Flow ID'],
+      channel: channel,
+      threadTs: threadTs,
+      spotlightTs: result.ts || ''
+    });
+
+    deletePreviousSlackSpotlightReplySafe_(routeLabel, previousChannel, previousTs, result.ts, item, template);
+    return result;
+  } catch (error) {
+    logHub_('WARN', 'postSlackSpotlightReplyIfNeeded_', item['Queue ID'], 'Failed to post ' + routeLabel.toLowerCase() + ' Slack spotlight reply; compact thread history remains recorded.', {
+      flowId: item['Flow ID'],
+      channel: channel,
+      threadTs: threadTs,
+      error: error.message || String(error)
+    });
+    return null;
+  }
+}
+
+function deletePreviousSlackSpotlightReplySafe_(route, channel, previousTs, newTs, item, template) {
+  if (!previousTs || !channel) return null;
+  if (String(previousTs) === String(newTs || '')) return null;
+  if (!shouldDeletePreviousSpotlightReply_(template, item)) return null;
+
+  try {
+    const result = deleteSlackMessage_(channel, previousTs, {
+      logLevel: 'WARN'
+    });
+    logHub_('INFO', 'deletePreviousSlackSpotlightReplySafe_', item['Queue ID'], 'Deleted previous ' + String(route || 'live').toLowerCase() + ' Slack spotlight reply.', {
+      flowId: item['Flow ID'],
+      channel: channel,
+      previousSpotlightTs: previousTs
+    });
+    return result;
+  } catch (error) {
+    logHub_('WARN', 'deletePreviousSlackSpotlightReplySafe_', item['Queue ID'], 'Failed to delete previous ' + String(route || 'live').toLowerCase() + ' Slack spotlight reply; channel may show more than one recent update.', {
+      flowId: item['Flow ID'],
+      channel: channel,
+      previousSpotlightTs: previousTs,
+      error: error.message || String(error)
+    });
+    return null;
+  }
+}
+
 function buildThreadHistoryText_(item, template, label) {
   const payload = normalizePayload_(item);
   const eventName = getEventDisplayName_(item['Event Key']);
@@ -146,6 +209,8 @@ function recordFlowStateAfterSend_(item, template, sendResult, previousFlow) {
     (sendResult && sendResult.permalink) ||
     item['Slack Message URL'] ||
     '';
+  const liveSpotlightTs = item['Live Spotlight TS'] || (previousFlow && previousFlow['Live Spotlight TS']) || '';
+  const liveSpotlightUrl = item['Live Spotlight URL'] || (previousFlow && previousFlow['Live Spotlight URL']) || '';
   const terminal = String(transition['Flow Terminal'] || '').toUpperCase() === 'TRUE';
 
   upsertFlowState_({
@@ -163,6 +228,8 @@ function recordFlowStateAfterSend_(item, template, sendResult, previousFlow) {
     'Thread TS': threadTs,
     'Latest Reply TS': latestReplyTs,
     'Anchor Message URL': anchorUrl,
+    'Live Spotlight TS': liveSpotlightTs,
+    'Live Spotlight URL': liveSpotlightUrl,
     'Last Queue ID': item['Queue ID'],
     'Last Confirmed At': item['Sent At'] || item['Completed At'] || nowIso_(),
     'State JSON': stringifyJson_(payload),

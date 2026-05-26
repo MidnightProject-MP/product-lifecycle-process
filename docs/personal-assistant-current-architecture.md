@@ -116,7 +116,7 @@ See [Personal Assistant Skills](personal-assistant-skills.md).
 
 Communication rows are child updates inside a parent flow. A critical incident, production release, or project escalation should have one `Flow ID`, one Slack anchor message, and many possible child updates.
 
-The first approved update creates the anchor. Subsequent updates should post into the same Slack thread and update the anchor message so Slack remains a live executive dashboard plus a detailed threaded audit trail.
+The first approved update creates the anchor. Subsequent updates post compact history replies into the same Slack thread and update the anchor message so Slack remains a live executive dashboard plus a detailed threaded audit trail. High-visibility release and incident updates can also create a latest-only spotlight reply: a full-detail thread reply broadcast to the channel, with the previous spotlight deleted after the new one posts.
 
 See [Hub Flow State](hub-flow-state.md).
 

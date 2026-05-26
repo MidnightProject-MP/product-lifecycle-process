@@ -10,6 +10,7 @@ The Hub must distinguish between a communication flow and an individual communic
 | Update | A child communication event inside that flow: investigating, fix in QA, release started, release delayed, rollback, resolved, etc. |
 | Anchor | The parent Slack message that always shows the latest executive-facing state. |
 | Thread Reply | The child Slack message that records the detailed update history under the anchor. |
+| Spotlight Reply | The latest full-detail thread reply that is also broadcast to the channel for high-visibility updates. |
 
 ## Slack Behavior
 
@@ -24,11 +25,12 @@ Initial flow event:
 Subsequent flow update:
 
 1. Resolve the parent flow by `Flow ID`.
-2. Post the update as a Slack thread reply using the anchor timestamp as `thread_ts`.
+2. Post a compact history reply using the anchor timestamp as `thread_ts`.
 3. Update the original anchor message with the latest executive summary using `chat.update`.
-4. Record the child update in `History`.
-5. Advance or adjust the expected next event.
-6. Retire any scheduled child draft that no longer matches the current flow state.
+4. For events whose spotlight policy is `Keep Latest`, post a full-detail thread reply with `reply_broadcast = true` so it appears in-channel, then delete the previous spotlight reply.
+5. Record the child update in `History`.
+6. Advance or adjust the expected next event.
+7. Retire any scheduled child draft that no longer matches the current flow state.
 
 Slack supports this through `chat.postMessage` with `thread_ts` for thread replies and `chat.update` for editing the anchor message.
 
@@ -52,6 +54,10 @@ Add a Hub-managed `Flow_State` sheet.
 | `Thread TS` | Slack thread timestamp, usually same as anchor timestamp. |
 | `Latest Reply TS` | Slack timestamp of the latest child reply. |
 | `Anchor Message URL` | Permalink for the parent anchor. |
+| `Live Spotlight TS` | Slack timestamp of the latest live full-detail channel-visible spotlight reply. |
+| `Live Spotlight URL` | Permalink for the latest live spotlight reply. |
+| `Test Spotlight TS` | Slack timestamp of the latest test spotlight reply. |
+| `Test Spotlight URL` | Permalink for the latest test spotlight reply. |
 | `Last Queue ID` | Most recent Queue item processed for this flow. |
 | `Last Confirmed At` | Last successful send/log timestamp. |
 | `State JSON` | Latest normalized flow-state snapshot. |

@@ -26,7 +26,7 @@ Event Key + Flow ID + Dedupe Key + Payload JSON
 
 The Registry resolves the event key into the scaffold template, channel type, post mode, send rule, required variables, and approval expectations. Templates generate an editable first draft only; PM-edited title/body fields in the Communication App become the final Slack message.
 
-Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates reply in the same thread and update the anchor message with the latest executive summary.
+Each draft is also a child update inside a parent `Flow ID`. The first sent update creates the Slack anchor. Subsequent updates write a compact history reply in the same thread and update the anchor message with the latest executive summary. For events configured to broadcast, the app also posts one full-detail spotlight reply to the channel and deletes the previous spotlight so leadership sees only the latest visible update.
 
 PMs should use the GAS-hosted Communication App for normal work. The spreadsheet remains the backend/control layer. From the app, PMs can open the Action Cockpit, review dashboard signals, select an existing communication or start a new one, edit the final title/body, send tests to the sandbox Slack channel, queue a draft, and approve/send without working directly in spreadsheet tabs.
 

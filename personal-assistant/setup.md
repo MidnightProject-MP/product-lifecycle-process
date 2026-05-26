@@ -229,8 +229,9 @@ Graph memory is paused by default. It remains available for the broader Personal
 For Slack lifecycle communications:
 
 - The first sent update for a `Flow ID` creates the parent Slack anchor.
-- Later updates with the same `Flow ID` are posted as thread replies.
+- Later updates with the same `Flow ID` are posted as compact thread-history replies.
 - The Hub updates the original Slack anchor with the latest executive summary.
+- Events with `Reply Broadcast = TRUE` use the baseline spotlight model: one full-detail reply is broadcast to the channel, and the previous spotlight reply is deleted so the leadership channel stays one-way and latest-update focused.
 - `Event_Transitions` controls next happy-path events and sad-path detours.
 
 If Google Sheets typed columns block writes to `Run_Log`, the Hub writes the same log row to `Run_Log_Raw`. Keep `Run_Log_Raw` as a plain, untyped sheet.
