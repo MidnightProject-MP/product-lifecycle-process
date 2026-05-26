@@ -865,7 +865,7 @@
     function renderActionCard(item) {
       const cardKey = item.selection || buildCardKey(item);
       cardDetailMap[cardKey] = item;
-      const clickable = ' onclick="openActionCard(' + quote(cardKey) + ')"';
+      const clickable = ' data-card-key="' + escapeAttr(cardKey) + '" onclick="openActionCardFromElement(this)"';
       const selected = selectedSelection === cardKey ? ' selected' : '';
       const classes = ['work-card', item.decisionState || '', item.kind === 'signal' ? 'signal' : '', selected].filter(Boolean).join(' ');
       const routeChips = item.kind === 'draft' ?
@@ -905,6 +905,14 @@
       renderSignalDetail(item);
     }
 
+    function openActionCardFromElement(element) {
+      openActionCard(element && element.getAttribute('data-card-key') || '');
+    }
+
+    function openDetailFromElement(element) {
+      openDetail(element && element.getAttribute('data-selection') || '');
+    }
+
     function renderActive() {
       const items = appContext.activeCommunications || [];
       document.getElementById('content').innerHTML =
@@ -914,7 +922,7 @@
 
     function renderFlowCard(item) {
       const selected = selectedSelection === item.selection ? ' selected' : '';
-      return '<div class="work-card ready_live' + selected + '" onclick="openDetail(' + quote(item.selection) + ')">' +
+      return '<div class="work-card ready_live' + selected + '" data-selection="' + escapeAttr(item.selection) + '" onclick="openDetailFromElement(this)">' +
         '<div class="card-top">' + pillHtml(item.status || 'Active', 'ok') + '<strong class="small">Continue flow</strong></div>' +
         '<div class="card-title">' + escapeHtml(item.subject) + '</div>' +
         '<div class="card-meta">Current: ' + escapeHtml(item.currentState) + '</div>' +
@@ -929,7 +937,7 @@
       document.getElementById('content').innerHTML =
         panelHeaderHtml('Start a communication', 'Choose a lane') +
         '<div class="card-list">' + options.map(option =>
-          '<div class="work-card" onclick="openDetail(' + quote(option.value) + ')">' +
+          '<div class="work-card" data-selection="' + escapeAttr(option.value) + '" onclick="openDetailFromElement(this)">' +
           '<div class="card-top">' + pillHtml('New', 'info') + '<strong class="small">Create draft</strong></div>' +
           '<div class="card-title">' + escapeHtml(option.label.replace(/^\+\s*/, '')) + '</div>' +
           '<div class="card-why">Loads the matching scaffold and flow policy, then lets you edit the final message.</div>' +
@@ -960,7 +968,7 @@
         why: item.triggerCandidate || item.eventName || 'Dashboard change under evaluation'
       }, item);
       const selected = selectedSelection === cardKey ? ' selected' : '';
-      return '<div class="work-card stabilizing signal' + selected + '" onclick="openActionCard(' + quote(cardKey) + ')">' +
+      return '<div class="work-card stabilizing signal' + selected + '" data-card-key="' + escapeAttr(cardKey) + '" onclick="openActionCardFromElement(this)">' +
         '<div class="card-top">' + pillHtml(item.status || 'Pending Evaluation', item.status === 'Needs Reason' ? 'warn' : 'info') +
         '<strong class="small">' + escapeHtml(item.stablePolls ? 'Stable polls ' + item.stablePolls : 'Watching') + '</strong></div>' +
         '<div class="card-title">' + escapeHtml(item.subject || item.flowId) + '</div>' +
@@ -982,7 +990,7 @@
         selection: selection
       }, item);
       const selected = selectedSelection === cardKey ? ' selected' : '';
-      return '<div class="work-card' + selected + '" onclick="openActionCard(' + quote(cardKey) + ')">' +
+      return '<div class="work-card' + selected + '" data-card-key="' + escapeAttr(cardKey) + '" onclick="openActionCardFromElement(this)">' +
         '<div class="card-top">' + pillHtml(item.status || 'Logged', item.error ? 'error' : item.queueId ? 'ok' : '') +
         '<span class="small">' + escapeHtml(formatDateTime(item.createdAt)) + '</span></div>' +
         '<div class="card-title">' + escapeHtml(item.subject || item.candidate || item.flowId) + '</div>' +
@@ -1436,6 +1444,14 @@
       updateClientReadiness();
     }
 
+    function formatEditorFromButton(event, button) {
+      formatEditor(
+        event,
+        button && button.getAttribute('data-editor-id') || '',
+        button && button.getAttribute('data-command') || ''
+      );
+    }
+
     function addLink(event, editorId) {
       event.preventDefault();
       restoreEditorSelection(editorId);
@@ -1444,6 +1460,10 @@
       document.execCommand('createLink', false, url);
       saveEditorSelection(editorId);
       updateClientReadiness();
+    }
+
+    function addLinkFromButton(event, button) {
+      addLink(event, button && button.getAttribute('data-editor-id') || '');
     }
 
     function handleEditorKeydown(event, editorId) {
@@ -1460,17 +1480,17 @@
 
     function toolbarHtml(editorId, allowLists) {
       return '<div class="editor-toolbar">' +
-        '<button type="button" title="Bold" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('bold') + ')"><strong>B</strong></button>' +
-        '<button type="button" title="Italic" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('italic') + ')"><em>I</em></button>' +
+        '<button type="button" title="Bold" data-editor-id="' + escapeAttr(editorId) + '" data-command="bold" onmousedown="formatEditorFromButton(event, this)"><strong>B</strong></button>' +
+        '<button type="button" title="Italic" data-editor-id="' + escapeAttr(editorId) + '" data-command="italic" onmousedown="formatEditorFromButton(event, this)"><em>I</em></button>' +
         '<span class="separator"></span>' +
         (allowLists ?
-          '<button type="button" title="Bullet list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertUnorderedList') + ')">Bullets</button>' +
-          '<button type="button" title="Numbered list" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('insertOrderedList') + ')">1.</button>' +
-          '<button type="button" title="Decrease list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('outdent') + ')">Out</button>' +
-          '<button type="button" title="Increase list level" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('indent') + ')">In</button>' +
+          '<button type="button" title="Bullet list" data-editor-id="' + escapeAttr(editorId) + '" data-command="insertUnorderedList" onmousedown="formatEditorFromButton(event, this)">Bullets</button>' +
+          '<button type="button" title="Numbered list" data-editor-id="' + escapeAttr(editorId) + '" data-command="insertOrderedList" onmousedown="formatEditorFromButton(event, this)">1.</button>' +
+          '<button type="button" title="Decrease list level" data-editor-id="' + escapeAttr(editorId) + '" data-command="outdent" onmousedown="formatEditorFromButton(event, this)">Out</button>' +
+          '<button type="button" title="Increase list level" data-editor-id="' + escapeAttr(editorId) + '" data-command="indent" onmousedown="formatEditorFromButton(event, this)">In</button>' +
           '<span class="separator"></span>' : '') +
-        '<button type="button" title="Add link" onmousedown="addLink(event, ' + quote(editorId) + ')">Link</button>' +
-        '<button type="button" title="Remove link" onmousedown="formatEditor(event, ' + quote(editorId) + ', ' + quote('unlink') + ')">Unlink</button>' +
+        '<button type="button" title="Add link" data-editor-id="' + escapeAttr(editorId) + '" onmousedown="addLinkFromButton(event, this)">Link</button>' +
+        '<button type="button" title="Remove link" data-editor-id="' + escapeAttr(editorId) + '" data-command="unlink" onmousedown="formatEditorFromButton(event, this)">Unlink</button>' +
       '</div>';
     }
 
