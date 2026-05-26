@@ -31,8 +31,10 @@ function generateCommunicationDraftWithGemini_(form, options) {
     persistGeminiDraftIfNeeded_(form || {}, result, options);
     return result;
   } catch (error) {
+    const friendlyError = buildFriendlyGeminiCommunicationError_(error);
     logHub_('WARN', 'GeminiCoach', form && form.queueId || '', 'Gemini copy coach fell back to deterministic template scaffold.', {
       error: error.message || String(error),
+      friendlyError: friendlyError,
       model: model,
       mode: options.mode || 'initial'
     });
@@ -41,8 +43,8 @@ function generateCommunicationDraftWithGemini_(form, options) {
       aiAvailable: false,
       fallback: true,
       source: 'template_fallback',
-      message: 'Gemini was unavailable. Template scaffold loaded instead.',
-      warnings: [error.message || String(error)]
+      message: friendlyError,
+      warnings: []
     });
     persistGeminiDraftIfNeeded_(form || {}, result, options);
     return result;
@@ -232,7 +234,7 @@ function buildGeminiCommunicationPrompt_(form, fallback, options) {
 function fetchGeminiCommunicationDraft_(apiKey, model, prompt) {
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
     encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey);
-  const response = UrlFetchApp.fetch(url, {
+  const request = {
     method: 'post',
     contentType: 'application/json',
     muteHttpExceptions: true,
@@ -248,20 +250,64 @@ function fetchGeminiCommunicationDraft_(apiKey, model, prompt) {
         responseMimeType: 'application/json'
       }
     })
-  });
+  };
 
-  const status = response.getResponseCode();
-  const body = response.getContentText();
-  if (status < 200 || status >= 300) {
-    throw new Error('Gemini API returned HTTP ' + status + ': ' + body.slice(0, 300));
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = UrlFetchApp.fetch(url, request);
+    const status = response.getResponseCode();
+    const body = response.getContentText();
+
+    if (status >= 200 && status < 300) {
+      const parsed = JSON.parse(body);
+      const candidates = parsed.candidates || [];
+      const parts = candidates[0] && candidates[0].content && candidates[0].content.parts || [];
+      const text = parts.map(part => part.text || '').join('').trim();
+      if (!text) throw new Error('Gemini API returned an empty response.');
+      return text;
+    }
+
+    lastError = buildGeminiCommunicationHttpError_(status, body);
+    if (!isRetryableGeminiCommunicationStatus_(status) || attempt === 3) break;
+    Utilities.sleep(attempt * 750);
   }
 
-  const parsed = JSON.parse(body);
-  const candidates = parsed.candidates || [];
-  const parts = candidates[0] && candidates[0].content && candidates[0].content.parts || [];
-  const text = parts.map(part => part.text || '').join('').trim();
-  if (!text) throw new Error('Gemini API returned an empty response.');
-  return text;
+  throw lastError || new Error('Gemini API request failed.');
+}
+
+function buildGeminiCommunicationHttpError_(status, body) {
+  let message = '';
+  try {
+    const parsed = JSON.parse(body || '{}');
+    message = parsed && parsed.error && parsed.error.message || '';
+  } catch (error) {
+    message = String(body || '').slice(0, 300);
+  }
+  const err = new Error('Gemini API returned HTTP ' + status + (message ? ': ' + message : ''));
+  err.geminiStatus = status;
+  err.retryable = isRetryableGeminiCommunicationStatus_(status);
+  return err;
+}
+
+function isRetryableGeminiCommunicationStatus_(status) {
+  return [408, 429, 500, 502, 503, 504].indexOf(Number(status)) >= 0;
+}
+
+function buildFriendlyGeminiCommunicationError_(error) {
+  const status = Number(error && error.geminiStatus || 0);
+  if (status === 429 || status === 503) {
+    return 'Gemini is temporarily busy, so the template scaffold was loaded. You can keep editing or try AI Re-draft again in a minute.';
+  }
+  if (status >= 500) {
+    return 'Gemini is temporarily unavailable, so the template scaffold was loaded. You can keep editing or try AI Re-draft again shortly.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Gemini is not authorized. Check GEMINI_API_KEY; the template scaffold was loaded instead.';
+  }
+  if (status === 404) {
+    return 'Gemini model was not found. Check GEMINI_MODEL; the template scaffold was loaded instead.';
+  }
+  return 'Gemini was unavailable, so the template scaffold was loaded.';
 }
 
 function parseGeminiCommunicationDraft_(responseText, fallback, meta) {

@@ -109,6 +109,27 @@ function missingApiKeyFallback(apiKey, fallback) {
   };
 }
 
+function isRetryableStatus(status) {
+  return [408, 429, 500, 502, 503, 504].includes(Number(status));
+}
+
+function friendlyGeminiError(error) {
+  const status = Number(error && error.geminiStatus || 0);
+  if (status === 429 || status === 503) {
+    return 'Gemini is temporarily busy, so the template scaffold was loaded. You can keep editing or try AI Re-draft again in a minute.';
+  }
+  if (status >= 500) {
+    return 'Gemini is temporarily unavailable, so the template scaffold was loaded. You can keep editing or try AI Re-draft again shortly.';
+  }
+  if (status === 401 || status === 403) {
+    return 'Gemini is not authorized. Check GEMINI_API_KEY; the template scaffold was loaded instead.';
+  }
+  if (status === 404) {
+    return 'Gemini model was not found. Check GEMINI_MODEL; the template scaffold was loaded instead.';
+  }
+  return 'Gemini was unavailable, so the template scaffold was loaded.';
+}
+
 const fallback = {
   titleHtml: '<strong>Fallback title</strong>',
   bodyHtml: '<p>Fallback body</p>'
@@ -162,5 +183,13 @@ assert.deepEqual(missingApiKeyFallback('', fallback), {
   titleHtml: fallback.titleHtml,
   bodyHtml: fallback.bodyHtml
 });
+
+assert.equal(isRetryableStatus(503), true);
+assert.equal(isRetryableStatus(429), true);
+assert.equal(isRetryableStatus(400), false);
+assert.match(friendlyGeminiError({ geminiStatus: 503 }), /temporarily busy/);
+assert.match(friendlyGeminiError({ geminiStatus: 429 }), /try AI Re-draft again in a minute/);
+assert.match(friendlyGeminiError({ geminiStatus: 403 }), /GEMINI_API_KEY/);
+assert.match(friendlyGeminiError({ geminiStatus: 404 }), /GEMINI_MODEL/);
 
 console.log('Gemini copy coach tests passed.');
