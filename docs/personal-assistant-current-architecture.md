@@ -54,6 +54,7 @@ AI draft generation can happen in two ways. The optional `processPendingCommunic
 | `History` | Compact audit of completed, logged, sent, or discarded communication items. |
 | `Flow_State` | One parent-flow row per project, incident, release, or story communication thread, with live Slack pointers and parallel test Slack pointers. |
 | `Graph_*` | Optional hidden long-term memory for entity/W-node continuity and audit events. Disabled by default. |
+| `Unified_Event_Log` / `Slack_Inbox_Raw` / `Alignment_Risks` / `Project_History` | Trust-layer sheets for raw sensor intake, short-lived evidence events, PM-reviewable alignment risks, and durable daily summaries. |
 | `Run_Log` / `Skill_Run_Log` | Observability only; noisy details are summarized. |
 
 ## Observability
@@ -69,6 +70,10 @@ Traceability is split by layer:
 - Automation special releases: project rows with `Next Gate = Special Release` create release-style `release.scheduled` flows while preserving source project context in payload memory.
 - Hub `Run_Log`: what the sender did, skipped, or failed.
 - Hub `Skill_Run_Log`: atomic skill-level runs, parent runs, input hashes, output summaries, errors, and durations.
+- Trust `Slack_Inbox_Raw`: raw non-command Slack webhook payloads, appended quickly and processed asynchronously.
+- Trust `Unified_Event_Log`: short-lived locked event ledger for sensor, extraction, reconciliation, and communication events.
+- Trust `Alignment_Risks`: PM-facing projection of evidence-backed drift, ambiguity, and timing/resource collision risks.
+- Trust `Project_History`: durable daily rollup of processed trust-layer events.
 - Hub `History`: compact audit record with final status, identifiers, live Slack pointers, test Slack pointers, and payload hash.
 - Hub graph sheets: optional passive long-term entity, W-node, edge, and graph-event memory.
 - Slack metadata: live channel/message/thread/permalink plus separate test channel/message/thread/permalink.
@@ -111,6 +116,7 @@ The current implementation supports:
 - Manual dashboard sync from the Communication App by directly calling the local dashboard sync function in the Control Center.
 - Action Cockpit inbox grouping, readiness panel, source/evidence detail, and Gemini-assisted Slack `mrkdwn` draft polish with deterministic template fallback.
 - Slack slash-command intake for `/incident` and `/release`.
+- Trust-layer foundations: locked unified event append, raw Slack dumb-pipe intake for non-command payloads, targeted milestone audits over narrowed evidence packets, Alignment Risk projection, and Project History rollup/prune.
 - Legacy optional passive W-Graph memory behind the split Hub flow, disabled by default until it powers a visible feature. The consolidated Control Center v1 omits graph sheets.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
 

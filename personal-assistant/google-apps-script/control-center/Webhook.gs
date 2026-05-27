@@ -1,5 +1,18 @@
 function doPost(e) {
   const params = parsePost_(e);
+  if (!params.command) {
+    if (params.type === 'url_verification' && params.challenge) {
+      return ContentService
+        .createTextOutput(params.challenge)
+        .setMimeType(ContentService.MimeType.TEXT);
+    }
+
+    recordSlackRawPayload_(params, e);
+    return ContentService
+      .createTextOutput('OK')
+      .setMimeType(ContentService.MimeType.TEXT);
+  }
+
   if (!verifySlackToken_(params)) {
     return ContentService
       .createTextOutput('Unauthorized request.')

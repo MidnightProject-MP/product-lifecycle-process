@@ -50,6 +50,16 @@ Skill runs are logged in the hidden `Skill_Run_Log` sheet. This gives each inter
 | `advance_flow_state` | Move the parent communication flow forward. | Registry transitions, Queue payload, previous Flow_State. | `Flow_State`, optional graph flow sync. | No. | Upserts by `Flow ID`. | Fails if Registry transition logic cannot be read. |
 | `schedule_next_flow_draft` | Queue the next happy-path draft when Registry rules allow. | Registry `Event_Transitions`, `Queue`. | `Queue`, `Review`, lightweight graph event. | No. | Uses flow-next dedupe key. | Best-effort after successful send/log. |
 
+## Trust Layer Skills
+
+| Skill | Purpose | Reads | Writes / Side Effects | Approval | Idempotency | Failure Behavior |
+| --- | --- | --- | --- | --- | --- | --- |
+| `append_unified_event` | Append a normalized evidence/event record to the locked trust ledger. | `Unified_Event_Log`. | `Unified_Event_Log`. | No. | Uses `LockService` and event/source/locator/hash correlation to skip duplicates. | Fails if the script lock cannot be acquired. |
+| `sensor_slack_scan_delta` | Process raw non-command Slack payloads into normalized source events. | `Slack_Inbox_Raw`. | `Slack_Inbox_Raw`, `Unified_Event_Log`. | No. | Raw rows are marked processed or duplicate after ledger append. | Marks the raw row `Error` and continues. |
+| `run_essential_milestone_audit` | Audit one known milestone/date against narrowed source evidence. | Provided source text and known official state. | `Unified_Event_Log`; optionally calls Gemini. | No. | Result event dedupes through `append_unified_event`. | Returns `INSUFFICIENT_EVIDENCE` without Gemini when no candidate text exists; invalid drift evidence is downgraded. |
+| `reconcile_alignment_events` | Convert pending audit evidence into PM-reviewable Alignment Risks. | `Unified_Event_Log`, `Alignment_Risks`, `Automation_Export`. | `Alignment_Risks`, `Unified_Event_Log`. | No. | One open risk per stable entity/risk/evidence hash. | Marks failed evidence events `Error`; does not send Slack. |
+| `rollup_project_history` | Summarize processed evidence events and prune safe raw rows. | `Unified_Event_Log`. | `Project_History`, `Unified_Event_Log`. | No. | Rolled-up rows are marked before pruning. | Never prunes unresolved, errored, or unprocessed events. |
+
 ## Graph Memory Skills
 
 | Skill | Purpose | Reads | Writes / Side Effects | Approval | Idempotency | Failure Behavior |
@@ -81,11 +91,11 @@ These existing Apps Script entrypoints remain stable and delegate into skills:
 These are still future architecture items, not implemented skills yet:
 
 - Public Web App skill endpoint
-- Storage, embedding, source connector, graph backbone, reconciliation, and reasoning skills from the north-star architecture
+- Storage, embedding, broad source connector, graph backbone, and reasoning skills from the north-star architecture
 - Broad LLM reasoning calls outside the current Gemini copy coach
 - BYOK/local AI
 - Gmail/Calendar ingestion
-- Google Docs artifact scraping
+- Full Google Docs artifact crawling beyond targeted milestone-audit input
 - Jira/Linear sync
 - Proactive nudges
 - Morning brief

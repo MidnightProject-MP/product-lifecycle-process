@@ -14,6 +14,7 @@ function setupHubSheets() {
   const history = ensureSheet_(ss, HUB.SHEETS.HISTORY, HUB.HEADERS.HISTORY);
   ensureSheet_(ss, HUB.SHEETS.RUN_LOG, HUB.HEADERS.RUN_LOG);
   setupSkillSheets_();
+  setupTrustLayerSheets_();
   configureHubQueueSheet_(queue);
   configureHubReviewSheet_(review);
   configureFlowConsoleSheet_(flowConsole);
@@ -187,6 +188,10 @@ function getInternalHubSheetNames_() {
     'Dashboard_Snapshots',
     'Trigger_Log',
     'Config',
+    HUB.SHEETS.UNIFIED_EVENT_LOG,
+    HUB.SHEETS.SLACK_INBOX_RAW,
+    HUB.SHEETS.ALIGNMENT_RISKS,
+    HUB.SHEETS.PROJECT_HISTORY,
     HUB.SHEETS.RUN_LOG,
     HUB.SHEETS.SKILL_RUN_LOG,
     HUB.SHEETS.QUEUE,

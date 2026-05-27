@@ -108,6 +108,31 @@ const SKILL_CATALOG = {
     'backfill_graph_from_history',
     'Backfill passive graph memory from existing History and Flow_State.',
     handleBackfillGraphFromHistorySkill_
+  ),
+  append_unified_event: skillContract_(
+    'append_unified_event',
+    'Append a deduped, locked event to the Unified Event Log.',
+    handleAppendUnifiedEventSkill_
+  ),
+  sensor_slack_scan_delta: skillContract_(
+    'sensor_slack_scan_delta',
+    'Process raw Slack inbox rows into normalized source events.',
+    handleSensorSlackScanDeltaSkill_
+  ),
+  run_essential_milestone_audit: skillContract_(
+    'run_essential_milestone_audit',
+    'Audit a known milestone against narrowed source evidence.',
+    handleRunEssentialMilestoneAuditSkill_
+  ),
+  reconcile_alignment_events: skillContract_(
+    'reconcile_alignment_events',
+    'Create PM-reviewable Alignment Risks from processed evidence events.',
+    handleReconcileAlignmentEventsSkill_
+  ),
+  rollup_project_history: skillContract_(
+    'rollup_project_history',
+    'Roll up processed trust-layer events into Project History and prune safe raw rows.',
+    handleRollupProjectHistorySkill_
   )
 };
 

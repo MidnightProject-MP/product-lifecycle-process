@@ -111,7 +111,8 @@ function listDashboardSignalsLight() {
   const readContext = createControlCenterReadContext_([
     AUTOMATION.SHEETS.CONFIG,
     AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS,
-    AUTOMATION.SHEETS.TRIGGER_LOG
+    AUTOMATION.SHEETS.TRIGGER_LOG,
+    HUB.SHEETS.ALIGNMENT_RISKS
   ]);
   return {
     ok: true,
@@ -299,7 +300,8 @@ function buildCommunicationAppContext_() {
     HUB.SHEETS.HISTORY,
     AUTOMATION.SHEETS.CONFIG,
     AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS,
-    AUTOMATION.SHEETS.TRIGGER_LOG
+    AUTOMATION.SHEETS.TRIGGER_LOG,
+    HUB.SHEETS.ALIGNMENT_RISKS
   ]);
   const inbox = buildCommunicationAppInbox_(readContext);
   const active = buildCommunicationAppActiveCommunications_(readContext);
@@ -344,7 +346,8 @@ function buildCommunicationAppShellContext_() {
   const readContext = createControlCenterReadContext_([
     HUB.SHEETS.QUEUE,
     AUTOMATION.SHEETS.CONFIG,
-    AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS
+    AUTOMATION.SHEETS.DASHBOARD_OBSERVATIONS,
+    HUB.SHEETS.ALIGNMENT_RISKS
   ]);
   const inbox = buildCommunicationAppInbox_(readContext);
   const dashboard = buildCommunicationAppDashboard_(readContext, { includeTriggerLog: false });
@@ -692,6 +695,21 @@ function buildCommunicationAppActionInbox_(items, dashboard) {
     byId[pendingCard.decisionState].items.push(pendingCard);
   });
 
+  ((dashboard && dashboard.alignmentRisks) || []).forEach(item => {
+    const riskCard = Object.assign({}, item, {
+      kind: 'signal',
+      selection: '',
+      subject: item.subject || item.flowId || item.sourceItemId || 'Alignment risk',
+      owner: '',
+      source: 'Trust layer',
+      decisionState: item.status === 'Error' ? 'failed' : 'needs_context',
+      decisionLabel: item.riskType || 'Alignment Risk',
+      nextAction: 'Review source evidence',
+      why: item.summary || 'Source evidence appears to differ from official project state.'
+    });
+    byId[riskCard.decisionState].items.push(riskCard);
+  });
+
   const visibleGroups = groups.filter(group => group.items.length);
   return {
     groups: visibleGroups,
@@ -760,6 +778,27 @@ function buildCommunicationAppDashboard_(readContext, options) {
       pendingSince: row['Pending Since'] || '',
       lastSeenAt: row['Pending Last Seen At'] || row['Last Observed At'] || ''
     }));
+  const alignmentRisks = getSheetObjectsCached_(readContext, HUB.SHEETS.ALIGNMENT_RISKS)
+    .filter(row => row['Risk ID'] && String(row.Status || '') === TRUST_LAYER.RISK_STATUS.OPEN)
+    .slice(0, 20)
+    .map(row => ({
+      riskId: row['Risk ID'] || '',
+      sourceItemId: row['Entity ID'] || '',
+      flowId: row['Flow ID'] || '',
+      recordType: row['Entity Type'] || '',
+      subject: row['Entity ID'] || row['Flow ID'] || row['Risk Type'] || 'Alignment risk',
+      status: row.Status || '',
+      error: row.Error || '',
+      eventKey: '',
+      eventName: row['Risk Type'] || '',
+      triggerCandidate: row['Risk Type'] || '',
+      stablePolls: '',
+      pendingSince: row['Created At'] || '',
+      lastSeenAt: row['Updated At'] || row['Created At'] || '',
+      riskType: row['Risk Type'] || '',
+      severity: row.Severity || '',
+      summary: row['Evidence Summary'] || ''
+    }));
   return {
     config: {
       createHubDrafts: config.CREATE_HUB_DRAFTS || '',
@@ -770,6 +809,7 @@ function buildCommunicationAppDashboard_(readContext, options) {
       stablePolls: config.DASHBOARD_STABLE_POLLS || ''
     },
     pending: pending,
+    alignmentRisks: alignmentRisks,
     recentTriggers: triggerLog.map(row => ({
       id: row['Trigger Log ID'] || '',
       createdAt: row['Created At'] || '',
