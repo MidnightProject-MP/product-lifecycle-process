@@ -132,3 +132,42 @@ function getSlackPermalink_(channel, ts) {
   const body = JSON.parse(response.getContentText());
   return body.ok ? body.permalink : '';
 }
+
+function fetchSlackChannelHistory_(channel, oldestTs, limit) {
+  const token = getScriptProperty_('SLACK_BOT_TOKEN');
+  if (!token) throw new Error('Missing SLACK_BOT_TOKEN script property.');
+  if (!channel) throw new Error('Missing Slack channel for history fetch.');
+
+  const params = [
+    'channel=' + encodeURIComponent(channel),
+    'limit=' + encodeURIComponent(String(limit || 100)),
+    'inclusive=false'
+  ];
+  if (oldestTs) params.push('oldest=' + encodeURIComponent(String(oldestTs)));
+
+  const response = UrlFetchApp.fetch('https://slack.com/api/conversations.history?' + params.join('&'), {
+    method: 'get',
+    headers: {
+      Authorization: 'Bearer ' + token
+    },
+    muteHttpExceptions: true
+  });
+
+  const body = JSON.parse(response.getContentText());
+  if (!body.ok) {
+    logHub_('ERROR', 'fetchSlackChannelHistory_', '', 'Slack history API returned error.', {
+      error: body.error,
+      channel: channel,
+      oldestTs: oldestTs,
+      response: body
+    });
+    throw new Error('Slack history fetch failed: ' + (body.error || response.getContentText()));
+  }
+
+  return {
+    ok: true,
+    channel: channel,
+    messages: body.messages || [],
+    hasMore: Boolean(body.has_more)
+  };
+}

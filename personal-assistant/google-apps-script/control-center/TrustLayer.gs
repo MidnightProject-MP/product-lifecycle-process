@@ -157,6 +157,119 @@ function processSlackInboxRaw(maxRows) {
   });
 }
 
+function pollMonitoredSlackChannels(maxMessagesPerChannel) {
+  return runSkillOrThrow_('sensor_slack_pull_delta', {
+    maxMessagesPerChannel: maxMessagesPerChannel || 100
+  });
+}
+
+function handleSensorSlackPullDeltaSkill_(input) {
+  const channels = getMonitoredSlackChannels_();
+  const includeBotMessages = isTruthy_(getRegistrySetting_('MONITORED_SLACK_INCLUDE_BOT_MESSAGES'));
+  const maxMessages = Number(input.maxMessagesPerChannel || 100);
+  let scannedChannels = 0;
+  let messagesSeen = 0;
+  let eventsCreated = 0;
+  let duplicates = 0;
+  const errors = [];
+
+  channels.forEach(channel => {
+    try {
+      const oldestTs = getSlackPullOldestTs_(channel);
+      const result = fetchSlackChannelHistory_(channel, oldestTs, maxMessages);
+      scannedChannels += 1;
+      let maxTs = oldestTs;
+      (result.messages || []).slice().reverse().forEach(message => {
+        if (!includeBotMessages && isSlackBotMessage_(message)) return;
+        messagesSeen += 1;
+        const event = normalizePulledSlackMessageToEvent_(channel, message);
+        const appendResult = appendUnifiedEventLocked_(event);
+        if (appendResult.duplicate) {
+          duplicates += 1;
+        } else {
+          eventsCreated += 1;
+        }
+        if (message.ts && Number(message.ts) > Number(maxTs || 0)) maxTs = message.ts;
+      });
+      if (maxTs && String(maxTs) !== String(oldestTs || '')) {
+        updateAutomationConfigValue_(getControlCenterSpreadsheet_(), buildSlackPullCursorConfigKey_(channel), String(maxTs));
+      }
+    } catch (error) {
+      errors.push({
+        channel: channel,
+        error: error.message || String(error)
+      });
+      logHub_('WARN', 'pollMonitoredSlackChannels', '', 'Failed to pull monitored Slack channel.', {
+        channel: channel,
+        error: error.message || String(error)
+      });
+    }
+  });
+
+  return {
+    scannedChannels: scannedChannels,
+    messagesSeen: messagesSeen,
+    eventsCreated: eventsCreated,
+    duplicates: duplicates,
+    errors: errors
+  };
+}
+
+function getMonitoredSlackChannels_() {
+  return parseMonitoredSlackChannels_(getRegistrySetting_('MONITORED_SLACK_CHANNELS'));
+}
+
+function parseMonitoredSlackChannels_(value) {
+  return String(value || '')
+    .split(/[,\n;]/)
+    .map(channel => channel.trim())
+    .filter(channel => /^C|^G/.test(channel))
+    .filter((channel, index, list) => list.indexOf(channel) === index);
+}
+
+function getSlackPullOldestTs_(channel) {
+  const config = getAutomationConfig_();
+  const cursor = config[buildSlackPullCursorConfigKey_(channel)];
+  if (cursor) return cursor;
+  const lookbackMinutes = Number(getRegistrySetting_('MONITORED_SLACK_LOOKBACK_MINUTES') || 60);
+  return String(Math.floor((Date.now() - lookbackMinutes * 60 * 1000) / 1000));
+}
+
+function buildSlackPullCursorConfigKey_(channel) {
+  return 'SLACK_PULL_CURSOR_' + String(channel || '').replace(/[^A-Z0-9]/gi, '_').toUpperCase();
+}
+
+function isSlackBotMessage_(message) {
+  return Boolean(message && (message.bot_id || message.subtype === 'bot_message'));
+}
+
+function normalizePulledSlackMessageToEvent_(channel, message) {
+  const sourceId = channel + ':' + (message.ts || uuid_());
+  const sourceLocator = channel + ':' + (message.thread_ts || message.ts || '');
+  return {
+    eventType: 'sensor.slack_message_seen',
+    entityType: '',
+    entityId: '',
+    sourceType: 'slack',
+    sourceId: sourceId,
+    sourceUrl: '',
+    sourceLocator: sourceLocator,
+    sourceTimestamp: message.ts || '',
+    actor: message.user || message.username || '',
+    payload: {
+      source_type: 'slack',
+      source_id: sourceId,
+      source_locator: sourceLocator,
+      channel: channel,
+      ts: message.ts || '',
+      thread_ts: message.thread_ts || '',
+      user: message.user || '',
+      text: message.text || '',
+      subtype: message.subtype || ''
+    }
+  };
+}
+
 function handleSensorSlackScanDeltaSkill_(input) {
   const ss = getControlCenterSpreadsheet_();
   const sheet = ensureSheet_(ss, HUB.SHEETS.SLACK_INBOX_RAW, HUB.HEADERS.SLACK_INBOX_RAW);

@@ -119,6 +119,11 @@ const SKILL_CATALOG = {
     'Process raw Slack inbox rows into normalized source events.',
     handleSensorSlackScanDeltaSkill_
   ),
+  sensor_slack_pull_delta: skillContract_(
+    'sensor_slack_pull_delta',
+    'Pull recent messages from configured Slack channels into normalized source events.',
+    handleSensorSlackPullDeltaSkill_
+  ),
   run_essential_milestone_audit: skillContract_(
     'run_essential_milestone_audit',
     'Audit a known milestone against narrowed source evidence.',

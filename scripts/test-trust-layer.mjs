@@ -156,6 +156,18 @@ function looksDelayedProject(row) {
   return /delay|delayed|blocked|blocker|risk|yellow|red|\uD83D\uDFE1|\uD83D\uDD34|not ready/.test(text);
 }
 
+function parseMonitoredSlackChannels(value) {
+  return String(value || '')
+    .split(/[,\n;]/)
+    .map(channel => channel.trim())
+    .filter(channel => /^C|^G/.test(channel))
+    .filter((channel, index, list) => list.indexOf(channel) === index);
+}
+
+function buildSlackPullCursorConfigKey(channel) {
+  return `SLACK_PULL_CURSOR_${String(channel || '').replace(/[^A-Z0-9]/gi, '_').toUpperCase()}`;
+}
+
 assert.equal(
   buildUnifiedEventIdempotencyKey({
     'Event Type': 'extract.milestone_audit',
@@ -224,5 +236,11 @@ assert.equal(
   }),
   false
 );
+
+assert.deepEqual(
+  parseMonitoredSlackChannels('C123, G456\nnot-a-channel;C123'),
+  ['C123', 'G456']
+);
+assert.equal(buildSlackPullCursorConfigKey('C123ABC'), 'SLACK_PULL_CURSOR_C123ABC');
 
 console.log('Trust layer tests passed.');

@@ -29,7 +29,10 @@ const REGISTRY = {
       { Key: 'TEST_INCIDENT_CHANNEL', Value: '', Scope: 'Slack', Description: 'Optional test Slack channel ID for incident and critical bug communications. Falls back to DEFAULT_INCIDENT_CHANNEL.', 'Is Secret': 'FALSE' },
       { Key: 'TEST_RELEASE_CHANNEL', Value: '', Scope: 'Slack', Description: 'Optional test Slack channel ID for production release communications. Falls back to DEFAULT_RELEASE_CHANNEL.', 'Is Secret': 'FALSE' },
       { Key: 'TEST_STRAY_STORY_CHANNEL', Value: '', Scope: 'Slack', Description: 'Optional test Slack channel ID for stray story intake and prioritization communications. Falls back to DEFAULT_STRAY_STORY_CHANNEL.', 'Is Secret': 'FALSE' },
-      { Key: 'TEST_LEADERSHIP_CHANNEL', Value: '', Scope: 'Slack', Description: 'Optional test Slack channel ID for leadership escalations and postmortems. Falls back to DEFAULT_LEADERSHIP_CHANNEL.', 'Is Secret': 'FALSE' }
+      { Key: 'TEST_LEADERSHIP_CHANNEL', Value: '', Scope: 'Slack', Description: 'Optional test Slack channel ID for leadership escalations and postmortems. Falls back to DEFAULT_LEADERSHIP_CHANNEL.', 'Is Secret': 'FALSE' },
+      { Key: 'MONITORED_SLACK_CHANNELS', Value: '', Scope: 'Slack Sensor', Description: 'Comma-separated Slack channel IDs that the assistant may read on a schedule.', 'Is Secret': 'FALSE' },
+      { Key: 'MONITORED_SLACK_LOOKBACK_MINUTES', Value: '60', Scope: 'Slack Sensor', Description: 'Initial lookback window when a monitored channel has no saved pull cursor.', 'Is Secret': 'FALSE' },
+      { Key: 'MONITORED_SLACK_INCLUDE_BOT_MESSAGES', Value: 'FALSE', Scope: 'Slack Sensor', Description: 'Whether scheduled Slack polling should ingest bot-generated messages.', 'Is Secret': 'FALSE' }
     ],
     EVENT_CATALOG: [
       event_('project.kickoff', 'Project', 'Start', 'Project kickoff', 'Project enters managed lifecycle and has owner, scope intent, and first gate.', 'project-status-update', 'Project', 'New Thread', 'Create Anchor Only', 'Always Reply', 'FALSE', 'Review then send', 'Medium'),

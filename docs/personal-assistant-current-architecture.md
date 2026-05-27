@@ -70,7 +70,8 @@ Traceability is split by layer:
 - Automation special releases: project rows with `Next Gate = Special Release` create release-style `release.scheduled` flows while preserving source project context in payload memory.
 - Hub `Run_Log`: what the sender did, skipped, or failed.
 - Hub `Skill_Run_Log`: atomic skill-level runs, parent runs, input hashes, output summaries, errors, and durations.
-- Trust `Slack_Inbox_Raw`: raw non-command Slack webhook payloads, appended quickly and processed asynchronously.
+- Trust Slack pull: scheduled polling reads only the channel IDs listed in Registry `MONITORED_SLACK_CHANNELS`, then records normalized evidence events.
+- Trust `Slack_Inbox_Raw`: optional fallback raw non-command Slack webhook payloads, appended quickly and processed asynchronously if Slack Events are ever enabled.
 - Trust `Unified_Event_Log`: short-lived locked event ledger for sensor, extraction, reconciliation, and communication events.
 - Trust `Alignment_Risks`: PM-facing projection of evidence-backed drift, ambiguity, and timing/resource collision risks.
 - Trust `Project_History`: durable daily rollup of processed trust-layer events.
@@ -116,7 +117,7 @@ The current implementation supports:
 - Manual dashboard sync from the Communication App by directly calling the local dashboard sync function in the Control Center.
 - Action Cockpit inbox grouping, readiness panel, source/evidence detail, and Gemini-assisted Slack `mrkdwn` draft polish with deterministic template fallback.
 - Slack slash-command intake for `/incident` and `/release`.
-- Trust-layer foundations: locked unified event append, raw Slack dumb-pipe intake for non-command payloads, targeted milestone audits over narrowed evidence packets, Alignment Risk projection, and Project History rollup/prune.
+- Trust-layer foundations: locked unified event append, scheduled Slack channel polling from an allowlist, optional raw Slack dumb-pipe intake for non-command payloads, targeted milestone audits over narrowed evidence packets, Alignment Risk projection, and Project History rollup/prune.
 - Legacy optional passive W-Graph memory behind the split Hub flow, disabled by default until it powers a visible feature. The consolidated Control Center v1 omits graph sheets.
 - Internal atomic skills for draft queueing, review save, approval, discard, template resolution, message rendering, Slack send/update, History, Flow_State, graph memory, graph health, and graph export.
 
