@@ -4,6 +4,8 @@ Personal Assistant treats each meaningful action as an independently callable sk
 
 In this phase, skills are internal Apps Script calls only. There is no public skill endpoint. Existing behavior remains stable: Control Center sheets, Communication App, fallback Communication Console, Registry tabs, Slack anchors, Slack threads, slash commands, and triggers continue to behave as before.
 
+The long-term skill direction is defined in [Personal Assistant North Star](personal-assistant-north-star.md). Future storage, embedding, graph, connector, normalization, reconciliation, and reasoning skills should use that document as their planning anchor, but they are not implemented here unless listed as current below.
+
 ## Skill Kernel
 
 The Hub owns the skill runner in `SkillKernel.gs`.
@@ -79,9 +81,12 @@ These existing Apps Script entrypoints remain stable and delegate into skills:
 These are still future architecture items, not implemented skills yet:
 
 - Public Web App skill endpoint
-- LLM calls
+- Storage, embedding, source connector, graph backbone, reconciliation, and reasoning skills from the north-star architecture
+- Broad LLM reasoning calls outside the current Gemini copy coach
 - BYOK/local AI
 - Gmail/Calendar ingestion
+- Google Docs artifact scraping
+- Jira/Linear sync
 - Proactive nudges
 - Morning brief
 - Slack approval buttons

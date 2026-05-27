@@ -4,6 +4,8 @@ This folder contains the current live Personal Assistant capability: communicati
 
 The implementation uses Google Sheets as the operating UI, Apps Script as the orchestrator, and Slack as the executive communication surface.
 
+The broader Personal Assistant platform direction is documented in [Personal Assistant North Star](../docs/personal-assistant-north-star.md). That document is a planning anchor only; the live implementation in this folder remains the Control Center Communication App.
+
 ## Architecture
 
 | Component | Purpose |

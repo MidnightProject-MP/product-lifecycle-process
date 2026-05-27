@@ -4,6 +4,8 @@ This document captures the broader AI-first Personal Assistant roadmap. It is ar
 
 The only current implementation is the communication automation under `personal-assistant/`.
 
+For the repo-level north star that should guide future proposals, see [Personal Assistant North Star](personal-assistant-north-star.md). The north star defines the target layers for Drive JSON storage, embeddings, graph memory, connectors, atomic skills, and reasoning. Those layers are not live unless marked current in the current-architecture documentation.
+
 ## Current Scope
 
 | Capability | Status |

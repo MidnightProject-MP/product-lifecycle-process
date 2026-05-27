@@ -4,7 +4,7 @@ Personal Assistant is a product workspace for turning operational noise into cle
 
 The first live capability is the Sheets, Apps Script, and Slack communication automation that creates, reviews, test-sends, sends, and traces project, incident, release, and intake updates. New deployments should use the consolidated **Personal Assistant Control Center** spreadsheet; the older split Hub, Registry, and Automation Dashboard projects remain in the repo as fallback.
 
-The broader AI-first personal app suite is documented as future architecture only. This repo does not yet implement a React app, Google Drive BYOS storage, active graph/RAG tooling, BYOK settings, proactive workers, or an LLM gateway.
+The broader AI-first personal app suite is documented as future architecture only. The repo-level north star is [Personal Assistant North Star](docs/personal-assistant-north-star.md). This repo does not yet implement Drive JSON storage, active graph/RAG tooling, embeddings, Gmail/Docs/Jira sensors, BYOK settings, proactive workers, or an LLM gateway.
 
 ## Current Capability
 
@@ -42,6 +42,7 @@ The current automation is designed to make strong PM behavior the default:
 - `personal-assistant/google-apps-script/`: clasp-managed Apps Script projects.
 - `personal-assistant/schemas/`: Spreadsheet schemas and starter rows.
 - `docs/personal-assistant-current-architecture.md`: Current implementation boundaries and operating model.
+- `docs/personal-assistant-north-star.md`: Long-term platform architecture for storage, embeddings, graph, connectors, atomic skills, and reasoning.
 - `docs/personal-assistant-future-architecture.md`: Future suite roadmap and non-implemented architecture.
 - `docs/personal-assistant-skills.md`: Internal atomic skill catalog for callable Personal Assistant actions.
 - `docs/control-center-consolidation.md`: Consolidated one-spreadsheet Control Center setup and cutover model.

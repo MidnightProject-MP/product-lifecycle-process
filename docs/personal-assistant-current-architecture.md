@@ -1,5 +1,9 @@
 # Personal Assistant Current Architecture
 
+This document describes the current live Control Center Communication App implementation.
+
+For the broader long-term platform direction, including Drive JSON storage, embeddings, graph memory, source connectors, atomic skills, and reasoning layers, see [Personal Assistant North Star](personal-assistant-north-star.md). The north-star architecture is not implemented unless this current-architecture document explicitly says so.
+
 The current Personal Assistant implementation is organized around one clean rule:
 
 ```text
